@@ -6,6 +6,11 @@
 <module name="Checker">
     <property name="charset" value="UTF-8"/>
     <property name="fileExtensions" value="java"/>
+    <!-- Root Checks -->
+    <module name="com.puppycrawl.tools.checkstyle.checks.header.RegexpHeaderCheck">
+        <property name="headerFile" value="${checkstyle.header.file}"/>
+        <property name="fileExtensions" value="java"/>
+    </module>
 
     <!-- TreeWalker Checks -->
     <module name="TreeWalker">
@@ -20,12 +25,5 @@
         <module name="NoLineWrap"/>
         <module name="OuterTypeFilename"/>
         <module name="UnusedImports"/>
-        <module name="RedundantImport"/>
-
-        <!--<module name="CustomImportOrder">-->
-        <!--<property name="specialImportsRegExp" value="org.apache.dubbo.*"/>-->
-        <!--<property name="sortImportsInGroupAlphabetically" value="false"/>-->
-        <!--<property name="customImportOrderRules" value="SPECIAL_IMPORTS###THIRD_PARTY_PACKAGE###STANDARD_JAVA_PACKAGE###STATIC"/>-->
-        <!--</module>-->
     </module>
 </module>

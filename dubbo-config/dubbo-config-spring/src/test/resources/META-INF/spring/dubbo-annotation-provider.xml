@@ -15,14 +15,14 @@
   limitations under the License.
   -->
 <beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns:dubbo="http://dubbo.apache.org/schema/dubbo"
+       xmlns:dubbo="http://code.alibabatech.com/schema/dubbo"
        xmlns="http://www.springframework.org/schema/beans"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
-    http://dubbo.apache.org/schema/dubbo http://dubbo.apache.org/schema/dubbo/dubbo.xsd
+    http://code.alibabatech.com/schema/dubbo http://code.alibabatech.com/schema/dubbo/dubbo.xsd
     ">
 
     <!-- 当前应用信息配置 -->
-    <dubbo:application name="dubbo-annotation-test"/>
+    <dubbo:application name="dubbo-annotation-provider"/>
 
     <!-- 连接注册中心配置 -->
     <dubbo:registry id="my-registry" address="N/A"/>
@@ -31,8 +31,8 @@
 
     <!-- Annotation 注册 -->
     <dubbo:annotation id="doubleServiceAnnotationBeanPostProcessor"
-                      package="org.apache.dubbo.config.spring.context.com.alibaba.dubbo.config.annotation.provider ,
-             org.apache.dubbo.config.spring.context.com.alibaba.dubbo.config.annotation.provider"/>
+                      package="com.alibaba.dubbo.config.spring.context.annotation.provider ,
+             com.alibaba.dubbo.config.spring.context.annotation.provider"/>
 
     <dubbo:annotation id="emptyServiceAnnotationBeanPostProcessor"
                       package="    "/>

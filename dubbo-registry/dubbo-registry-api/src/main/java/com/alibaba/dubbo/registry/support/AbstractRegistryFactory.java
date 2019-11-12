@@ -1,0 +1,109 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.dubbo.registry.support;
+
+import com.alibaba.dubbo.common.Constants;
+import com.alibaba.dubbo.common.URL;
+import com.alibaba.dubbo.common.logger.Logger;
+import com.alibaba.dubbo.common.logger.LoggerFactory;
+import com.alibaba.dubbo.registry.Registry;
+import com.alibaba.dubbo.registry.RegistryFactory;
+import com.alibaba.dubbo.registry.RegistryService;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+
+/**
+ * AbstractRegistryFactory. (SPI, Singleton, ThreadSafe)
+ *
+ * @see com.alibaba.dubbo.registry.RegistryFactory
+ */
+public abstract class AbstractRegistryFactory implements RegistryFactory {
+
+    // Log output
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRegistryFactory.class);
+
+    // The lock for the acquisition process of the registry
+    private static final ReentrantLock LOCK = new ReentrantLock();
+
+    // Registry Collection Map<RegistryAddress, Registry>
+    private static final Map<String, Registry> REGISTRIES = new ConcurrentHashMap<String, Registry>();
+
+    /**
+     * Get all registries
+     *
+     * @return all registries
+     */
+    public static Collection<Registry> getRegistries() {
+        return Collections.unmodifiableCollection(REGISTRIES.values());
+    }
+
+    /**
+     * Close all created registries
+     */
+    // TODO: 2017/8/30 to move somewhere else better
+    public static void destroyAll() {
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("Close all registries " + getRegistries());
+        }
+        // Lock up the registry shutdown process
+        LOCK.lock();
+        try {
+            for (Registry registry : getRegistries()) {
+                try {
+                    registry.destroy();
+                } catch (Throwable e) {
+                    LOGGER.error(e.getMessage(), e);
+                }
+            }
+            REGISTRIES.clear();
+        } finally {
+            // Release the lock
+            LOCK.unlock();
+        }
+    }
+//zookeeper://127.0.0.1:2181/com.alibaba.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.0&export=dubbo%3A%2F%2F192.168.1.13%3A20880%2Fcom.alibaba.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddemo-provider%26bind.ip%3D192.168.1.13%26bind.port%3D20880%26dubbo%3D2.0.0%26generic%3Dfalse%26interface%3Dcom.alibaba.dubbo.demo.DemoService%26methods%3DsayHello%26pid%3D38433%26qos.port%3D22222%26side%3Dprovider%26timestamp%3D1527415380618&pid=38433&qos.port=22222&timestamp=1527415371892
+    public Registry getRegistry(URL url) {
+        url = url.setPath(RegistryService.class.getName())
+                .addParameter(Constants.INTERFACE_KEY, RegistryService.class.getName())
+                .removeParameters(Constants.EXPORT_KEY, Constants.REFER_KEY);
+        String key = url.toServiceString();//zookeeper://127.0.0.1:2181/com.alibaba.dubbo.registry.RegistryService
+        // Lock the registry access process to ensure a single instance of the registry
+        LOCK.lock();
+        try {
+            Registry registry = REGISTRIES.get(key);
+            if (registry != null) {
+                return registry;
+            }
+            registry = createRegistry(url);//zookeeper://127.0.0.1:2181/com.alibaba.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.0&interface=com.alibaba.dubbo.registry.RegistryService&pid=37821&qos.port=22222&timestamp=1527411300474
+            if (registry == null) {
+                throw new IllegalStateException("Can not create registry " + url);
+            }
+            REGISTRIES.put(key, registry);
+            return registry;
+        } finally {
+            // Release the lock
+            LOCK.unlock();
+        }
+    }
+
+    protected abstract Registry createRegistry(URL url);
+
+}
