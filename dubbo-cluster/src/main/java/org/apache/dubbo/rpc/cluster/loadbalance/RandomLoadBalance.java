@@ -45,11 +45,11 @@ public class RandomLoadBalance extends AbstractLoadBalance {
      */
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
-        // Number of invokers
+        // 获取invoker列表的大小，也就是invoker提供者个数
         int length = invokers.size();
-        // Every invoker has the same weight?
+        // 该标计用来标记所有的服务提供者的权重是否一致
         boolean sameWeight = true;
-        // the weight of every invokers
+        // 通过一个数组维护每个提供者的权重
         int[] weights = new int[length];
         // the first invoker's weight
         int firstWeight = getWeight(invokers.get(0), invocation);

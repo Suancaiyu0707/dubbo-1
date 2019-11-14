@@ -49,14 +49,24 @@ public abstract class AbstractLoadBalance implements LoadBalance {
         return ww < 1 ? 1 : (Math.min(ww, weight));
     }
 
+    /***
+     * 根据url信息选择一个invoker实例进行调用
+     * @param invokers   invokers.
+     * @param url        refer url
+     * @param invocation invocation.
+     * @param <T>
+     * @return
+     */
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) {
         if (CollectionUtils.isEmpty(invokers)) {
             return null;
         }
+        //如果服务提供者就一个的话，直接返回
         if (invokers.size() == 1) {
             return invokers.get(0);
         }
+        //根据具体的实现类选择服务实例
         return doSelect(invokers, url, invocation);
     }
 
@@ -71,22 +81,38 @@ public abstract class AbstractLoadBalance implements LoadBalance {
      * @param invocation the invocation of this invoker
      * @return weight
      */
+    /****
+     * 获得invoker的权重
+     * @param invoker 服务的调用者
+     * @param invocation 调用信息
+     * @return
+     *  根据调用者的调用信息，获得权重
+     *      这里我们发现，如果配置了预热时间，则会根据调用者的已启动时间，来计算当前时刻的权重
+     */
     int getWeight(Invoker<?> invoker, Invocation invocation) {
         int weight = 0;
+        //获得调用者的url
         URL url = invoker.getUrl();
         // Multiple registry scenario, load balance among multiple registries.
+        //如果有多个服务提供者的情况下，在多个服务提供者之间负载均衡
         if (url.getServiceInterface().equals("org.apache.dubbo.registry.RegistryService")) {
+            //url中解析registry.weight属性， 没设置的话，默认是100
             weight = url.getParameter(REGISTRY_KEY + "." + WEIGHT_KEY, DEFAULT_WEIGHT);
         } else {
+            //获得调用方法的权重属性weight，没有的话，默认是100
             weight = url.getMethodParameter(invocation.getMethodName(), WEIGHT_KEY, DEFAULT_WEIGHT);
             if (weight > 0) {
+                //获得启动时间
                 long timestamp = invoker.getUrl().getParameter(TIMESTAMP_KEY, 0L);
                 if (timestamp > 0L) {
+                    //获得服务提供者已启动的时间
                     long uptime = System.currentTimeMillis() - timestamp;
-                    if (uptime < 0) {
+                    if (uptime < 0) {//如果小于0，则权重为最小值1
                         return 1;
                     }
+                    //判断预热时间，默认是10 * 60 * 1000 ，也就是10分支
                     int warmup = invoker.getUrl().getParameter(WARMUP_KEY, DEFAULT_WARMUP);
+                    //如果服务器到目前启动的时间小于预热时间，那按照已预热的时间占比，计算当前的权重
                     if (uptime > 0 && uptime < warmup) {
                         weight = calculateWarmupWeight((int)uptime, warmup, weight);
                     }
