@@ -81,13 +81,19 @@ public abstract class AbstractLoadBalance implements LoadBalance {
      * @param invocation the invocation of this invoker
      * @return weight
      */
-    /****
-     * 获得invoker的权重
-     * @param invoker 服务的调用者
-     * @param invocation 调用信息
+    /***
+     * 获取提供者服务(服务里的某个方法)的权重配置
+     *      1、获得服务提供者显式配置的权重，如果方法未配置权重，默认是100
+     *      2、如果提供者权重大于0，则根据服务器启动的时间来重新换算权重
+     *          2-1、获取服务器提供者接口的启动的时间点，默认是0
+     *          2-2、计算服务器提供者已启动运行的时间uptime
+     *          2-3、获取服务提供者的配置的预热时间warmup，如果未配置，默认是10分钟
+     *          2-4、如果服务提供者的启动时间uptime<预热时间warmup，则表示接口还处于预热阶段，这个时候权重还要重新计算
+     *
+     * 从这里，我们可以看到，只要跟权重有关的负载均衡算法，都可能涉及到预热功能
+     * @param invoker
+     * @param invocation
      * @return
-     *  根据调用者的调用信息，获得权重
-     *      这里我们发现，如果配置了预热时间，则会根据调用者的已启动时间，来计算当前时刻的权重
      */
     int getWeight(Invoker<?> invoker, Invocation invocation) {
         int weight = 0;
@@ -110,7 +116,7 @@ public abstract class AbstractLoadBalance implements LoadBalance {
                     if (uptime < 0) {//如果小于0，则权重为最小值1
                         return 1;
                     }
-                    //判断预热时间，默认是10 * 60 * 1000 ，也就是10分支
+                    //判断预热时间，默认是10 * 60 * 1000 ，也就是10分钟
                     int warmup = invoker.getUrl().getParameter(WARMUP_KEY, DEFAULT_WARMUP);
                     //如果服务器到目前启动的时间小于预热时间，那按照已预热的时间占比，计算当前的权重
                     if (uptime > 0 && uptime < warmup) {
