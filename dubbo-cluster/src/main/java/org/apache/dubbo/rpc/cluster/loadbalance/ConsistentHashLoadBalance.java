@@ -87,7 +87,9 @@ public class ConsistentHashLoadBalance extends AbstractLoadBalance {
         private final int identityHashCode;
 
         private final int[] argumentIndex;
-
+        //在客户端调用时，只会对请求参数做MD5,虽然此时得到的MD5的值不一定能对应到TreeMap中的一个key，因为每次的请求参数都不相同。
+        //但是由于TreeMap是有序的树形结构，所以我们可以调用TreeMap的ceilingEntry方法，用于返回一个至少大于或等于当前给定key的entry。
+        //从而达到顺时针往前找的效果，如果找不到则使用firstEntry返回的第一个节点
         ConsistentHashSelector(List<Invoker<T>> invokers, String methodName, int identityHashCode) {
             //创建一个维护虚拟节点的 treeMap
             this.virtualInvokers = new TreeMap<Long, Invoker<T>>();
