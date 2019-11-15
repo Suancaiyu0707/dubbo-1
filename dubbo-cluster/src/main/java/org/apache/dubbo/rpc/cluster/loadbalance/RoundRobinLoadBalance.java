@@ -147,8 +147,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
                 weightedRoundRobin.setWeight(weight);
             }
             //cur = current+weightedRoundRobin.getWeight()
-            //也就是说，每调用一次服务，都会增加一下当前的权重值，cur = 历史已累加的权重 + 当前权重
-            //获得当前服务提供者历史累加的总权重
+            //获得当前服务提供者最新的已累加的权重值
             long cur = weightedRoundRobin.current.addAndGet(weight);
             //更新当前提供者被调用的时间
             weightedRoundRobin.setLastUpdate(now);
@@ -178,7 +177,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
             }
         }
         if (selectedInvoker != null) {
-            //如果当前提供者被选中，则当前的历史权重-总权重
+            //如果当前提供者被选中，则当前的累加权重-所有提供者的总权重
             selectedWRR.current.addAndGet(-1 * totalWeight);
             return selectedInvoker;
         }

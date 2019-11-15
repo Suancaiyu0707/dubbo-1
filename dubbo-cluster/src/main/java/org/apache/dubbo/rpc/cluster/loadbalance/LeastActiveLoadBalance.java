@@ -32,71 +32,97 @@ import java.util.concurrent.ThreadLocalRandom;
  * if there are multiple invokers and the weights are not the same, then random according to the total weight;
  * if there are multiple invokers and the same weight, then randomly called.
  */
+
+/***
+ * 最近最少活跃次数
+ */
 public class LeastActiveLoadBalance extends AbstractLoadBalance {
 
     public static final String NAME = "leastactive";
 
+    /*****
+     *
+     * @param invokers
+     * @param url
+     * @param invocation
+     * @param <T>
+     * @return
+     * 1、遍历所有的服务提供者，并记录下持有最小的活跃次数的提供者，并记录信息
+     *      持有相同的最小的活跃次数的提供者的个数：leastCount。
+     *      持有相同的最小的活跃次数的提供者在invokers对应的索引：leastIndexes(维护索引的数组里的元素可能大于leastCount，但是通过leastCount控制遍历的元素)
+     *      持有相同的最小的活跃次数的提供者的总的权重：totalWeight
+     *      持有相同的最小的活跃次数的提供者的权重是否都是一样：sameWeight
+     *
+     * 2、
+     *      如果 持有相同的最小的活跃次数的提供者的个数为1，则直接返回leastIndexes[0]
+     *      如果 持有相同的最小的活跃次数的提供者的个数为大于1，则根据总权重进行随机选择其中一个
+     *
+     *
+     */
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
-        // Number of invokers
+
+        // 获得服务提供者列表
         int length = invokers.size();
-        // The least active value of all invokers
+        // 初始化 leastActive，用来遍历前面提供者的最小活跃数
         int leastActive = -1;
-        // The number of invokers having the same least active value (leastActive)
+        // 持有相同的最小活跃次数的提供者的消费者个数，和leastIndexes对应，这样可以控制需要遍历的leastIndexes次数
         int leastCount = 0;
-        // The index of invokers having the same least active value (leastActive)
+        // 持有最小活跃次数的提供者在 invokers列表中的索引，可能存在多个提供者持有相同的最小活跃次数
         int[] leastIndexes = new int[length];
-        // the weight of every invokers
+        // 数组维护每个提供者的权重
         int[] weights = new int[length];
-        // The sum of the warmup weights of all the least active invokers
+        // 持有相同的最小活跃次数的提供者的总的权重
         int totalWeight = 0;
         // The weight of the first least active invoker
         int firstWeight = 0;
-        // Every least active invoker has the same weight value?
+        // 持有相同的最小活跃次数的提供者的权重是否都相等的标记
         boolean sameWeight = true;
 
 
-        // Filter out all the least active invokers
+        // 遍历所有的提供者
         for (int i = 0; i < length; i++) {
             Invoker<T> invoker = invokers.get(i);
-            // Get the active number of the invoker
+            // 获得提供者 invoker 的active值
             int active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive();
-            // Get the weight of the invoker's configuration. The default value is 100.
+            // 获得提供者当前权重，默认100
             int afterWarmup = getWeight(invoker, invocation);
             // save for later use
             weights[i] = afterWarmup;
             // If it is the first invoker or the active number of the invoker is less than the current least active number
+            //如果它是遍历的第一个服务提供者或当前服务提供者的活动数小于前面遍历的最小活跃数
             if (leastActive == -1 || active < leastActive) {
-                // Reset the active number of the current invoker to the least active number
+                // 将当前invoker 的活跃数更新到leastActive，更新保存当前最小活跃数
                 leastActive = active;
-                // Reset the number of least active invokers
+                // 记录(活跃数=最小活跃数）的提供者的个数，一开始肯定是1
                 leastCount = 1;
-                // Put the first least active invoker first in leastIndexes
+                // 记录(活跃数=最小活跃数）的提供者在提供者列表中的索引
                 leastIndexes[0] = i;
-                // Reset totalWeight
+                // 记录(活跃数=最小活跃数）的所有提供者 的总的权重
                 totalWeight = afterWarmup;
-                // Record the weight the first least active invoker
+                // 记录第一个 (活跃数=最小活跃数）的提供者的权重
                 firstWeight = afterWarmup;
-                // Each invoke has the same weight (only one invoker here)
+                //记录标记 当前(活跃数=最小活跃数）的所有提供者的权重是否一样 (这边因为是开始，所以是肯定一样)
                 sameWeight = true;
-                // If current invoker's active value equals with leaseActive, then accumulating.
+                // 如果 当前提供者的活跃数 就等于前面保存的最小活跃数
             } else if (active == leastActive) {
-                // Record the index of the least active invoker in leastIndexes order
+                // 则记录(活跃数=最小活跃数）的提供者在提供者列表中的索引
                 leastIndexes[leastCount++] = i;
-                // Accumulate the total weight of the least active invoker
+                // 计算 当前(活跃数=最小活跃数）的所有提供者 的总的权重
                 totalWeight += afterWarmup;
-                // If every invoker has the same weight?
+                //记录标记 当前(活跃数=最小活跃数）的所有提供者的权重是否一样
                 if (sameWeight && i > 0
                         && afterWarmup != firstWeight) {
                     sameWeight = false;
                 }
             }
         }
-        // Choose an invoker from all the least active invokers
+        //如果只有一个提供者独享最少活跃次数，则直接返回这个提供者
         if (leastCount == 1) {
             // If we got exactly one invoker having the least active value, return this invoker directly.
             return invokers.get(leastIndexes[0]);
         }
+        //如果不止有一个提供者独享最少活跃次数，则要根据权重做负载均衡
         if (!sameWeight && totalWeight > 0) {
             // If (not every invoker has the same weight & at least one invoker's weight>0), select randomly based on 
             // totalWeight.
