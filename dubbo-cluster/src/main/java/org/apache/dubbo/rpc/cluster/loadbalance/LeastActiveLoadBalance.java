@@ -83,7 +83,7 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
         // 遍历所有的提供者
         for (int i = 0; i < length; i++) {
             Invoker<T> invoker = invokers.get(i);
-            // 获得提供者 invoker 的active值
+            //  活动的提供者的活跃次数(也就是被调用的次数)
             int active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive();
             // 获得提供者当前权重，默认100
             int afterWarmup = getWeight(invoker, invocation);
@@ -123,11 +123,10 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
             return invokers.get(leastIndexes[0]);
         }
         //如果不止有一个提供者独享最少活跃次数，则要根据权重做负载均衡
-        if (!sameWeight && totalWeight > 0) {
-            // If (not every invoker has the same weight & at least one invoker's weight>0), select randomly based on 
-            // totalWeight.
+        if (!sameWeight && totalWeight > 0) {//这些具有相同active的提供者是否权重不一样
+            //根据这几个具有相同的active的提供者的总的权重值生成一个随机数
             int offsetWeight = ThreadLocalRandom.current().nextInt(totalWeight);
-            // Return a invoker based on the random value.
+            //判断这个权重值落到哪个提供者上
             for (int i = 0; i < leastCount; i++) {
                 int leastIndex = leastIndexes[i];
                 offsetWeight -= weights[leastIndex];
