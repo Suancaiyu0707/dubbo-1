@@ -91,7 +91,9 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
             weights[i] = afterWarmup;
             // If it is the first invoker or the active number of the invoker is less than the current least active number
             //如果它是遍历的第一个服务提供者或当前服务提供者的活动数小于前面遍历的最小活跃数
-            if (leastActive == -1 || active < leastActive) {
+            if (leastActive == -1
+                    || active < leastActive
+                    ) {
                 // 将当前invoker 的活跃数更新到leastActive，更新保存当前最小活跃数
                 leastActive = active;
                 // 记录(活跃数=最小活跃数）的提供者的个数，一开始肯定是1

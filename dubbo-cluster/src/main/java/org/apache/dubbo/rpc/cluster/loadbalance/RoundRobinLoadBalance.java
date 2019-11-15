@@ -40,7 +40,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
     protected static class WeightedRoundRobin {
         //某个服务的某个提供者的配置的权重
         private int weight;
-        //每轮询到一次，就加一次当前的权重
+        //考虑到并发场景下某个Invoker可能同时被多个线程并发选中，这个值表示被所有线程选中的权重总和
         private AtomicLong current = new AtomicLong(0);
         private long lastUpdate;
         public int getWeight() {
@@ -160,7 +160,8 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
             }
             totalWeight += weight;
         }
-        //更新修改服务提供者列表
+        //清除没有使用的invoker，因为methodWeightMap是个全局缓存，里面的invoker列表可能发生变化
+        //这里用锁，保证只有一个线程在负责清除
         if (!updateLock.get() && invokers.size() != map.size()) {
             if (updateLock.compareAndSet(false, true)) {
                 try {
@@ -176,6 +177,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
                 }
             }
         }
+        //返回选中的服务提供者，这里会把当前的Invoker的current减去总权重
         if (selectedInvoker != null) {
             //如果当前提供者被选中，则当前的累加权重-所有提供者的总权重
             selectedWRR.current.addAndGet(-1 * totalWeight);
