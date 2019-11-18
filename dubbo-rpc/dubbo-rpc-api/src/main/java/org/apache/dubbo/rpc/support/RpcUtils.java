@@ -108,6 +108,15 @@ public class RpcUtils {
      * @param url
      * @param inv
      */
+    /***
+     *
+     * @param url
+     * @param inv
+     *  生成一个请求id，并传递给服务端，用于区分是哪次调用，只有同时满足以下几种情况才会生成id:
+     *      异步调用：vocation里设置了 asyn 属性，或者method里设置了async属性
+     *      id设置：invocation里设置了id属性，用于通过 attachment 传递生成的id
+     *
+     */
     public static void attachInvocationIdIfAsync(URL url, Invocation inv) {
         if (isAttachInvocationId(url, inv) && getInvocationId(inv) == null && inv instanceof RpcInvocation) {
             ((RpcInvocation) inv).setAttachment(ID_KEY, String.valueOf(INVOKE_ID.getAndIncrement()));
@@ -117,7 +126,7 @@ public class RpcUtils {
     private static boolean isAttachInvocationId(URL url, Invocation invocation) {
         String value = url.getMethodParameter(invocation.getMethodName(), AUTO_ATTACH_INVOCATIONID_KEY);
         if (value == null) {
-            // add invocationid in async operation by default
+            // 返回是否异步调用，默认是同步
             return isAsync(url, invocation);
         } else if (Boolean.TRUE.toString().equalsIgnoreCase(value)) {
             return true;
@@ -164,11 +173,19 @@ public class RpcUtils {
         return invocation.getParameterTypes();
     }
 
+    /***
+     *
+     * @param url
+     * @param inv
+     * @return
+     * 1、通过Invocation 判断是否通过了 attachment 来设置async表示异步调用
+     * 2、如果Invocation没有设置 attachment ，则判断method里是否配置了async
+     */
     public static boolean isAsync(URL url, Invocation inv) {
         boolean isAsync;
-        if (Boolean.TRUE.toString().equals(inv.getAttachment(ASYNC_KEY))) {
+        if (Boolean.TRUE.toString().equals(inv.getAttachment(ASYNC_KEY))) {//判断是否有额外参数：async
             isAsync = true;
-        } else {
+        } else {//从方法参数里查找async，默认是false，也就是表示同步
             isAsync = url.getMethodParameter(getMethodName(inv), ASYNC_KEY, false);
         }
         return isAsync;

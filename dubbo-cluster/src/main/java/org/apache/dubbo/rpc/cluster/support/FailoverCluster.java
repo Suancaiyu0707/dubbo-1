@@ -28,6 +28,13 @@ public class FailoverCluster extends AbstractCluster {
 
     public final static String NAME = "failover";
 
+    /***
+     * 新建一个FailoverClusterInvoker，不传入参数服务目录对象
+     * @param directory
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> AbstractClusterInvoker<T> doJoin(Directory<T> directory) throws RpcException {
         return new FailoverClusterInvoker<>(directory);

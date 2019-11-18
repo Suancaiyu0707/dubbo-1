@@ -772,6 +772,12 @@ class URL implements Serializable {
         return URL.decode(getMethodParameter(method, key, defaultValue));
     }
 
+    /***
+     * 根据key 获得 method的配置
+     * @param method
+     * @param key
+     * @return
+     */
     public String getMethodParameter(String method, String key) {
         Map<String, String> keyMap = methodParameters.get(method);
         String value = null;

@@ -29,6 +29,11 @@ import org.apache.dubbo.rpc.cluster.support.FailoverCluster;
  * <a href="http://en.wikipedia.org/wiki/Fault-tolerant_system">Fault-Tolerant</a>
  *
  */
+
+/***
+ * FailoverCluster
+ * cluster主要是负责串联起来整个逻辑
+ */
 @SPI(FailoverCluster.NAME)
 public interface Cluster {
 

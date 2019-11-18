@@ -51,34 +51,50 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
     public FailoverClusterInvoker(Directory<T> directory) {
         super(directory);
     }
-
+    /***
+     *  由 AbstractClusterInvoker 请求过来
+     * @param invocation
+     * @param invokers
+     * @param loadbalance
+     * @return
+     * @throws RpcException
+     * 1、通过父类 AbstractClusterInvoker 校验 invokers是否为空
+     * 2、
+     */
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Result doInvoke(Invocation invocation, final List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         List<Invoker<T>> copyInvokers = invokers;
         checkInvokers(copyInvokers, invocation);
+        //获取调用方法名
         String methodName = RpcUtils.getMethodName(invocation);
+        //获取参数配置，从调用URL中获取对应的retries重试次数
         int len = getUrl().getMethodParameter(methodName, RETRIES_KEY, DEFAULT_RETRIES) + 1;
         if (len <= 0) {
             len = 1;
         }
         // retry loop.
         RpcException le = null; // last exception.
+        //初始化一些集合和变量，用于保存调用过程中的异常、记录调用了哪些节点
+        //（这个不会在负载均衡中使用）
         List<Invoker<T>> invoked = new ArrayList<Invoker<T>>(copyInvokers.size()); // invoked invokers.
         Set<String> providers = new HashSet<String>(len);
+        //开始重试
         for (int i = 0; i < len; i++) {
             //Reselect before retry to avoid a change of candidate `invokers`.
             //NOTE: if `invokers` changed, then `invoked` also lose accuracy.
-            if (i > 0) {
+            if (i > 0) {//i>0表示有过一次失败，则会再次校验节点是否被销毁。传入的Invoker列表是否为空
                 checkWhetherDestroyed();
                 copyInvokers = list(invocation);
                 // check again
                 checkInvokers(copyInvokers, invocation);
             }
+            //根据负载均衡算法选择调用的节点
             Invoker<T> invoker = select(loadbalance, invocation, copyInvokers, invoked);
-            invoked.add(invoker);
-            RpcContext.getContext().setInvokers((List) invoked);
+            invoked.add(invoker);//记录已尝试选中的节点
+            RpcContext.getContext().setInvokers((List) invoked);//上下文中保存已尝试的节点
             try {
+                //调用节点，这里会调用 AbstractCluster.invoke方法进行远程调用
                 Result result = invoker.invoke(invocation);
                 if (le != null && logger.isWarnEnabled()) {
                     logger.warn("Although retry the method " + methodName

@@ -40,6 +40,16 @@ public class FailfastClusterInvoker<T> extends AbstractClusterInvoker<T> {
         super(directory);
     }
 
+    /***
+     *
+     * @param invocation
+     * @param invokers
+     * @param loadbalance
+     * @return
+     * @throws RpcException
+     * 1、通过父类 AbstractClusterInvoker 校验 invokers是否为空
+     * 2、
+     */
     @Override
     public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         checkInvokers(invokers, invocation);

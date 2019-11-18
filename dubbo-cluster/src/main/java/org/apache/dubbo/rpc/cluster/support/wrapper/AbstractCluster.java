@@ -32,6 +32,16 @@ import java.util.List;
 
 import static org.apache.dubbo.common.constants.CommonConstants.REFERENCE_INTERCEPTOR_KEY;
 
+/***
+ * 采用模版功能，定义了一系列的业务逻辑
+ *
+ * 1、生成Invoker对象，不同的Cluster策略，会生成不同类型的 ClusterInvoker 对象并返回，然后调用 ClusterInvoker 的invoke方法
+ *      buildClusterInterceptors()
+ * 2、
+ *
+ *
+ *
+ */
 public abstract class AbstractCluster implements Cluster {
 
     private <T> Invoker<T> buildClusterInterceptors(AbstractClusterInvoker<T> clusterInvoker, String key) {
@@ -50,9 +60,21 @@ public abstract class AbstractCluster implements Cluster {
 
     @Override
     public <T> Invoker<T> join(Directory<T> directory) throws RpcException {
+        /***
+         *  从url中解析出 reference.interceptor 参数，然后进行创建拦截器
+         */
         return buildClusterInterceptors(doJoin(directory), directory.getUrl().getParameter(REFERENCE_INTERCEPTOR_KEY));
     }
 
+    /***
+     * 抽象类，交给具体的子类来实现，主要是根据Directory生成一个 AbstractClusterInvoker。
+     * 不同的集群方式回生成不同的 AbstractClusterInvoker。这些不同的子类里都有自己的 doInvoke方法，
+     * 从而保证不同的集群方式，有自己不同的调用逻辑：doInvoke
+     * @param directory
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     protected abstract <T> AbstractClusterInvoker<T> doJoin(Directory<T> directory) throws RpcException;
 
     protected class InterceptorInvokerNode<T> extends AbstractClusterInvoker<T> {
@@ -84,6 +106,12 @@ public abstract class AbstractCluster implements Cluster {
             return clusterInvoker.isAvailable();
         }
 
+        /***
+         *开始调用远程服务
+         * @param invocation
+         * @return
+         * @throws RpcException
+         */
         @Override
         public Result invoke(Invocation invocation) throws RpcException {
             Result asyncResult;
