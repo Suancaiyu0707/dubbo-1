@@ -70,6 +70,9 @@ public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
      *      1、选定指定个数的服务提供者
      *      2、并发的向这些服务提供者发送请求
      *      3、利用一个队列ref来存放调用结果
+     *      4、定义一个count来统计失败的请求数
+     *      5、只有所有的请求都失败了，才返回异常
+     *      6、任何一个正常的返回结果，则返回。
      */
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})

@@ -26,7 +26,11 @@ import org.apache.dubbo.rpc.cluster.support.AbstractClusterInvoker;
 
 @Activate
 public class ConsumerContextClusterInterceptor implements ClusterInterceptor, ClusterInterceptor.Listener {
-
+    /***
+     * 初始化上下文信息
+     * @param invoker
+     * @param invocation
+     */
     @Override
     public void before(AbstractClusterInvoker<?> invoker, Invocation invocation) {
         RpcContext.getContext()

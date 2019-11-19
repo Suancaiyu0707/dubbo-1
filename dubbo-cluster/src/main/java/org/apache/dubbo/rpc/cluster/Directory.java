@@ -44,6 +44,12 @@ public interface Directory<T> extends Node {
      *
      * @return invokers
      */
+    /***
+     * 获取所有的invoker列表
+     * @param invocation
+     * @return
+     * @throws RpcException
+     */
     List<Invoker<T>> list(Invocation invocation) throws RpcException;
 
     List<Invoker<T>> getAllInvokers();
