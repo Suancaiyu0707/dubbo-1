@@ -221,25 +221,25 @@ public class HashedWheelTimer implements Timer {
             ThreadFactory threadFactory,
             long tickDuration, TimeUnit unit, int ticksPerWheel,
             long maxPendingTimeouts) {
-
+        //创建线程的工厂
         if (threadFactory == null) {
             throw new NullPointerException("threadFactory");
-        }
+        }//时间单位
         if (unit == null) {
             throw new NullPointerException("unit");
-        }
+        }//时间轮里每个slot槽位的时间间隔
         if (tickDuration <= 0) {
             throw new IllegalArgumentException("tickDuration must be greater than 0: " + tickDuration);
         }
-        if (ticksPerWheel <= 0) {
+        if (ticksPerWheel <= 0) {//时间轮中的slot数
             throw new IllegalArgumentException("ticksPerWheel must be greater than 0: " + ticksPerWheel);
         }
-
+        //创建一个具有ticksPerWheel个slot的数组
         // Normalize ticksPerWheel to power of two and initialize the wheel.
         wheel = createWheel(ticksPerWheel);
         mask = wheel.length - 1;
 
-        // Convert tickDuration to nanos.
+        // Convert tickDuration to nanos. 将每个时间槽slot的时间转换成nanos
         this.tickDuration = unit.toNanos(tickDuration);
 
         // Prevent overflow.
@@ -247,11 +247,11 @@ public class HashedWheelTimer implements Timer {
             throw new IllegalArgumentException(String.format(
                     "tickDuration: %d (expected: 0 < tickDuration in nanos < %d",
                     tickDuration, Long.MAX_VALUE / wheel.length));
-        }
+        }//创建一个工作线程
         workerThread = threadFactory.newThread(worker);
-
+        //超时时间
         this.maxPendingTimeouts = maxPendingTimeouts;
-
+        //HashedWheelTimer不能太多，因为HashedWheelTimer本身是可以共享的，则会发出错误告警。
         if (INSTANCE_COUNTER.incrementAndGet() > INSTANCE_COUNT_LIMIT &&
                 WARNED_TOO_MANY_INSTANCES.compareAndSet(false, true)) {
             reportTooManyInstances();
@@ -270,7 +270,7 @@ public class HashedWheelTimer implements Timer {
             }
         }
     }
-
+    //创建一个具有 ticksPerWheel 个slot的时间轮
     private static HashedWheelBucket[] createWheel(int ticksPerWheel) {
         if (ticksPerWheel <= 0) {
             throw new IllegalArgumentException(
@@ -280,10 +280,10 @@ public class HashedWheelTimer implements Timer {
             throw new IllegalArgumentException(
                     "ticksPerWheel may not be greater than 2^30: " + ticksPerWheel);
         }
-
+        //时间轮槽数准成2的n次方
         ticksPerWheel = normalizeTicksPerWheel(ticksPerWheel);
         HashedWheelBucket[] wheel = new HashedWheelBucket[ticksPerWheel];
-        for (int i = 0; i < wheel.length; i++) {
+        for (int i = 0; i < wheel.length; i++) {//维护一个具有ticksPerWheel元素的数组
             wheel[i] = new HashedWheelBucket();
         }
         return wheel;
@@ -413,7 +413,7 @@ public class HashedWheelTimer implements Timer {
     public long pendingTimeouts() {
         return pendingTimeouts.get();
     }
-
+    //HashedWheelTimer是一个必须在JVM中重用的共享资源。所以只要创建几个实例就可以
     private static void reportTooManyInstances() {
         String resourceType = ClassUtils.simpleClassName(HashedWheelTimer.class);
         logger.error("You are creating too many " + resourceType + " instances. " +
@@ -429,7 +429,7 @@ public class HashedWheelTimer implements Timer {
         @Override
         public void run() {
             // Initialize the startTime.
-            startTime = System.nanoTime();
+            startTime = System.nanoTime();//当前时间
             if (startTime == 0) {
                 // We use 0 as an indicator for the uninitialized value here, so make sure it's not 0 when initialized.
                 startTime = 1;
@@ -518,7 +518,7 @@ public class HashedWheelTimer implements Timer {
          * current time otherwise (with Long.MIN_VALUE changed by +1)
          */
         private long waitForNextTick() {
-            long deadline = tickDuration * (tick + 1);
+            long deadline = tickDuration * (tick + 1);//tick初始是0
 
             for (; ; ) {
                 final long currentTime = System.nanoTime() - startTime;

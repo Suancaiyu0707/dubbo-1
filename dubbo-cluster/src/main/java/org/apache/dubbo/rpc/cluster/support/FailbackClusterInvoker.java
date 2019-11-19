@@ -46,6 +46,14 @@ import static org.apache.dubbo.rpc.cluster.Constants.FAIL_BACK_TASKS_KEY;
  *
  * <a href="http://en.wikipedia.org/wiki/Failback">Failback</a>
  */
+
+/****
+ *
+ * @param <T>
+ *  dubbo的failback重试
+ *      dubbo会为每个服务一个时间轮。
+ *      然后后台线程会每个一段时间后，会从对应的时间轮里去获取任务执行
+ */
 public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(FailbackClusterInvoker.class);
@@ -76,7 +84,8 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
     }
 
     /***
-     * 保存失败的调用，并创建一个重试的任务
+     * 保存失败的调用，并创建一个重试的任务，然后把重试的任务叫个时间轮来维护重试
+     *      时间轮：HashedWheelTimer
      * @param loadbalance
      * @param invocation
      * @param invokers
@@ -105,6 +114,16 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
         }
     }
 
+    /***
+     *
+     * @param invocation
+     * @param invokers
+     * @param loadbalance
+     * @return
+     * @throws RpcException
+     * 1、选择一个invoker进行调用
+     * 2、如果调用失败的话，则放到时间轮里交给时间轮来重试
+     */
     @Override
     protected Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         Invoker<T> invoker = null;
@@ -156,7 +175,7 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
         }
 
         /***
-         * 重试调用服务的逻辑
+         * 重试调用服务的逻辑。在这里是否继续重试，会判断重试的次数
          * @param timeout a handle which is associated with this task
          */
         @Override
