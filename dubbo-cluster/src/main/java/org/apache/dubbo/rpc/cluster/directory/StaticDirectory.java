@@ -30,6 +30,7 @@ import java.util.List;
 
 /**
  * StaticDirectory
+ * 静态列表实现，即将传入的Invoker列表封装成静态的Directory对象，里面的列表不会改变。
  */
 public class StaticDirectory<T> extends AbstractDirectory<T> {
     private static final Logger logger = LoggerFactory.getLogger(StaticDirectory.class);

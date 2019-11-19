@@ -88,6 +88,12 @@ import static org.apache.dubbo.rpc.cluster.Constants.ROUTER_KEY;
 /**
  * RegistryDirectory
  */
+
+/***
+ *
+ * @param <T>
+ *    属于动态列表实现，会自动从注册中心更新Invoker列表、配置信息、路由列表
+ */
 public class RegistryDirectory<T> extends AbstractDirectory<T> implements NotifyListener {
 
     private static final Logger logger = LoggerFactory.getLogger(RegistryDirectory.class);
@@ -532,6 +538,11 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
      * @param oldUrlInvokerMap
      * @param newUrlInvokerMap
      */
+    /***
+     * 销毁无用的服务提供者
+     * @param oldUrlInvokerMap  旧的服务提供者列表
+     * @param newUrlInvokerMap 新的服务提供者列表
+     */
     private void destroyUnusedInvokers(Map<String, Invoker<T>> oldUrlInvokerMap, Map<String, Invoker<T>> newUrlInvokerMap) {
         if (newUrlInvokerMap == null || newUrlInvokerMap.size() == 0) {
             destroyAllInvokers();
@@ -587,6 +598,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         List<Invoker<T>> invokers = null;
         try {
             // Get invokers from cache, only runtime routers will be executed.
+            //通过路由，获得服务提供者列表
             invokers = routerChain.route(getConsumerUrl(), invocation);
         } catch (Throwable t) {
             logger.error("Failed to execute router: " + getUrl() + ", cause: " + t.getMessage(), t);
