@@ -28,6 +28,13 @@ public class FailbackCluster extends AbstractCluster {
 
     public final static String NAME = "failback";
 
+    /**
+     * 创建一个 FailbackClusterInvoker
+     * @param directory
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> AbstractClusterInvoker<T> doJoin(Directory<T> directory) throws RpcException {
         return new FailbackClusterInvoker<>(directory);

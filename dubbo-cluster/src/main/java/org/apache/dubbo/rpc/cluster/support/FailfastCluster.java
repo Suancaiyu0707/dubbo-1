@@ -28,6 +28,13 @@ public class FailfastCluster extends AbstractCluster {
 
     public final static String NAME = "failfast";
 
+    /***
+     * 创建一个  FailfastClusterInvoker
+     * @param directory
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> AbstractClusterInvoker<T> doJoin(Directory<T> directory) throws RpcException {
         return new FailfastClusterInvoker<>(directory);

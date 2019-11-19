@@ -35,6 +35,17 @@ public class AvailableClusterInvoker<T> extends AbstractClusterInvoker<T> {
         super(directory);
     }
 
+    /****
+     *
+     * @param invocation
+     * @param invokers
+     * @param loadbalance
+     * @return
+     * @throws RpcException
+     * 会遍历所有的服务提供者
+     * 1、判断当前服务提供者是否可用
+     * 2、返回当前提供者的执行结果
+     */
     @Override
     public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         for (Invoker<T> invoker : invokers) {

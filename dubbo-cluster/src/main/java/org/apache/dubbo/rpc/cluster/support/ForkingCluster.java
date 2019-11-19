@@ -28,6 +28,13 @@ public class ForkingCluster extends AbstractCluster {
 
     public final static String NAME = "forking";
 
+    /***
+     * 创建一个 ForkingClusterInvoker
+     * @param directory
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> AbstractClusterInvoker<T> doJoin(Directory<T> directory) throws RpcException {
         return new ForkingClusterInvoker<>(directory);

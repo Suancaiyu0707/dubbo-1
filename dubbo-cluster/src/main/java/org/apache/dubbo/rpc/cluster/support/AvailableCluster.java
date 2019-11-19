@@ -29,6 +29,13 @@ public class AvailableCluster implements Cluster {
 
     public static final String NAME = "available";
 
+    /***
+     * 创建一个 AvailableClusterInvoker
+     * @param directory
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> Invoker<T> join(Directory<T> directory) throws RpcException {
         return new AvailableClusterInvoker<>(directory);

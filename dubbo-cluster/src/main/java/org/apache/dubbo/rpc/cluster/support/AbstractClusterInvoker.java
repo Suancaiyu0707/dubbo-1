@@ -144,7 +144,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
      * @param loadbalance
      * @param invocation
      * @param invokers
-     * @param selected
+     * @param selected 已选中的
      * @return
      * @throws RpcException
      *  选择一个对应的服务提供者
@@ -155,6 +155,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         if (CollectionUtils.isEmpty(invokers)) {
             return null;
         }
+        //获得方法名
         String methodName = invocation == null ? StringUtils.EMPTY : invocation.getMethodName();
         //从方法method标签里获得sticky属性，默认是false
         boolean sticky = invokers.get(0).getUrl()

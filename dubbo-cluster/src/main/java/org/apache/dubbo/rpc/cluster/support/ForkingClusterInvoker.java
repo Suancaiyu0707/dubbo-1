@@ -59,20 +59,36 @@ public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
         super(directory);
     }
 
+    /**
+     *
+     * @param invocation
+     * @param invokers
+     * @param loadbalance
+     * @return
+     * @throws RpcException
+     *
+     *      1、选定指定个数的服务提供者
+     *      2、并发的向这些服务提供者发送请求
+     *      3、利用一个队列ref来存放调用结果
+     */
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Result doInvoke(final Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         try {
             checkInvokers(invokers, invocation);
             final List<Invoker<T>> selected;
+            //获得配置的fork的并行数
             final int forks = getUrl().getParameter(FORKS_KEY, DEFAULT_FORKS);
+            //获得超时时间
             final int timeout = getUrl().getParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT);
             if (forks <= 0 || forks >= invokers.size()) {
                 selected = invokers;
             } else {
                 selected = new ArrayList<>();
+                //随机选中forks个数的服务提供者
                 for (int i = 0; i < forks; i++) {
                     Invoker<T> invoker = select(loadbalance, invocation, invokers, selected);
+                    //这个判断有些多余了，在select里其实已经判断了过了
                     if (!selected.contains(invoker)) {
                         //Avoid add the same invoker several times.
                         selected.add(invoker);
@@ -80,15 +96,22 @@ public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 }
             }
             RpcContext.getContext().setInvokers((List) selected);
+            //异常计数器
             final AtomicInteger count = new AtomicInteger();
+            //一个阻塞队列，用于记录并行调用的结果
             final BlockingQueue<Object> ref = new LinkedBlockingQueue<>();
+            //并发调用选中的服务提供者
             for (final Invoker<T> invoker : selected) {
                 executor.execute(() -> {
                     try {
                         Result result = invoker.invoke(invocation);
+                        //将结果放到一个队列里ref
                         ref.offer(result);
                     } catch (Throwable e) {
+                        //统计错误次数
                         int value = count.incrementAndGet();
+                        //如果错误次数超过或等于发出的请求，表示所有的请求都异常了，则把异常放到队列里
+                        //这样可以保证个别调用失败不返回异常信息，只有全部失败了才返回异常信息。从而达到全部失败了才返回异常的效果。
                         if (value >= selected.size()) {
                             ref.offer(e);
                         }
@@ -96,6 +119,7 @@ public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 });
             }
             try {
+                //获得第一个正常返回的结果，只有全部返回失败了，才会返回一个异常
                 Object ret = ref.poll(timeout, TimeUnit.MILLISECONDS);
                 if (ret instanceof Throwable) {
                     Throwable e = (Throwable) ret;
