@@ -69,6 +69,13 @@ public interface Configurator extends Comparable<Configurator> {
      * @param urls URL list to convert
      * @return converted configurator list
      */
+    /***
+     *
+     * @param urls
+     * @return
+     *
+     * 处理变化的 Configurator
+     */
     static Optional<List<Configurator>> toConfigurators(List<URL> urls) {
         if (CollectionUtils.isEmpty(urls)) {
             return Optional.empty();
@@ -79,10 +86,12 @@ public interface Configurator extends Comparable<Configurator> {
 
         List<Configurator> configurators = new ArrayList<>(urls.size());
         for (URL url : urls) {
+            //只有有任何一个url的协议是empty，则直接清空configurators，且直接更新本地缓存configurators=empty
             if (EMPTY_PROTOCOL.equals(url.getProtocol())) {
                 configurators.clear();
                 break;
             }
+            //将url中的key=value转换成map的元素
             Map<String, String> override = new HashMap<>(url.getParameters());
             //The anyhost parameter of override may be added automatically, it can't change the judgement of changing url
             override.remove(ANYHOST_KEY);
@@ -90,6 +99,7 @@ public interface Configurator extends Comparable<Configurator> {
                 configurators.clear();
                 continue;
             }
+            //如果当前 url不为空，则添加到 configurators
             configurators.add(configuratorFactory.getConfigurator(url));
         }
         Collections.sort(configurators);

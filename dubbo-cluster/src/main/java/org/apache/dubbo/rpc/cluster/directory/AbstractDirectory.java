@@ -122,7 +122,7 @@ public abstract class AbstractDirectory<T> implements Directory<T> {
         // &side=consumer&sticky=false&timestamp=1574206816104
         return consumerUrl;
     }
-
+    //将当前Directory绑定对应的接口服务
     public void setConsumerUrl(URL consumerUrl) {
         this.consumerUrl = consumerUrl;
     }

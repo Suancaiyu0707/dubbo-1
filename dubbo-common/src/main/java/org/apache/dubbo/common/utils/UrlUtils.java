@@ -472,17 +472,17 @@ public class UrlUtils {
     public static List<URL> classifyUrls(List<URL> urls, Predicate<URL> predicate) {
         return urls.stream().filter(predicate).collect(Collectors.toList());
     }
-
+    //是 override 协议，或者通过将category或者providers属性值设置为 configurators
     public static boolean isConfigurator(URL url) {
         return OVERRIDE_PROTOCOL.equals(url.getProtocol()) ||
                 CONFIGURATORS_CATEGORY.equals(url.getParameter(CATEGORY_KEY, DEFAULT_CATEGORY));
     }
-
+    //是route协议，或者通过将category或者providers属性值设置为 routers
     public static boolean isRoute(URL url) {
         return ROUTE_PROTOCOL.equals(url.getProtocol()) ||
                 ROUTERS_CATEGORY.equals(url.getParameter(CATEGORY_KEY, DEFAULT_CATEGORY));
     }
-
+    //不是override和route协议，且通过将category或者providers属性值设置为 providers
     public static boolean isProvider(URL url) {
         return !OVERRIDE_PROTOCOL.equals(url.getProtocol()) &&
                 !ROUTE_PROTOCOL.equals(url.getProtocol()) &&

@@ -93,6 +93,13 @@ import static org.apache.dubbo.rpc.cluster.Constants.ROUTER_KEY;
  *
  * @param <T>
  *    属于动态列表实现，会自动从注册中心更新Invoker列表、配置信息、路由列表
+ *
+ * 这里要注意，每个RegistryDirectory本身也是一个监听器。
+ *
+ * 主要监听三类信息：
+ *     第一类：configurators  配置信息
+ *     第二类：invoker列表
+ *     第三类：providers 提供者列表
  */
 public class RegistryDirectory<T> extends AbstractDirectory<T> implements NotifyListener {
 
@@ -122,10 +129,14 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
      * Rule one: for a certain provider <ip:port,timeout=100>
      * Rule two: for all providers <* ,timeout=5000>
      */
+
     private volatile List<Configurator> configurators; // The initial value is null and the midway may be assigned to null, please use the local variable reference
 
     // Map<url, Invoker> cache service url to invoker mapping.
+    //notify更新后最终的Invoker列表，key是对应的方法名，value是整个Invoker列表
+    //doList就是从这个map里匹配
     private volatile Map<String, Invoker<T>> urlInvokerMap; // The initial value is null and the midway may be assigned to null, please use the local variable reference
+
     private volatile List<Invoker<T>> invokers;
 
     // Set<invokerUrls> cache invokeUrls to invokers mapping.
@@ -173,10 +184,16 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         this.registry = registry;
     }
 
+    /***
+     *根据url 订阅服务提供者列表的更新信息，时刻关注这个服务提供者列表中的URL变化
+     * @param url
+     */
     public void subscribe(URL url) {
         setConsumerUrl(url);
+        //绑定一个监听器
         CONSUMER_CONFIGURATION_LISTENER.addNotifyListener(this);
         serviceConfigurationListener = new ReferenceConfigurationListener(this, url);
+        //订阅监听器
         registry.subscribe(url, this);
     }
 
@@ -213,8 +230,18 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         }
     }
 
+    /**
+     *
+     * @param urls The list of registered information , is always not empty. The meaning is the same as the return value of {@link org.apache.dubbo.registry.RegistryService#lookup(URL)}.
+     *
+     *    将变化的urls通知过来
+     */
     @Override
     public synchronized void notify(List<URL> urls) {
+        //从Url列表中中分别解析出以下三个属性(每个服务可能有多个服务提供者)：
+        //    configurators
+        //    routers
+        //    providers
         Map<String, List<URL>> categoryUrls = urls.stream()
                 .filter(Objects::nonNull)
                 .filter(this::isValidCategory)
@@ -230,13 +257,17 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                     return "";
                 }));
 
+        //获取第一类： configurators 列表。管理员也可以通过dubbo-admin动态配置功能修改生产者的参数。这些参数保存到配置中心的Configurators类目下
+        //notify监听到URL配置参数的变化，会解析斌更新呢到本地的Configurator配置
         List<URL> configuratorURLs = categoryUrls.getOrDefault(CONFIGURATORS_CATEGORY, Collections.emptyList());
+        //更新本地内存的configurators，直接替换更新,不要做合并
         this.configurators = Configurator.toConfigurators(configuratorURLs).orElse(this.configurators);
-
+        //获取第二类： routers 列表
         List<URL> routerURLs = categoryUrls.getOrDefault(ROUTERS_CATEGORY, Collections.emptyList());
+        //循环遍历判断路由是否存在，如果是新增的路由，则更新routerChain
         toRouters(routerURLs).ifPresent(this::addRouters);
 
-        // providers
+        //获取第三类： providers列表
         List<URL> providerURLs = categoryUrls.getOrDefault(PROVIDERS_CATEGORY, Collections.emptyList());
         /**
          * 3.x added for extend URL address
@@ -248,9 +279,14 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                 providerURLs = addressListener.notify(providerURLs, getUrl(),this);
             }
         }
+        //更新invoker列表
         refreshOverrideAndInvoker(providerURLs);
     }
 
+    /***
+     *
+     * @param urls
+     */
     private void refreshOverrideAndInvoker(List<URL> urls) {
         // mock zookeeper://xxx?mock=return null
         overrideDirectoryUrl();
@@ -270,6 +306,14 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
      * @param invokerUrls this parameter can't be null
      */
     // TODO: 2017/8/31 FIXME The thread pool should be used to refresh the address, otherwise the task may be accumulated.
+
+    /**
+     *
+     * @param invokerUrls
+     * 如果empty协议的URL，则会禁用该服务，并销毁本地缓存的invoker；
+     *  如果监听到的Invoker类型URL都是空的，则说明没有更新，直接使用本地的老缓存；
+     *  如果监听到Invoker类型不为空，则把新的URL和本地老的URL合并，创建新的Invoker，找出差异的Invoker并销毁
+     */
     private void refreshInvoker(List<URL> invokerUrls) {
         Assert.notNull(invokerUrls, "invokerUrls should not be null");
 
@@ -353,6 +397,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
      * @param urls
      * @return null : no routers ,do nothing
      * else :routers list
+     * 对于router类参数，会遍历所有router类型的url，让好通过Router工厂把每个URL包装成路由故意则，
+     * 最后更新本地的路由信息。这个过程会跳过empty开头的URL
      */
     private Optional<List<Router>> toRouters(List<URL> urls) {
         if (urls == null || urls.isEmpty()) {
@@ -361,14 +407,17 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
         List<Router> routers = new ArrayList<>();
         for (URL url : urls) {
+            //如果当前url，会跳过当前的url，并不会退出循环
             if (EMPTY_PROTOCOL.equals(url.getProtocol())) {
                 continue;
             }
+            //获取router值
             String routerType = url.getParameter(ROUTER_KEY);
             if (routerType != null && routerType.length() > 0) {
                 url = url.setProtocol(routerType);
             }
             try {
+                //根据 router的值，新增路由规则。所以router的值对应RouterFactory实现类中的Name的值
                 Router router = ROUTER_FACTORY.getRouter(url);
                 if (!routers.contains(router)) {
                     routers.add(router);
@@ -583,6 +632,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     @Override
     public List<Invoker<T>> doList(Invocation invocation) {
+        //如果配置中心禁用了这个服务，则不能用
         if (forbidden) {
             // 1. No service provider 2. Service providers are disabled
             throw new RpcException(RpcException.FORBIDDEN_EXCEPTION, "No provider available from registry " +
