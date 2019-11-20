@@ -109,18 +109,41 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     private static final RouterFactory ROUTER_FACTORY = ExtensionLoader.getExtensionLoader(RouterFactory.class)
             .getAdaptiveExtension();
-
+    //服务key，在构造时初始化，这样可以断言不为空
+    //org.apache.dubbo.registry.RegistryService
     private final String serviceKey; // Initialization at construction time, assertion not null
+    //interface com.springcloud.alibaba.service.HelloAnnotationProviderService
     private final Class<T> serviceType; // Initialization at construction time, assertion not null
+    /**
+     * 0 = {HashMap$Node@6123} "side" -> "consumer"
+     * 1 = {HashMap$Node@6124} "register.ip" -> "220.250.64.225"
+     * 2 = {HashMap$Node@6125} "lazy" -> "false"
+     * 3 = {HashMap$Node@6126} "methods" -> "sayHi"
+     * 4 = {HashMap$Node@6127} "release" -> "2.7.4.1"
+     * 5 = {HashMap$Node@6128} "dubbo" -> "2.0.2"
+     * 6 = {HashMap$Node@6129} "monitor" -> "dubbo%3A%2F%2F127.0.0.1%3A2181%2Forg.apache.dubbo.registry.RegistryService%3Fapplication%3Dspringcloud-alibaba-dubbo-provider%26dubbo%3D2.0.2%26pid%3D29002%26protocol%3Dregistry%26qos.enable%3Dfalse%26refer%3Dapplication%253Dspringcloud-alibaba-dubbo-provider%2526dubbo%253D2.0.2%2526interface%253Dorg.apache.dubbo.monitor.MonitorService%2526pid%253D29002%2526qos.enable%253Dfalse%2526register.ip%253D220.250.64.225%2526release%253D2.7.4.1%2526timestamp%253D1574218168630%26registry%3Dzookeeper%26release%3D2.7.4.1%26timestamp%3D1574218168628"
+     * 7 = {HashMap$Node@6130} "pid" -> "29002"
+     * 8 = {HashMap$Node@6131} "interface" -> "com.springcloud.alibaba.service.HelloAnnotationProviderService"
+     * 9 = {HashMap$Node@6132} "qos.enable" -> "false"
+     * 10 = {HashMap$Node@6133} "application" -> "springcloud-alibaba-dubbo-provider"
+     * 11 = {HashMap$Node@6134} "sticky" -> "false"
+     * 12 = {HashMap$Node@6135} "timestamp" -> "1574218168373"
+     */
     private final Map<String, String> queryMap; // Initialization at construction time, assertion not null
+    //目录地址 zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=springcloud-alibaba-dubbo-provider&dubbo=2.0.2&interface=com.springcloud.alibaba.service.HelloAnnotationProviderService&lazy=false&methods=sayHi&pid=29002&qos.enable=false&register.ip=220.250.64.225&release=2.7.4.1&side=consumer&sticky=false&timestamp=1574218168373
     private final URL directoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
+    //是否多个group
     private final boolean multiGroup;
+    //协议
     private Protocol protocol; // Initialization at the time of injection, the assertion is not null
+    //注册信息 zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=springcloud-alibaba-dubbo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=29002&qos.enable=false&release=2.7.4.1&timestamp=1574218168628
     private Registry registry; // Initialization at the time of injection, the assertion is not null
     private volatile boolean forbidden = false;
-
+    //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=springcloud-alibaba-dubbo-provider&dubbo=2.0.2
+    // &interface=com.springcloud.alibaba.service.HelloAnnotationProviderService&lazy=false&methods=sayHi&pid=29002&qos.enable=false
+    // &register.ip=220.250.64.225&release=2.7.4.1&side=consumer&sticky=false&timestamp=1574218168373
     private volatile URL overrideDirectoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
-
+//   //consumer://220.250.64.225/com.springcloud.alibaba.service.HelloAnnotationProviderService?application=springcloud-alibaba-dubbo-provider&category=consumers&check=false&dubbo=2.0.2&interface=com.springcloud.alibaba.service.HelloAnnotationProviderService&lazy=false&methods=sayHi&pid=29002&qos.enable=false&release=2.7.4.1&side=consumer&sticky=false&timestamp=1574218168373
     private volatile URL registeredConsumerUrl;
 
     /**
@@ -129,14 +152,14 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
      * Rule one: for a certain provider <ip:port,timeout=100>
      * Rule two: for all providers <* ,timeout=5000>
      */
-
+    //配置信息
     private volatile List<Configurator> configurators; // The initial value is null and the midway may be assigned to null, please use the local variable reference
 
     // Map<url, Invoker> cache service url to invoker mapping.
     //notify更新后最终的Invoker列表，key是对应的方法名，value是整个Invoker列表
     //doList就是从这个map里匹配
     private volatile Map<String, Invoker<T>> urlInvokerMap; // The initial value is null and the midway may be assigned to null, please use the local variable reference
-
+    //服务提供者列表
     private volatile List<Invoker<T>> invokers;
 
     // Set<invokerUrls> cache invokeUrls to invokers mapping.
@@ -148,22 +171,32 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     public RegistryDirectory(Class<T> serviceType, URL url) {
         super(url);
+        //服务类型不能为空
         if (serviceType == null) {
             throw new IllegalArgumentException("service type is null.");
         }
+        //
         if (url.getServiceKey() == null || url.getServiceKey().length() == 0) {
             throw new IllegalArgumentException("registry serviceKey is null.");
         }
         this.serviceType = serviceType;
         this.serviceKey = url.getServiceKey();
         this.queryMap = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
+        //根据url构建 overrideDirectoryUrl 和 directoryUrl
         this.overrideDirectoryUrl = this.directoryUrl = turnRegistryUrlToConsumerUrl(url);
-        String group = directoryUrl.getParameter(GROUP_KEY, "");
+        String group = directoryUrl.getParameter(GROUP_KEY, "");//获得group属性
+        //组配置是否属于多个组
         this.multiGroup = group != null && (ANY_VALUE.equals(group) || group.contains(","));
     }
 
+    /***
+     * 将url转换成URL对象
+     * @param url
+     * @return
+     */
     private URL turnRegistryUrlToConsumerUrl(URL url) {
         // save any parameter in registry that will be useful to the new url.
+        //获得preferred属性
         String isDefault = url.getParameter(PREFERRED_KEY);
         if (StringUtils.isNotEmpty(isDefault)) {
             queryMap.put(REGISTRY_KEY + "." + PREFERRED_KEY, isDefault);
@@ -204,16 +237,18 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             return;
         }
 
-        // unregister.
+        // 取消注册
         try {
+            //从内存中移除，就是取消注册
             if (getRegisteredConsumerUrl() != null && registry != null && registry.isAvailable()) {
                 registry.unregister(getRegisteredConsumerUrl());
             }
         } catch (Throwable t) {
             logger.warn("unexpected error when unregister service " + serviceKey + "from registry" + registry.getUrl(), t);
         }
-        // unsubscribe.
+        // 取消订阅.
         try {
+            //取消订阅
             if (getConsumerUrl() != null && registry != null && registry.isAvailable()) {
                 registry.unsubscribe(getConsumerUrl(), this);
             }
@@ -236,6 +271,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
      *
      *    将变化的urls通知过来
      */
+    //通常是ZookeeperRegistry.doSubscribe会通知
     @Override
     public synchronized void notify(List<URL> urls) {
         //从Url列表中中分别解析出以下三个属性(每个服务可能有多个服务提供者)：
@@ -316,21 +352,26 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
      */
     private void refreshInvoker(List<URL> invokerUrls) {
         Assert.notNull(invokerUrls, "invokerUrls should not be null");
-
+        // invokerUrls 中只有一个元素 && url 的协议头 Protocol 为 empty，表示禁用所有服务
         if (invokerUrls.size() == 1
                 && invokerUrls.get(0) != null
                 && EMPTY_PROTOCOL.equals(invokerUrls.get(0).getProtocol())) {
+            // 禁用服务标识
             this.forbidden = true; // Forbid to access
+            // 空 invoker 列表
             this.invokers = Collections.emptyList();
             routerChain.setInvokers(this.invokers);
+            // 销毁所有的 invoker
             destroyAllInvokers(); // Close all invokers
         } else {
             this.forbidden = false; // Allow to access
+            // 原来的 invoker 映射map
             Map<String, Invoker<T>> oldUrlInvokerMap = this.urlInvokerMap; // local reference
             if (invokerUrls == Collections.<URL>emptyList()) {
                 invokerUrls = new ArrayList<>();
             }
             if (invokerUrls.isEmpty() && this.cachedInvokerUrls != null) {
+                // 添加缓存 url 到 invokerUrls 中
                 invokerUrls.addAll(this.cachedInvokerUrls);
             } else {
                 this.cachedInvokerUrls = new HashSet<>();
@@ -339,6 +380,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             if (invokerUrls.isEmpty()) {
                 return;
             }
+            // 将 url 转换成 url 到 invoker 映射 map，map 中 url 为 key，value 为 invoker
             Map<String, Invoker<T>> newUrlInvokerMap = toInvokers(invokerUrls);// Translate url list to Invoker map
 
             /**
@@ -349,6 +391,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
              * 2. The registration center is not robust and pushes illegal specification data.
              *
              */
+
             if (CollectionUtils.isEmptyMap(newUrlInvokerMap)) {
                 logger.error(new IllegalStateException("urls to invokers error .invokerUrls.size :" + invokerUrls.size() + ", invoker.size :0. urls :" + invokerUrls
                         .toString()));
@@ -359,6 +402,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             // pre-route and build cache, notice that route cache should build on original Invoker list.
             // toMergeMethodInvokerMap() will wrap some invokers having different groups, those wrapped invokers not should be routed.
             routerChain.setInvokers(newInvokers);
+            // 多个 group 时需要合并 invoker
             this.invokers = multiGroup ? toMergeInvokerList(newInvokers) : newInvokers;
             this.urlInvokerMap = newUrlInvokerMap;
 
@@ -564,6 +608,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     /**
      * Close all invokers
+     * 从本地内存里清除所有的提供者
      */
     private void destroyAllInvokers() {
         Map<String, Invoker<T>> localUrlInvokerMap = this.urlInvokerMap; // local reference
@@ -728,7 +773,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private boolean isNotCompatibleFor26x(URL url) {
         return StringUtils.isEmpty(url.getParameter(COMPATIBLE_CONFIG_KEY));
     }
-
+    //重写 DirectoryUrl
     private void overrideDirectoryUrl() {
         // merge override parameters
         this.overrideDirectoryUrl = directoryUrl;

@@ -37,7 +37,8 @@ import static org.apache.dubbo.rpc.cluster.Constants.REFER_KEY;
 
 /**
  * Abstract implementation of Directory: Invoker list returned from this Directory's list method have been filtered by Routers
- *
+ *ZookeeperRegistry.doSubscribe->FailbackRegistry.notify->FailbackRegistry.doNotify->
+ * AbstractRegistry.notify->RegistryDirectory.notify
  */
 public abstract class AbstractDirectory<T> implements Directory<T> {
 
@@ -60,12 +61,19 @@ public abstract class AbstractDirectory<T> implements Directory<T> {
         this(url, url, routerChain);
     }
 
+    /***
+     *
+     * @param url：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=springcloud-alibaba-dubbo-provider&dubbo=2.0.2&pid=29002&qos.enable=false&refer=application%3Dspringcloud-alibaba-dubbo-provider%26dubbo%3D2.0.2%26interface%3Dcom.springcloud.alibaba.service.HelloAnnotationProviderService%26lazy%3Dfalse%26methods%3DsayHi%26monitor%3Ddubbo%253A%252F%252F127.0.0.1%253A2181%252Forg.apache.dubbo.registry.RegistryService%253Fapplication%253Dspringcloud-alibaba-dubbo-provider%2526dubbo%253D2.0.2%2526pid%253D29002%2526protocol%253Dregistry%2526qos.enable%253Dfalse%2526refer%253Dapplication%25253Dspringcloud-alibaba-dubbo-provider%252526dubbo%25253D2.0.2%252526interface%25253Dorg.apache.dubbo.monitor.MonitorService%252526pid%25253D29002%252526qos.enable%25253Dfalse%252526register.ip%25253D220.250.64.225%252526release%25253D2.7.4.1%252526timestamp%25253D1574218168630%2526registry%253Dzookeeper%2526release%253D2.7.4.1%2526timestamp%253D1574218168628%26pid%3D29002%26qos.enable%3Dfalse%26register.ip%3D220.250.64.225%26release%3D2.7.4.1%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1574218168373&release=2.7.4.1&timestamp=1574218168628
+     * @param consumerUrl：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=springcloud-alibaba-dubbo-provider&dubbo=2.0.2&pid=29002&qos.enable=false&refer=application%3Dspringcloud-alibaba-dubbo-provider%26dubbo%3D2.0.2%26interface%3Dcom.springcloud.alibaba.service.HelloAnnotationProviderService%26lazy%3Dfalse%26methods%3DsayHi%26monitor%3Ddubbo%253A%252F%252F127.0.0.1%253A2181%252Forg.apache.dubbo.registry.RegistryService%253Fapplication%253Dspringcloud-alibaba-dubbo-provider%2526dubbo%253D2.0.2%2526pid%253D29002%2526protocol%253Dregistry%2526qos.enable%253Dfalse%2526refer%253Dapplication%25253Dspringcloud-alibaba-dubbo-provider%252526dubbo%25253D2.0.2%252526interface%25253Dorg.apache.dubbo.monitor.MonitorService%252526pid%25253D29002%252526qos.enable%25253Dfalse%252526register.ip%25253D220.250.64.225%252526release%25253D2.7.4.1%252526timestamp%25253D1574218168630%2526registry%253Dzookeeper%2526release%253D2.7.4.1%2526timestamp%253D1574218168628%26pid%3D29002%26qos.enable%3Dfalse%26register.ip%3D220.250.64.225%26release%3D2.7.4.1%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1574218168373&release=2.7.4.1&timestamp=1574218168628
+     * @param routerChain
+     */
     public AbstractDirectory(URL url, URL consumerUrl, RouterChain<T> routerChain) {
         if (url == null) {
             throw new IllegalArgumentException("url == null");
         }
-
+        //判断是否是 registry 协议
         if (UrlUtils.isRegistry(url)) {
+            //根据refer属性值转换成queryMap
             Map<String, String> queryMap = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
             this.url = url.addParameters(queryMap).removeParameter(MONITOR_KEY);
         } else {

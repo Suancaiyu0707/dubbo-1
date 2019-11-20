@@ -56,7 +56,7 @@ public class StaticDirectory<T> extends AbstractDirectory<T> {
         }
         this.invokers = invokers;
     }
-
+    // 获取接口类
     @Override
     public Class<T> getInterface() {
         return invokers.get(0).getInterface();
@@ -66,32 +66,33 @@ public class StaticDirectory<T> extends AbstractDirectory<T> {
     public List<Invoker<T>> getAllInvokers() {
         return invokers;
     }
-
+    // 检测 directory 是否可用
     @Override
     public boolean isAvailable() {
         if (isDestroyed()) {
             return false;
         }
         for (Invoker<T> invoker : invokers) {
-            if (invoker.isAvailable()) {
+            if (invoker.isAvailable()) {// 只要有一个 invoker 可用，就认为当前 directory 是可用的
                 return true;
             }
         }
         return false;
     }
-
+    // 销毁 directory 目录
     @Override
     public void destroy() {
         if (isDestroyed()) {
             return;
         }
         super.destroy();
+        //销毁所有的 invoker
         for (Invoker<T> invoker : invokers) {
             invoker.destroy();
         }
         invokers.clear();
     }
-
+    // 构建路由链
     public void buildRouterChain() {
         RouterChain<T> routerChain = RouterChain.buildChain(getUrl());
         routerChain.setInvokers(invokers);
@@ -103,6 +104,7 @@ public class StaticDirectory<T> extends AbstractDirectory<T> {
         List<Invoker<T>> finalInvokers = invokers;
         if (routerChain != null) {
             try {
+                // 经过路由链过滤掉不需要的 invoker
                 finalInvokers = routerChain.route(getConsumerUrl(), invocation);
             } catch (Throwable t) {
                 logger.error("Failed to execute router: " + getUrl() + ", cause: " + t.getMessage(), t);

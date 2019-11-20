@@ -356,6 +356,10 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    /***
+     * 通知
+     * @param urls
+     */
     protected void notify(List<URL> urls) {
         if (CollectionUtils.isEmpty(urls)) {
             return;
