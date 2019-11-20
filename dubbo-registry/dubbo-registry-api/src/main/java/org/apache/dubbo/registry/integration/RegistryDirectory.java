@@ -599,6 +599,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         try {
             // Get invokers from cache, only runtime routers will be executed.
             //通过路由，获得服务提供者列表
+            //路由是沿着一个 RouterChain 链来过滤，从
             invokers = routerChain.route(getConsumerUrl(), invocation);
         } catch (Throwable t) {
             logger.error("Failed to execute router: " + getUrl() + ", cause: " + t.getMessage(), t);

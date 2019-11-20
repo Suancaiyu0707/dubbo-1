@@ -49,7 +49,13 @@ public class RouterChain<T> {
     private RouterChain(URL url) {
         List<RouterFactory> extensionFactories = ExtensionLoader.getExtensionLoader(RouterFactory.class)
                 .getActivateExtension(url, "router");
-
+        /***
+         * 默认routers初始化后有四个Router:
+         *      MockInvokersSelector
+         *      TagRouter
+         *      AppRouter
+         *      ServiceRouter
+         */
         List<Router> routers = extensionFactories.stream()
                 .map(factory -> factory.getRouter(url))
                 .collect(Collectors.toList());
@@ -88,13 +94,22 @@ public class RouterChain<T> {
     }
 
     /**
-     *
+     *这里采用责任链来实现路由过滤
      * @param url
      * @param invocation
      * @return
      */
     public List<Invoker<T>> route(URL url, Invocation invocation) {
         List<Invoker<T>> finalInvokers = invokers;
+        /***
+         * 默认routers初始化后有四个Router:
+         *      MockInvokersSelector：判断是否是mock调用
+         *      TagRouter：根据tag规则进行过滤
+         *      AppRouter
+         *      ServiceRouter
+         *
+         *
+         */
         for (Router router : routers) {
             finalInvokers = router.route(finalInvokers, url, invocation);
         }

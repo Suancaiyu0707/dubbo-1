@@ -100,6 +100,15 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
      */
     @Override
     public URL getUrl() {
+        //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?anyhost=true
+        // &application=springcloud-alibaba-dubbo-provider&bean.name=ServiceBean:com.springcloud.alibaba.service.HelloAnnotationProviderService
+        // &check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.springcloud.alibaba.service.HelloAnnotationProviderService
+        // &lazy=false&methods=sayHi&monitor=dubbo%3A%2F%2F127.0.0.1%3A2181%2Forg.apache.dubbo.registry.RegistryService%3Fapplication
+        // %3Dspringcloud-alibaba-dubbo-provider%26dubbo%3D2.0.2%26pid%3D15244%26protocol%3Dregistry%26qos.enable%3Dfalse%26refer%3Dapplication
+        // %253Dspringcloud-alibaba-dubbo-provider%2526dubbo%253D2.0.2%2526interface%253Dorg.apache.dubbo.monitor.MonitorService%2526pid
+        // %253D15244%2526qos.enable%253Dfalse%2526register.ip%253D192.168.0.103%2526release%253D2.7.4.1%2526timestamp%253D1574206816273
+        // %26registry%3Dzookeeper%26release%3D2.7.4.1%26timestamp%3D1574206816272&pid=15244&qos.enable=false&register.ip=192.168.0.103&release=2.7.4.1
+        // &remote.application=springcloud-alibaba-dubbo-provider&side=consumer&sticky=false&timestamp=1574206816104
         return directory.getUrl();
     }
 
@@ -172,6 +181,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             }
         }
         //这边调用 AbstractClusterInvoker.doSelect，从提供者列表中根据负载均衡算法选中一个提供者
+        //invoker=interface com.springcloud.alibaba.service.HelloAnnotationProviderService -> dubbo://192.168.0.103:20880/com.springcloud.alibaba.service.HelloAnnotationProviderService?anyhost=true&application=springcloud-alibaba-dubbo-provider&bean.name=ServiceBean:com.springcloud.alibaba.service.HelloAnnotationProviderService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.springcloud.alibaba.service.HelloAnnotationProviderService&lazy=false&methods=sayHi&monitor=dubbo%3A%2F%2F127.0.0.1%3A2181%2Forg.apache.dubbo.registry.RegistryService%3Fapplication%3Dspringcloud-alibaba-dubbo-provider%26dubbo%3D2.0.2%26pid%3D15244%26protocol%3Dregistry%26qos.enable%3Dfalse%26refer%3Dapplication%253Dspringcloud-alibaba-dubbo-provider%2526dubbo%253D2.0.2%2526interface%253Dorg.apache.dubbo.monitor.MonitorService%2526pid%253D15244%2526qos.enable%253Dfalse%2526register.ip%253D192.168.0.103%2526release%253D2.7.4.1%2526timestamp%253D1574206816273%26registry%3Dzookeeper%26release%3D2.7.4.1%26timestamp%3D1574206816272&pid=15244&qos.enable=false&register.ip=192.168.0.103&release=2.7.4.1&remote.application=springcloud-alibaba-dubbo-provider&side=consumer&sticky=false&timestamp=1574206704527
         Invoker<T> invoker = doSelect(loadbalance, invocation, invokers, selected);
         //默认是false
         if (sticky) {
@@ -282,13 +292,13 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         if (contextAttachments != null && contextAttachments.size() != 0) {
             ((RpcInvocation) invocation).addAttachments(contextAttachments);
         }
-        //获得所有的 Invoker 列表
+        //获得所有的 Invoker 列表(在这一步会根据router路由信息都RegistryDirectory中提供的服务列表进行过滤)
         List<Invoker<T>> invokers = list(invocation);
         //获得负载均衡的方式
         LoadBalance loadbalance = initLoadBalance(invokers, invocation);
         //为当前的rpc请求创建一个id，用于标识当前的请求
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
-        //根据对应的实现类调用
+        //根据对应的实现类调用,比如：FailoverClusterInvoker
         return doInvoke(invocation, invokers, loadbalance);
     }
 
@@ -334,7 +344,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
                                        LoadBalance loadbalance) throws RpcException;
 
     /***
-     * 根据调用信息，从服务目录里获取服务提供者列表
+     * 根据路由过滤，从服务提供者列表里获取符合条件的服务提供者列表
      * @param invocation
      * @return
      * @throws RpcException

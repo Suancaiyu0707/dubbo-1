@@ -84,6 +84,15 @@ public class TagRouter extends AbstractRouter implements ConfigurationListener {
         return url;
     }
 
+    /***
+     * 根据tag规则进行过滤
+     * @param invokers   invoker list
+     * @param url        refer url
+     * @param invocation invocation
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> List<Invoker<T>> route(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
         if (CollectionUtils.isEmpty(invokers)) {
@@ -163,6 +172,7 @@ public class TagRouter extends AbstractRouter implements ConfigurationListener {
     private <T> List<Invoker<T>> filterUsingStaticTag(List<Invoker<T>> invokers, URL url, Invocation invocation) {
         List<Invoker<T>> result = invokers;
         // Dynamic param
+        ///从url或者Attachment中获得dubbo.tag属性值
         String tag = StringUtils.isEmpty((String) invocation.getAttachment(TAG_KEY)) ? url.getParameter(TAG_KEY) :
                 (String) invocation.getAttachment(TAG_KEY);
         // Tag request

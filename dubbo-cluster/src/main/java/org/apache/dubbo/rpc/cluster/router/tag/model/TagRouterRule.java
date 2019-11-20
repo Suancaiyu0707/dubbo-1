@@ -40,6 +40,11 @@ import java.util.stream.Collectors;
  * addresses: [ip3, ip4]
  * ...
  */
+
+/***
+ * 根据tag标签进行过滤
+ *
+ */
 public class TagRouterRule extends AbstractRouterRule {
     private List<Tag> tags;
 

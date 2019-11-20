@@ -79,6 +79,7 @@ public abstract class AbstractDirectory<T> implements Directory<T> {
     /***
      * 获得服务提供者列表
      * @param invocation 调用者信息
+     *        RpcInvocation [methodName=sayHi, parameterTypes=[class java.lang.String], arguments=[null], attachments={}]
      * @return
      * @throws RpcException
      */
@@ -87,7 +88,7 @@ public abstract class AbstractDirectory<T> implements Directory<T> {
         if (destroyed) {
             throw new RpcException("Directory already destroyed .url: " + getUrl());
         }
-
+        //默认调用RegistryDirectory
         return doList(invocation);
     }
 
@@ -114,6 +115,11 @@ public abstract class AbstractDirectory<T> implements Directory<T> {
      * @return
      */
     public URL getConsumerUrl() {
+        //consumer://192.168.0.103/com.springcloud.alibaba.service.HelloAnnotationProviderService
+        // ?application=springcloud-alibaba-dubbo-provider&category=providers,configurators,routers
+        // &dubbo=2.0.2&interface=com.springcloud.alibaba.service.HelloAnnotationProviderService
+        // &lazy=false&methods=sayHi&pid=15244&qos.enable=false&release=2.7.4.1
+        // &side=consumer&sticky=false&timestamp=1574206816104
         return consumerUrl;
     }
 

@@ -107,6 +107,7 @@ public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
             for (final Invoker<T> invoker : selected) {
                 executor.execute(() -> {
                     try {
+                        //这里调用InvokerWrapper的invoke方法
                         Result result = invoker.invoke(invocation);
                         //将结果放到一个队列里ref
                         ref.offer(result);

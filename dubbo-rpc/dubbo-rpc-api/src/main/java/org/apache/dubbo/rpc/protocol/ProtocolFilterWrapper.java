@@ -78,6 +78,7 @@ public class ProtocolFilterWrapper implements Protocol {
                     public Result invoke(Invocation invocation) throws RpcException {
                         Result asyncResult;
                         try {
+                            //经过一系列的ListenableFilter进行过滤，然后调用AsyncToSyncInvoker.invoke
                             asyncResult = filter.invoke(next, invocation);
                         } catch (Exception e) {
                             if (filter instanceof ListenableFilter) {// Deprecated!

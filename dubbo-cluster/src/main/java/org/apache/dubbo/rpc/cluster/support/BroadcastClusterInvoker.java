@@ -70,6 +70,7 @@ public class BroadcastClusterInvoker<T> extends AbstractClusterInvoker<T> {
         //通过下面的遍历，我们可以发现，只要有一个正常返回result即可
         for (Invoker<T> invoker : invokers) {
             try {
+                //这里调用InvokerWrapper的invoke方法
                 result = invoker.invoke(invocation);
                 // 加个这个是不是更好，竟然有请求返回了，干嘛要花无用的时间去等待后面的响应
                 //break;

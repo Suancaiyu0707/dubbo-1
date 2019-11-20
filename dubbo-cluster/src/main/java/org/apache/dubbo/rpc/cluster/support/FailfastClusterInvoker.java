@@ -55,6 +55,7 @@ public class FailfastClusterInvoker<T> extends AbstractClusterInvoker<T> {
         checkInvokers(invokers, invocation);
         Invoker<T> invoker = select(loadbalance, invocation, invokers, null);
         try {
+            //这里调用InvokerWrapper的invoke方法
             return invoker.invoke(invocation);
         } catch (Throwable e) {
             if (e instanceof RpcException && ((RpcException) e).isBiz()) { // biz exception.

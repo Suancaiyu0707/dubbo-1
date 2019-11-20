@@ -132,7 +132,7 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
             checkInvokers(invokers, invocation);
             //根据服务在均衡选中一个服务提供者
             invoker = select(loadbalance, invocation, invokers, null);
-            //根据选中的服务提供进行远程调用
+            //根据选中的服务提供进行远程调用，这里调用InvokerWrapper的invoke方法
             return invoker.invoke(invocation);
         } catch (Throwable e) {
             logger.error("Failback to invoke method " + invocation.getMethodName() + ", wait for retry in background. Ignored exception: "

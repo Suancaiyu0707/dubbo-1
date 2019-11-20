@@ -94,7 +94,7 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
             invoked.add(invoker);//记录已尝试选中的节点
             RpcContext.getContext().setInvokers((List) invoked);//上下文中保存已尝试的节点
             try {
-                //调用节点，这里会调用 AbstractCluster.invoke方法进行远程调用
+                //调用节点，这里调用InvokerWrapper的invoke方法
                 Result result = invoker.invoke(invocation);
                 if (le != null && logger.isWarnEnabled()) {
                     logger.warn("Although retry the method " + methodName

@@ -32,6 +32,11 @@ import static org.apache.dubbo.rpc.cluster.Constants.MOCK_PROTOCOL;
 /**
  * A specific Router designed to realize mock feature.
  * If a request is configured to use mock, then this router guarantees that only the invokers with protocol MOCK appear in final the invoker list, all other invokers will be excluded.
+ *
+ * 从Attachments解析invocation.need.mock属性，
+ * 判断此次调用是否是一个mock调用：
+ *      是：则找出protocol协议是mock的invoker
+ *      否：则找出protocol协议是mock的invoker
  */
 public class MockInvokersSelector extends AbstractRouter {
 
@@ -52,6 +57,7 @@ public class MockInvokersSelector extends AbstractRouter {
         if (invocation.getAttachments() == null) {
             return getNormalInvokers(invokers);
         } else {
+            //从attachments中获得invocation.need.mock属性值，判断它是不是一个 mock 调用
             String value = (String) invocation.getAttachments().get(INVOCATION_NEED_MOCK);
             if (value == null) {
                 return getNormalInvokers(invokers);
@@ -62,6 +68,12 @@ public class MockInvokersSelector extends AbstractRouter {
         return invokers;
     }
 
+    /***
+     * 遍历所有的服务提供者类标，返回mock协议的服务提供者列表
+     * @param invokers
+     * @param <T>
+     * @return
+     */
     private <T> List<Invoker<T>> getMockedInvokers(final List<Invoker<T>> invokers) {
         if (!hasMockProviders(invokers)) {
             return null;
@@ -75,6 +87,15 @@ public class MockInvokersSelector extends AbstractRouter {
         return sInvokers;
     }
 
+    /**
+     *
+     * @param invokers
+     * @param <T>
+     * @return
+     *      获得非mock的服务提供者(两个分支可以合在一块)
+     *      1、遍历提供者列表，如果没有mock协议的提供者列表，则返回全部的服务提供者列表
+     *      2、如果有mock协议的提供者列表，只返回非mock的服务提供者列表
+     */
     private <T> List<Invoker<T>> getNormalInvokers(final List<Invoker<T>> invokers) {
         if (!hasMockProviders(invokers)) {
             return invokers;
@@ -89,6 +110,12 @@ public class MockInvokersSelector extends AbstractRouter {
         }
     }
 
+    /***
+     * 判断服务提供者列表里，是否存在mock协议的提供者，并返回false/true
+     * @param invokers
+     * @param <T>
+     * @return
+     */
     private <T> boolean hasMockProviders(final List<Invoker<T>> invokers) {
         boolean hasMockProvider = false;
         for (Invoker<T> invoker : invokers) {
