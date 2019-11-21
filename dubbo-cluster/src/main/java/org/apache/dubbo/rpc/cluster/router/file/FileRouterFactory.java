@@ -47,26 +47,31 @@ public class FileRouterFactory implements RouterFactory {
         try {
             // Transform File URL into Script Route URL, and Load
             // file:///d:/path/to/route.js?router=script ==> script:///d:/path/to/route.js?type=js&rule=<file-content>
+            //把类型为file的协议替换为script类型
             String protocol = url.getParameter(ROUTER_KEY, ScriptRouterFactory.NAME); // Replace original protocol (maybe 'file') with 'script'
             String type = null; // Use file suffix to config script type, e.g., js, groovy ...
             String path = url.getPath();
+            //解析文件的后缀名
             if (path != null) {
                 int i = path.lastIndexOf('.');
                 if (i > 0) {
                     type = path.substring(i + 1);
                 }
             }
+            //读取文件
             String rule = IOUtils.read(new FileReader(new File(url.getAbsolutePath())));
 
             // FIXME: this code looks useless
+            //读取是否是运行时参数
             boolean runtime = url.getParameter(RUNTIME_KEY, false);
+            //生成路由工厂可以识别的URL，并把参数添加进去
             URL script = URLBuilder.from(url)
                     .setProtocol(protocol)
                     .addParameter(TYPE_KEY, type)
                     .addParameter(RUNTIME_KEY, runtime)
                     .addParameterAndEncoded(RULE_KEY, rule)
                     .build();
-
+            //调用Script的路由
             return routerFactory.getRouter(script);
         } catch (IOException e) {
             throw new IllegalStateException(e.getMessage(), e);
