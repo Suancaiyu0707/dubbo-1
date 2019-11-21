@@ -21,6 +21,9 @@ import org.apache.dubbo.common.extension.ExtensionLoader;
 import org.apache.dubbo.rpc.cluster.Router;
 import org.apache.dubbo.rpc.cluster.governance.GovernanceRuleRepository;
 
+/**
+ * 路由规则在发起一次RPC调用前起到过滤目标服务器地址的作用，过滤后的地址列表，将作为消费端最终发起RPC调用的备选地址。
+ */
 public abstract class AbstractRouter implements Router {
     protected int priority = DEFAULT_PRIORITY;
     protected boolean force = false;

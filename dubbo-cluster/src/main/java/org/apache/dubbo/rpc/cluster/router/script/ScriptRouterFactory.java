@@ -36,7 +36,7 @@ import org.apache.dubbo.rpc.cluster.RouterFactory;
 public class ScriptRouterFactory implements RouterFactory {
 
     public static final String NAME = "script";
-
+    //创建一个 ScriptRouter 用于路由
     @Override
     public Router getRouter(URL url) {
         return new ScriptRouter(url);

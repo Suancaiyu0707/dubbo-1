@@ -41,6 +41,7 @@ public interface RouterFactory {
      *
      * @param url url
      * @return router instance
+     * 会根据protocol属性值来确定要初始化哪一个确定的Router实现
      */
     @Adaptive("protocol")
     Router getRouter(URL url);

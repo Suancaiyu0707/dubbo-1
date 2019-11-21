@@ -50,7 +50,32 @@ import static org.apache.dubbo.rpc.cluster.Constants.RUNTIME_KEY;
 
 /**
  * ConditionRouter
+ *  条件路由。支持以服务或Consumer应用为粒度配置路由规则。
  *
+ * app1的消费者只能消费所有端口为20880的服务实例
+ * app2的消费者只能消费所有端口为20881的服务实例
+ *  应用粒度：
+ * scope: application  //表示路由规则的作用粒度，scope的取值会决定key的取值,必填。
+ * force: true
+ * runtime: true
+ * enabled: true
+ * key: apollo-consumer
+ * conditions:
+ *   - application=app1 => address=*:20880
+ *   - application=app2 => address=*:20881
+ *
+ *
+ * # HelloProviderService的sayHello方法只能消费所有端口为20880的服务实例
+ * # HelloProviderService的sayHi方法只能消费所有端口为20881的服务实例
+ * ---
+ * scope: service
+ * force: true
+ * runtime: true
+ * enabled: true
+ * key: com.springcloud.alibaba.service.HelloProviderService
+ * conditions:
+ *   - method=sayHello => address=*:20880
+ *   - method=sayHi => address=*:20881
  */
 public class ConditionRouter extends AbstractRouter {
     public static final String NAME = "condition";
@@ -165,21 +190,41 @@ public class ConditionRouter extends AbstractRouter {
         return condition;
     }
 
+    /**
+     *
+     * @param invokers   invoker list
+     * @param url        refer url
+     * @param invocation invocation
+     * @param <T>
+     * @return
+     * @throws RpcException
+     * 1、如果规则未启用，则直接返回
+     * 2、如果没有匹配的whenRule，或者请求的信息都不匹配whenrule，也就是不回触发路由规则，则直接返回invoker列表
+     * 3、如果thenRule规则为空，则返回空拒绝掉
+     * 4、遍历所有的invoker，一个个的规则匹配
+     * 5、如果存在满足规则过滤的invoker，则直接返回。如果不存在满足规则过滤的invoker，则判断force：
+     *      如果force=true，表示强制过滤，则返回空
+     *      如果force=false，表示非强制过滤，则返回全部的invoker列表
+     */
     @Override
     public <T> List<Invoker<T>> route(List<Invoker<T>> invokers, URL url, Invocation invocation)
             throws RpcException {
-        if (!enabled) {
+        if (!enabled) {//如果规则未启动，则直接返回
             return invokers;
         }
-
+        //如果服务提供者为空，则直接返回
         if (CollectionUtils.isEmpty(invokers)) {
             return invokers;
         }
         try {
+            //匹配 =>前的规则
+            //如果没有匹配的whenRule，或者请求的信息都不匹配whenrule，也就是不回触发路由规则，则直接返回invoker列表
             if (!matchWhen(url, invocation)) {
                 return invokers;
             }
+
             List<Invoker<T>> result = new ArrayList<Invoker<T>>();
+            //如果thenrule规则为空，则直接拒接掉
             if (thenCondition == null) {
                 logger.warn("The current consumer in the service blacklist. consumer: " + NetUtils.getLocalHost() + ", service: " + url.getServiceKey());
                 return result;
@@ -189,9 +234,11 @@ public class ConditionRouter extends AbstractRouter {
                     result.add(invoker);
                 }
             }
+
+            //如果存在满足规则过滤的invoker，则直接返回过滤后的invoker
             if (!result.isEmpty()) {
                 return result;
-            } else if (force) {
+            } else if (force) {//如果result是空的，且force，打印日志并返回空的，不如就走到最后一个return，返回原始invoker列表
                 logger.warn("The route result is empty and force execute. consumer: " + NetUtils.getLocalHost() + ", service: " + url.getServiceKey() + ", router: " + url.getParameterAndDecoded(RULE_KEY));
                 return result;
             }
@@ -213,8 +260,16 @@ public class ConditionRouter extends AbstractRouter {
         return url;
     }
 
+    /***
+     * 如果没有匹配的whenRule，或者请求的信息都不匹配whenrule，也就是不回触发路由规则，
+     * 那表示本次请求不需要走该规则过滤了，则返回false
+     * @param url
+     * @param invocation
+     * @return
+     */
     boolean matchWhen(URL url, Invocation invocation) {
-        return CollectionUtils.isEmptyMap(whenCondition) || matchCondition(whenCondition, url, null, invocation);
+        return CollectionUtils.isEmptyMap(whenCondition) //whenrule为空
+                || matchCondition(whenCondition, url, null, invocation);//没匹配上whenrule
     }
 
     private boolean matchThen(URL url, URL param) {
@@ -259,9 +314,17 @@ public class ConditionRouter extends AbstractRouter {
     }
 
     protected static final class MatchPair {
+        //缓存匹配的规则
         final Set<String> matches = new HashSet<String>();
+        //缓存不匹配的规则
         final Set<String> mismatches = new HashSet<String>();
 
+        /***
+         * 用于判断参数值是否匹配的上规则
+         * @param value
+         * @param param
+         * @return
+         */
         private boolean isMatch(String value, URL param) {
             if (!matches.isEmpty() && mismatches.isEmpty()) {
                 for (String match : matches) {

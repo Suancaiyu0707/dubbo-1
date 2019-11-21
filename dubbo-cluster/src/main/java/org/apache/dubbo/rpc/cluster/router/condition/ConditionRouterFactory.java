@@ -27,7 +27,7 @@ import org.apache.dubbo.rpc.cluster.RouterFactory;
 public class ConditionRouterFactory implements RouterFactory {
 
     public static final String NAME = "condition";
-
+    //创建一个条件路由
     @Override
     public Router getRouter(URL url) {
         return new ConditionRouter(url);

@@ -43,7 +43,21 @@ import java.util.stream.Collectors;
 
 /***
  * 根据tag标签进行过滤
+ *以Provider应用为粒度配置路由规则。
  *
+ * # apollo-provider应用增加了两个标签分组tag1和tag2
+ * # tag1包含一个实例 127.0.0.1:20880
+ * # tag2包含一个实例 127.0.0.1:20881
+ * ---
+ *   force: false
+ *   runtime: true
+ *   enabled: true
+ *   key: apollo-provider
+ *   tags:
+ *     - name: tag1
+ *       addresses: ["127.0.0.1:20880"]
+ *     - name: tag2
+ *       addresses: ["127.0.0.1:20881"]
  */
 public class TagRouterRule extends AbstractRouterRule {
     private List<Tag> tags;
