@@ -43,7 +43,7 @@ public class DirectChannelHandler extends WrappedChannelHandler {
      * 1、它会去判断当前消息是针对某条请求信息的响应吗？
      *      如果是针对某条发起消息的响应，则这边的返回getPreferredExecutorService，则返回的executor可能就是一个ThreadlessExecutor。
      *      如果不是某条消息响应消息，则获得实例的共享线程池，那么一定不是ThreadlessExecutor，则走到第二个分支里。直接交给direct IO线程执行了.
-     *      这样就保证了：所有消息都不派发到线程池，全部在 IO 线程上直接执行
+     *      这样就保证了：所有消息都不派发到线程池，全部在 IO 线程上直接执行0-
      */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {

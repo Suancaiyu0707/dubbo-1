@@ -27,6 +27,12 @@ public class ConnectionOrderedDispatcher implements Dispatcher {
 
     public static final String NAME = "connection";
 
+    /***
+     * 创建一个 ConnectionOrderedChannelHandler
+     * @param handler
+     * @param url
+     * @return
+     */
     @Override
     public ChannelHandler dispatch(ChannelHandler handler, URL url) {
         return new ConnectionOrderedChannelHandler(handler, url);

@@ -26,7 +26,7 @@ import org.apache.dubbo.remoting.Dispatcher;
 public class ExecutionDispatcher implements Dispatcher {
 
     public static final String NAME = "execution";
-
+    //新建一个 ExecutionChannelHandler
     @Override
     public ChannelHandler dispatch(ChannelHandler handler, URL url) {
         return new ExecutionChannelHandler(handler, url);

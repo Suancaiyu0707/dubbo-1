@@ -27,6 +27,12 @@ public class MessageOnlyDispatcher implements Dispatcher {
 
     public static final String NAME = "message";
 
+    /***
+     * 创建 生成一个 MessageOnlyChannelHandler
+     * @param handler
+     * @param url
+     * @return
+     */
     @Override
     public ChannelHandler dispatch(ChannelHandler handler, URL url) {
         return new MessageOnlyChannelHandler(handler, url);

@@ -52,9 +52,16 @@ public class ChannelEventRunnable implements Runnable {
 
     /***
      * 对接收的消息进行处理
+     * handler分别可能是：
+     *      DirectChannelHandler
+     *      AllChannelHandler
+     *      ConnectionOrderedDispatcher
+     *      MessageOnlyDispatcher
+     *      ExecutionDispatcher
      */
     @Override
     public void run() {
+        //如果是一个接收请求
         if (state == ChannelState.RECEIVED) {
             try {
                 handler.received(channel, message);
