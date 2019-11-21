@@ -27,6 +27,12 @@ public class DirectDispatcher implements Dispatcher {
 
     public static final String NAME = "direct";
 
+    /***
+     * 创建一个 DirectDispatcher
+     * @param handler
+     * @param url
+     * @return
+     */
     @Override
     public ChannelHandler dispatch(ChannelHandler handler, URL url) {
         return new DirectChannelHandler(handler, url);

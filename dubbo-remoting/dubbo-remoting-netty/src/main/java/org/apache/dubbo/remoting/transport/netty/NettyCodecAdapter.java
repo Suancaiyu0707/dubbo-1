@@ -41,6 +41,7 @@ import static org.apache.dubbo.remoting.Constants.MIN_BUFFER_SIZE;
 
 /**
  * NettyCodecAdapter.
+ * 提供端请求解码
  */
 final class NettyCodecAdapter {
 

@@ -81,8 +81,17 @@ public class DefaultExecutorRepository implements ExecutorRepository {
         return executor;
     }
 
+    /***
+     *
+     * @param url
+     * @return
+     * ConcurrentMap<String, ConcurrentMap<Integer, ExecutorService>> data ：
+     *      String：是一个代表客户端或者服务端的key
+     *      Integer: 代表端口号
+     */
     public ExecutorService getExecutor(URL url) {
         String componentKey = EXECUTOR_SERVICE_COMPONENT_KEY;
+        //如果是一个消费端的话，则从
         if (CONSUMER_SIDE.equalsIgnoreCase(url.getParameter(SIDE_KEY))) {
             componentKey = CONSUMER_SIDE;
         }
@@ -90,7 +99,7 @@ public class DefaultExecutorRepository implements ExecutorRepository {
         if (executors == null) {
             return null;
         }
-
+        //获得端口号
         Integer portKey = url.getPort();
         ExecutorService executor = executors.get(portKey);
         if (executor != null) {

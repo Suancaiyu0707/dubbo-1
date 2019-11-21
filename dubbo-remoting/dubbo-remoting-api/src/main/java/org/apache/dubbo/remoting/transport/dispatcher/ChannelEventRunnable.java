@@ -50,6 +50,9 @@ public class ChannelEventRunnable implements Runnable {
         this.exception = exception;
     }
 
+    /***
+     * 对接收的消息进行处理
+     */
     @Override
     public void run() {
         if (state == ChannelState.RECEIVED) {
