@@ -29,7 +29,11 @@ import org.apache.dubbo.remoting.transport.dispatcher.WrappedChannelHandler;
 import java.util.concurrent.ExecutorService;
 
 public class DirectChannelHandler extends WrappedChannelHandler {
-
+    /**
+     *
+     * @param handler 通常是一个解码的 DecodeHandler
+     * @param url
+     */
     public DirectChannelHandler(ChannelHandler handler, URL url) {
         super(handler, url);
     }

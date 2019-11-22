@@ -29,7 +29,7 @@ public class AllDispatcher implements Dispatcher {
 
     /***
      * 创建一个AllChannelHandler
-     * @param handler
+     * @param handler：通常是一个DecodeHandler
      * @param url
      * @return
      */

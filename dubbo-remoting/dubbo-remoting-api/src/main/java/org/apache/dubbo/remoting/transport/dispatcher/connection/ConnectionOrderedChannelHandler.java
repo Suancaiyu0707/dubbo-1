@@ -45,6 +45,11 @@ public class ConnectionOrderedChannelHandler extends WrappedChannelHandler {
     protected final ThreadPoolExecutor connectionExecutor;
     private final int queuewarninglimit;
 
+    /**
+     *
+     * @param handler 通常是一个解码的 DecodeHandler
+     * @param url
+     */
     public ConnectionOrderedChannelHandler(ChannelHandler handler, URL url) {
         super(handler, url);
         String threadName = url.getParameter(THREAD_NAME_KEY, DEFAULT_THREAD_NAME);

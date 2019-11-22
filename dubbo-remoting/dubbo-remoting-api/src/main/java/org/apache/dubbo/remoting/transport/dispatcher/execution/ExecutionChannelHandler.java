@@ -35,7 +35,11 @@ import java.util.concurrent.RejectedExecutionException;
  * heartbeat will be directly executed by I/O thread.
  */
 public class ExecutionChannelHandler extends WrappedChannelHandler {
-
+    /**
+     *
+     * @param handler  通常是一个解码的 DecodeHandler
+     * @param url
+     */
     public ExecutionChannelHandler(ChannelHandler handler, URL url) {
         super(handler, url);
     }

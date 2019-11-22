@@ -156,10 +156,13 @@ public class DefaultFuture extends CompletableFuture<Object> {
 
     public static void received(Channel channel, Response response, boolean timeout) {
         try {
+            //根据响应id从本地内存里找到对应的占位符并移除
             DefaultFuture future = FUTURES.remove(response.getId());
+
             if (future != null) {
+                //判断是否等待响应超时
                 Timeout t = future.timeoutCheckTask;
-                if (!timeout) {
+                if (!timeout) {//如果超时
                     // decrease Time
                     t.cancel();
                 }

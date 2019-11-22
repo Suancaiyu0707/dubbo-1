@@ -120,6 +120,7 @@ public class WrappedChannelHandler implements ChannelHandlerDelegate {
      *
      * @param msg
      * @return
+     * 一个客户端NettyChannel一个线程池
      */
     public ExecutorService getPreferredExecutorService(Object msg) {
         //如果该消息是一条响应消息(说明此时当前是一个发起最初请求的consumer)

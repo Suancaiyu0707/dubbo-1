@@ -56,6 +56,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
     }
 
     static void handleResponse(Channel channel, Response response) throws RemotingException {
+        //再次判断不是心跳消息
         if (response != null && !response.isHeartbeat()) {
             DefaultFuture.received(channel, response);
         }
@@ -162,6 +163,12 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         }
     }
 
+    /**
+     * 接收到消息开始做吹
+     * @param channel channel.
+     * @param message message.
+     * @throws RemotingException
+     */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
         final ExchangeChannel exchangeChannel = HeaderExchangeChannel.getOrAddChannel(channel);
@@ -178,6 +185,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                 }
             }
         } else if (message instanceof Response) {
+            //处理响应结果，移除本地内存中对应的占位符
             handleResponse(channel, (Response) message);
         } else if (message instanceof String) {
             if (isClientSide(channel)) {

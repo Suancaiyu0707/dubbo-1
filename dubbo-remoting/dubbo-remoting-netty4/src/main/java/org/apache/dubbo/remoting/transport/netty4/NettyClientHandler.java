@@ -77,9 +77,16 @@ public class NettyClientHandler extends ChannelDuplexHandler {
         }
     }
 
+    /***
+     * 接收到客户端请求并处理
+     * @param ctx
+     * @param msg
+     * @throws Exception
+     */
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
+        //AbstractPeer.received
         handler.received(channel, msg);
     }
 

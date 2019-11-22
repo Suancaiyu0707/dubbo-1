@@ -61,8 +61,11 @@ public class ChannelEventRunnable implements Runnable {
      */
     @Override
     public void run() {
-        //如果是一个接收请求
+        //如果是一个请求消息(请求和响应)
         if (state == ChannelState.RECEIVED) {
+            //1、交给DecoderHandler 解码
+            //2、解码后的消息交给 HeaderExchangeHandler 处理
+            //  a、如果该消息是响应消息：如果本地内存针对当前的响应id保存了一个future的占位符，则移除
             try {
                 handler.received(channel, message);
             } catch (Exception e) {
@@ -73,6 +76,8 @@ public class ChannelEventRunnable implements Runnable {
             switch (state) {
             case CONNECTED:
                 try {
+                    //调用 DecodeHandler.connected->HeaderExchangeHandler.connected->DubboProtocolHandler
+                    //channel 是一个nettyChannel
                     handler.connected(channel);
                 } catch (Exception e) {
                     logger.warn("ChannelEventRunnable handle " + state + " operation error, channel is " + channel, e);

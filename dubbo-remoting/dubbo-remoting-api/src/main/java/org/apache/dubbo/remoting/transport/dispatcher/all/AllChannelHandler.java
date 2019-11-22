@@ -34,7 +34,11 @@ import java.util.concurrent.RejectedExecutionException;
  *      会接收所有的消息
  */
 public class AllChannelHandler extends WrappedChannelHandler {
-
+    /**
+     *
+     * @param handler 通常是一个解码的 DecodeHandler
+     * @param url
+     */
     public AllChannelHandler(ChannelHandler handler, URL url) {
         super(handler, url);
     }
@@ -64,10 +68,15 @@ public class AllChannelHandler extends WrappedChannelHandler {
      * @param channel
      * @param message
      * @throws RemotingException
+     * 1、获得共享线程池
+     *      默认一个channelhandler对应一个线程池。也就是一个服务一个
+     *      如果channelHandler不存在共享线程池，则返回公共的
+     * 2、
      */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
         //根据message获取线程池(如果是一条响应消息的话，则会交给发起请求时所在的线程池处理)
+        //这里要追
         ExecutorService executor = getPreferredExecutorService(message);
         try {
             executor.execute(new ChannelEventRunnable(channel, handler, ChannelState.RECEIVED, message));

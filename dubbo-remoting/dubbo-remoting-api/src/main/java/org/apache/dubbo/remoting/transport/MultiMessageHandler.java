@@ -40,6 +40,7 @@ public class MultiMessageHandler extends AbstractChannelHandlerDelegate {
                 handler.received(channel, obj);
             }
         } else {
+            //HeartbeatHandler
             handler.received(channel, message);
         }
     }

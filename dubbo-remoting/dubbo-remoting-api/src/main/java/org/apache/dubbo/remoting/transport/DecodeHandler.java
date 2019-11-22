@@ -26,6 +26,9 @@ import org.apache.dubbo.remoting.RemotingException;
 import org.apache.dubbo.remoting.exchange.Request;
 import org.apache.dubbo.remoting.exchange.Response;
 
+/***
+ * 对消息进行解码
+ */
 public class DecodeHandler extends AbstractChannelHandlerDelegate {
 
     private static final Logger log = LoggerFactory.getLogger(DecodeHandler.class);
@@ -34,23 +37,34 @@ public class DecodeHandler extends AbstractChannelHandlerDelegate {
         super(handler);
     }
 
+    /***
+     * 接收消息进行解码
+     * @param channel
+     * @param message
+     * @throws RemotingException
+     */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
+        //是否可解码消息，如果可解码的话，先解码
         if (message instanceof Decodeable) {
             decode(message);
         }
-
+        //如果是一个request的话，则对请求内容进行解码
         if (message instanceof Request) {
             decode(((Request) message).getData());
         }
-
+        //如果是一个Response的话，则对响应数据进行解码
         if (message instanceof Response) {
             decode(((Response) message).getResult());
         }
-
+        //解码之后交给HeaderExchangeHandler来处理
         handler.received(channel, message);
     }
 
+    /***
+     * 消息解码
+     * @param message
+     */
     private void decode(Object message) {
         if (message instanceof Decodeable) {
             try {
