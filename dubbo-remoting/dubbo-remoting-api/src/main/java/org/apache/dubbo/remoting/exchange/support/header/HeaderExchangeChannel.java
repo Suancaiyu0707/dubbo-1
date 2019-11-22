@@ -81,7 +81,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
             ch.removeAttribute(CHANNEL_KEY);
         }
     }
-
+    //发送消息
     @Override
     public void send(Object message) throws RemotingException {
         send(message, false);

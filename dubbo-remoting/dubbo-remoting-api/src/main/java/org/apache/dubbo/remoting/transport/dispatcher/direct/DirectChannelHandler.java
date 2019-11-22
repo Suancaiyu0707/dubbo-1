@@ -28,6 +28,9 @@ import org.apache.dubbo.remoting.transport.dispatcher.WrappedChannelHandler;
 
 import java.util.concurrent.ExecutorService;
 
+/**
+ * 所有消息都不派发到线程池，全部在 IO 线程上直接执行。
+ */
 public class DirectChannelHandler extends WrappedChannelHandler {
     /**
      *
@@ -61,6 +64,7 @@ public class DirectChannelHandler extends WrappedChannelHandler {
                 throw new ExecutionException(message, channel, getClass() + " error when process received event .", t);
             }
         } else {
+            //直接交给DecodeHandler处理，这里就没有交给业务线程池来处理
             handler.received(channel, message);
         }
     }
