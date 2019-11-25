@@ -64,24 +64,30 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
 
     /**
      * The service name
+     * 服务名称
      */
     protected String path;
 
     /**
      * The provider configuration
+     * 对应的服务提供者配置
      */
     protected ProviderConfig provider;
 
     /**
      * The providerIds
+     * 提供者id
      */
     protected String providerIds;
 
     /**
      * whether it is a GenericService
+     * 标记服务是否是一个泛化接口
      */
     protected volatile String generic;
-
+    /***
+     * 维护一个服务的元信息
+     */
     protected ServiceMetadata serviceMetadata;
 
     public ServiceConfigBase() {
@@ -156,6 +162,10 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
         return provider;
     }
 
+    /***
+     * 根据export属性判断是否需要暴露服务
+     * @return
+     */
     public boolean shouldExport() {
         Boolean export = getExport();
         // default value is true
@@ -201,6 +211,9 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
         return ref.getClass();
     }
 
+    /***
+     *    初始化provider、module、registries、protocols、configCenter等配置
+     */
     public void completeCompoundConfigs() {
         if (provider != null) {
             if (application == null) {

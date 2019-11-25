@@ -49,6 +49,7 @@ public abstract class AbstractCacheFactory implements CacheFactory {
      * @param url url of the method
      * @param invocation invocation context.
      * @return Instance of cache store used as storage for caching return values.
+     * 将请求的url对象转成一个string的key，然后判断本地内存里是否保留了对应的缓存对象，如果没有，则新建一个
      */
     @Override
     public Cache getCache(URL url, Invocation invocation) {
@@ -56,6 +57,11 @@ public abstract class AbstractCacheFactory implements CacheFactory {
         String key = url.toFullString();
         Cache cache = caches.get(key);
         if (cache == null) {
+            //createCache交给具体的缓存实现类实现，分别有：
+            //threadlocal=org.apache.dubbo.cache.support.threadlocal.ThreadLocalCacheFactory
+            //lru=org.apache.dubbo.cache.support.lru.LruCacheFactory
+            //jcache=org.apache.dubbo.cache.support.jcache.JCacheFactory
+            //expiring=org.apache.dubbo.cache.support.expiring.ExpiringCacheFactory
             caches.put(key, createCache(url));
             cache = caches.get(key);
         }

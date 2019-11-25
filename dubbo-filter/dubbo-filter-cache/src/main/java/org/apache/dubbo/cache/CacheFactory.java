@@ -26,6 +26,7 @@ import org.apache.dubbo.rpc.Invocation;
  * entry needs to be added in org.apache.dubbo.cache.CacheFactory file in a classpath META-INF sub directories.
  *
  * @see Cache
+ * 默认是lru缓存
  */
 @SPI("lru")
 public interface CacheFactory {

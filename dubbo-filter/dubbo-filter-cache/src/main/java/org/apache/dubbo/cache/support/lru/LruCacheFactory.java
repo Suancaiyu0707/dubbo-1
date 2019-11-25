@@ -35,6 +35,7 @@ public class LruCacheFactory extends AbstractCacheFactory {
      * @param url url of the method
      * @return ThreadLocalCache instance of cache
      */
+    //创建一个LRU的缓存对象，基于最近最少使用原则删除多余缓存，保持最热的数据被缓存。
     @Override
     protected Cache createCache(URL url) {
         return new LruCache(url);

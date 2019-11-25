@@ -79,6 +79,7 @@ public class ProtocolFilterWrapper implements Protocol {
                         Result asyncResult;
                         try {
                             //经过一系列的ListenableFilter进行过滤，然后调用AsyncToSyncInvoker.invoke
+                            //包括：CacheFilter.invoke
                             asyncResult = filter.invoke(next, invocation);
                         } catch (Exception e) {
                             if (filter instanceof ListenableFilter) {// Deprecated!

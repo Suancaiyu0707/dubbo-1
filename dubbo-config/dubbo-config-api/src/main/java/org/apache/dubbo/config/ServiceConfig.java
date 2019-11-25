@@ -189,6 +189,9 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         unexported = true;
     }
 
+    /**
+     * 暴露服务的入口
+     */
     public synchronized void export() {
         if (!shouldExport()) {
             return;

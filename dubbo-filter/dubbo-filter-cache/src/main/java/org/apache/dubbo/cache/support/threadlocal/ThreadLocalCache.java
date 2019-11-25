@@ -49,6 +49,7 @@ public class ThreadLocalCache implements Cache {
      * Taken URL as an argument to create an instance of ThreadLocalCache. In this version of implementation constructor
      * argument is not getting used in the scope of this class.
      * @param url
+     * 通过ThreadLocal绑定一个HashMap缓存对象
      */
     public ThreadLocalCache(URL url) {
         this.store = ThreadLocal.withInitial(HashMap::new);

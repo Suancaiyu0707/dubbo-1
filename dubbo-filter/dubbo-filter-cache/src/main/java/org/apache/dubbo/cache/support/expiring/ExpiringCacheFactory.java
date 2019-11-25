@@ -37,6 +37,7 @@ public class ExpiringCacheFactory extends AbstractCacheFactory {
      * @param url url of the method
      * @return ExpiringCache instance of cache
      */
+    //创建一个ExpiringCache
     @Override
     protected Cache createCache(URL url) {
         return new ExpiringCache(url);

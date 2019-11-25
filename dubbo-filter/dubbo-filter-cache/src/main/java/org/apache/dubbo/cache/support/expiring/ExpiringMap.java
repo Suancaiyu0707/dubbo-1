@@ -64,13 +64,19 @@ public class ExpiringMap<K, V> implements Map<K, V> {
         this(new ConcurrentHashMap<>(), timeToLive, expirationInterval);
     }
 
+    /***
+     * 初始化一个缓存对象 ExpiringMap
+     * @param delegateMap 存放缓存信息的 ConcurrentHashMap
+     * @param timeToLive key-value存活时间，默认3分钟
+     * @param expirationInterval 定时检查失效的时间
+     */
     private ExpiringMap(ConcurrentHashMap<K, ExpiryObject> delegateMap, int timeToLive, int expirationInterval) {
         this.delegateMap = delegateMap;
         this.expireThread = new ExpireThread();
         expireThread.setTimeToLive(timeToLive);
         expireThread.setExpirationInterval(expirationInterval);
     }
-
+    //向缓存里添加一个缓存对象
     @Override
     public V put(K key, V value) {
         ExpiryObject answer = delegateMap.put(key, new ExpiryObject(key, value, System.currentTimeMillis()));
@@ -79,7 +85,7 @@ public class ExpiringMap<K, V> implements Map<K, V> {
         }
         return answer.getValue();
     }
-
+    //从缓存中获取值
     @Override
     public V get(Object key) {
         ExpiryObject object = delegateMap.get(key);
@@ -89,7 +95,7 @@ public class ExpiringMap<K, V> implements Map<K, V> {
         }
         return null;
     }
-
+    //移除缓存中的值
     @Override
     public V remove(Object key) {
         ExpiryObject answer = delegateMap.remove(key);
@@ -197,6 +203,7 @@ public class ExpiringMap<K, V> implements Map<K, V> {
     private class ExpiryObject {
         private K key;
         private V value;
+        //当前key-value最近被访问的时间，用于计算是否过期
         private AtomicLong lastAccessTime;
 
         ExpiryObject(K key, V value, long lastAccessTime) {
@@ -248,7 +255,9 @@ public class ExpiringMap<K, V> implements Map<K, V> {
      * Background thread, periodically checking if the data is out of date
      */
     public class ExpireThread implements Runnable {
+        //定义key-value的过期时间
         private long timeToLiveMillis;
+        //定时检查key是否过期的轮询时间
         private long expirationIntervalMillis;
         private volatile boolean running = false;
         private final Thread expirerThread;
@@ -271,21 +280,26 @@ public class ExpiringMap<K, V> implements Map<K, V> {
         @Override
         public void run() {
             while (running) {
+                //清理过期的key-value
                 processExpires();
                 try {
+                    //轮询的定时时间，默认每隔4s扫描一次
                     Thread.sleep(expirationIntervalMillis);
                 } catch (InterruptedException e) {
                     running = false;
                 }
             }
         }
-
+        //处理失效的key
+        //判断每一对key-value距离上次被访问的时间是否超过3分钟，是的话，表示过期了，则移除
         private void processExpires() {
             long timeNow = System.currentTimeMillis();
+            //遍历所有的缓存key-value
             for (ExpiryObject o : delegateMap.values()) {
                 if (timeToLiveMillis <= 0) {
                     continue;
                 }
+                //判断当前key-value距离上次被访问的时间是否超过3分钟，是的话，表示过期了，则移除
                 long timeIdle = timeNow - o.getLastAccessTime();
                 if (timeIdle >= timeToLiveMillis) {
                     delegateMap.remove(o.getKey());

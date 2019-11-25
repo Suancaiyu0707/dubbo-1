@@ -88,13 +88,22 @@ public class CacheFilter implements Filter {
      * @param invocation invocation.
      * @return Cache returned value if found by the underlying cache store. If cache miss it will call target method.
      * @throws RpcException
+     * 1、判断请求参数里包含：cache。为空的话不走缓存
+     * 2、缓存对象Cache是一个接口一个对象，这个Cache有点类似于map
+     *      检查某个请求是否存在缓存，首先会先根据服务找到Cache对象，再通过请求参数从Cache对象中查找对应的话缓存。
+     * 3、如果存在缓存，则直接返回。如果缓存里不存在，则调用远程服务，并把返回结果进行缓存。
+     * 4、如果不存在cache参数，直接调用远程服务
      */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        //判断请求参数cache不为空
         if (cacheFactory != null && ConfigUtils.isNotEmpty(invoker.getUrl().getMethodParameter(invocation.getMethodName(), CACHE_KEY))) {
+            //根据对应的缓存类型，查找或初始化一个Cache对象(一个接口一个Cache对象)
             Cache cache = cacheFactory.getCache(invoker.getUrl(), invocation);
             if (cache != null) {
+                //将请求参数转换成key
                 String key = StringUtils.toArgumentString(invocation.getArguments());
+                //检查cache中是否存在对应的缓存(请求参数要一致)
                 Object value = cache.get(key);
                 if (value != null) {
                     if (value instanceof ValueWrapper) {
@@ -103,6 +112,7 @@ public class CacheFilter implements Filter {
                         return AsyncRpcResult.newDefaultAsyncResult(value, invocation);
                     }
                 }
+                //调用远程服务
                 Result result = invoker.invoke(invocation);
                 if (!result.hasException()) {
                     cache.put(key, new ValueWrapper(result.getValue()));
@@ -110,6 +120,7 @@ public class CacheFilter implements Filter {
                 return result;
             }
         }
+        //调用远程服务
         return invoker.invoke(invocation);
     }
 

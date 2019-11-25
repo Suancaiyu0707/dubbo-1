@@ -39,16 +39,20 @@ import java.util.Map;
  * @see ExpiringCacheFactory
  * @see org.apache.dubbo.cache.support.AbstractCacheFactory
  * @see org.apache.dubbo.cache.filter.CacheFilter
+ * 根据定义的时间来创建缓存对象，默认失效时间3分钟
  */
 public class ExpiringCache implements Cache {
     private final Map<Object, Object> store;
 
     public ExpiringCache(URL url) {
         // cache time (second)
+        //缓存对象中的key-value的存活时间，默认是3分钟
         final int secondsToLive = url.getParameter("cache.seconds", 180);
-        // Cache check interval (second)
+        // 内部绑定了一个线程，定时检查缓存失效的时间间隔，默认是4s一次
         final int intervalSeconds = url.getParameter("cache.interval", 4);
+        //初始化一个缓存对象 expiringMap，底层是一个ConcurrentHashMap
         ExpiringMap<Object, Object> expiringMap = new ExpiringMap<>(secondsToLive, intervalSeconds);
+        //启动内部绑定的用于检查当前缓存是否失效的线程
         expiringMap.getExpireThread().startExpiryIfNotStarted();
         this.store = expiringMap;
     }
@@ -57,6 +61,7 @@ public class ExpiringCache implements Cache {
      * API to store value against a key in the calling thread scope.
      * @param key  Unique identifier for the object being store.
      * @param value Value getting store
+     *  添加一个元素
      */
     @Override
     public void put(Object key, Object value) {
@@ -67,6 +72,7 @@ public class ExpiringCache implements Cache {
      * API to return stored value using a key against the calling thread specific store.
      * @param key Unique identifier for cache lookup
      * @return Return stored object against key
+     * 获得一个元素
      */
 
     @Override

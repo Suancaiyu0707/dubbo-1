@@ -20,6 +20,14 @@ import java.util.LinkedHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/***
+ * LRUCache 继承了 LinkedHashMap ，其中 LinkedHashMap 是基于链表的实现，并提供了钩子函数removeEldestEntry。
+ *  removeEldestEntry的返回值用于判断每次向集合中添加函数时是否应该删除最少访问的元素。这里当缓存值达到1000的时候，
+ *  这个方法会返回true，链表会把头部节点删除。链表每次添加数据时，都会在队列尾部添加，因此队列头部是最少访问的数据。
+ *  在更新时，也会把更新数据更新到列表尾部。
+ * @param <K>
+ * @param <V>
+ */
 public class LRUCache<K, V> extends LinkedHashMap<K, V> {
 
     private static final long serialVersionUID = -5167631809472116969L;

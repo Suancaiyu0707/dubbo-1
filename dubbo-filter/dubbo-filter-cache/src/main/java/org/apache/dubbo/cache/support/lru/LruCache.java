@@ -51,6 +51,10 @@ public class LruCache implements Cache {
      * Initialize LruCache, it uses constructor argument <b>cache.size</b> value as its storage max size.
      *  If nothing is provided then it will use 1000 as default value.
      * @param url A valid URL instance
+     *  LRUCache 继承了 LinkedHashMap ，其中 LinkedHashMap 是基于链表的实现，并提供了钩子函数removeEldestEntry。
+     *  removeEldestEntry的返回值用于判断每次向集合中添加函数时是否应该删除最少访问的元素。这里当缓存值达到1000的时候，
+     *  这个方法会返回true，链表会把头部节点删除。链表每次添加数据时，都会在队列尾部添加，因此队列头部是最少访问的数据。
+     *  在更新时，也会把更新数据更新到列表尾部。
      */
     public LruCache(URL url) {
         final int max = url.getParameter("cache.size", 1000);
@@ -61,6 +65,8 @@ public class LruCache implements Cache {
      * API to store value against a key in the calling thread scope.
      * @param key  Unique identifier for the object being store.
      * @param value Value getting store
+     * 向LRUCache中添加一个元素
+     *
      */
     @Override
     public void put(Object key, Object value) {
@@ -71,6 +77,7 @@ public class LruCache implements Cache {
      * API to return stored value using a key against the calling thread specific store.
      * @param key Unique identifier for cache lookup
      * @return Return stored object against key
+     * 向LRUCache中获取一个元素
      */
     @Override
     public Object get(Object key) {

@@ -40,6 +40,7 @@ public class JCacheFactory extends AbstractCacheFactory {
      * @param url url of the method
      * @return JCache instance of cache
      */
+    //创建一个jcache，用于桥接各种缓存实现
     @Override
     protected Cache createCache(URL url) {
         return new JCache(url);
