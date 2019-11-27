@@ -37,6 +37,21 @@ import static org.apache.dubbo.common.constants.CommonConstants.SERVICE_FILTER_K
 
 /**
  * ListenerProtocol
+ *org.apache.dubbo.rpc.Filter：
+ * echo=org.apache.dubbo.rpc.filter.EchoFilter
+ * generic=org.apache.dubbo.rpc.filter.GenericFilter
+ * genericimpl=org.apache.dubbo.rpc.filter.GenericImplFilter
+ * token=org.apache.dubbo.rpc.filter.TokenFilter
+ * accesslog=org.apache.dubbo.rpc.filter.AccessLogFilter
+ * activelimit=org.apache.dubbo.rpc.filter.ActiveLimitFilter
+ * classloader=org.apache.dubbo.rpc.filter.ClassLoaderFilter
+ * context=org.apache.dubbo.rpc.filter.ContextFilter
+ * consumercontext=org.apache.dubbo.rpc.filter.ConsumerContextFilter
+ * exception=org.apache.dubbo.rpc.filter.ExceptionFilter
+ * executelimit=org.apache.dubbo.rpc.filter.ExecuteLimitFilter
+ * deprecated=org.apache.dubbo.rpc.filter.DeprecatedFilter
+ * compatible=org.apache.dubbo.rpc.filter.CompatibleFilter
+ * timeout=org.apache.dubbo.rpc.filter.TimeoutFilter
  */
 public class ProtocolFilterWrapper implements Protocol {
 
@@ -49,16 +64,28 @@ public class ProtocolFilterWrapper implements Protocol {
         this.protocol = protocol;
     }
 
+    /***
+     * 创建调用链
+     * @param invoker url
+     * @param key  reference.filter 或 service.filter
+     * @param group CONSUMER或PROVIDER
+     * @param <T>
+     * @return
+     * 1、根据key从invoker的url里解析对应的属性值
+     * 2、根据key的值和group过滤获得Filter对应的实现类(实现类在org.apache.dubbo.rpc.Filter里添加，采用SPI)
+     */
     private static <T> Invoker<T> buildInvokerChain(final Invoker<T> invoker, String key, String group) {
         Invoker<T> last = invoker;
-        List<Filter> filters = ExtensionLoader.getExtensionLoader(Filter.class).getActivateExtension(invoker.getUrl(), key, group);
-
+        //根据key的值和group过滤获得Filter对应的实现类(实现类在org.apache.dubbo.rpc.Filter里添加，采用SPI)
+        List<Filter> filters = ExtensionLoader.getExtensionLoader(Filter.class)//获得Filter的拓展类加载器
+                .getActivateExtension(invoker.getUrl(), key, group);
+        //如果满足条件的filers不为空
         if (!filters.isEmpty()) {
             for (int i = filters.size() - 1; i >= 0; i--) {
                 final Filter filter = filters.get(i);
                 final Invoker<T> next = last;
                 last = new Invoker<T>() {
-
+                    //获得待过滤的服务的接口
                     @Override
                     public Class<T> getInterface() {
                         return invoker.getInterface();
@@ -78,8 +105,7 @@ public class ProtocolFilterWrapper implements Protocol {
                     public Result invoke(Invocation invocation) throws RpcException {
                         Result asyncResult;
                         try {
-                            //经过一系列的ListenableFilter进行过滤，然后调用AsyncToSyncInvoker.invoke
-                            //包括：CacheFilter.invoke
+                            //调用过滤器执行
                             asyncResult = filter.invoke(next, invocation);
                         } catch (Exception e) {
                             if (filter instanceof ListenableFilter) {// Deprecated!

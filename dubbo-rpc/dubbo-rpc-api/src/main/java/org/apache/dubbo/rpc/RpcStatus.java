@@ -36,8 +36,11 @@ public class RpcStatus {
 
     private static final ConcurrentMap<String, ConcurrentMap<String, RpcStatus>> METHOD_STATISTICS = new ConcurrentHashMap<String, ConcurrentMap<String, RpcStatus>>();
     private final ConcurrentMap<String, Object> values = new ConcurrentHashMap<String, Object>();
+    //活跃数，也就是保持链接的请求数
     private final AtomicInteger active = new AtomicInteger();
+    //总数
     private final AtomicLong total = new AtomicLong();
+    //失败数
     private final AtomicInteger failed = new AtomicInteger();
     private final AtomicLong totalElapsed = new AtomicLong();
     private final AtomicLong failedElapsed = new AtomicLong();
@@ -49,11 +52,19 @@ public class RpcStatus {
     }
 
     /**
+     * 获得服务的统计对象 RpcStatus
      * @param url
      * @return status
+     * 1、获得服务的uri：protocol://username:password@host:port/path
+     * 2、检查本地内存，获得服务的统计信息 RpcStatus
+     * 3、如果本地内存不存在服务的统计对象，则新建一个，不然直接获取
      */
     public static RpcStatus getStatus(URL url) {
+        /**
+         * protocol://username:password@host:port/path
+         */
         String uri = url.toIdentityString();
+        //获得对应服务的统计信息
         RpcStatus status = SERVICE_STATISTICS.get(uri);
         if (status == null) {
             SERVICE_STATISTICS.putIfAbsent(uri, new RpcStatus());
@@ -71,12 +82,20 @@ public class RpcStatus {
     }
 
     /**
-     * @param url
-     * @param methodName
-     * @return status
+     * @param url url
+     * @param methodName 方法名
+     * @return status 状态
+     * 1、根据返回 url获得对应uri
+     *      protocol://username:password@host:port/path
+     * 2、根据uri获得当前客户端对于某个服务的条用统计信息 map
+     * 3、根据方法名从map获得指定方法的统计状态 RpcStatus
      */
     public static RpcStatus getStatus(URL url, String methodName) {
+        // protocol://username:password@host:port/path
         String uri = url.toIdentityString();
+        //根据uri获得uri的方法统计信息,返回一个map
+        //key：methodName
+        //value：RpcStatus(RpcStatus包含了各种状态的统计信息)
         ConcurrentMap<String, RpcStatus> map = METHOD_STATISTICS.get(uri);
         if (map == null) {
             METHOD_STATISTICS.putIfAbsent(uri, new ConcurrentHashMap<String, RpcStatus>());
@@ -106,7 +125,12 @@ public class RpcStatus {
     }
 
     /**
-     * @param url
+     * @param url url
+     * @param methodName 统计的方法名
+     * @param max 允许的最大并行请求数
+     * 1、根据服务，从本地内存获取服务调用状态的统计对象 RpcStatus
+     * 2、判断保持链接的请求数是否超过指定的最大值.
+     * 3、维护统计信息
      */
     public static boolean beginCount(URL url, String methodName, int max) {
         max = (max <= 0) ? Integer.MAX_VALUE : max;
@@ -115,6 +139,7 @@ public class RpcStatus {
         if (methodStatus.active.get() == Integer.MAX_VALUE) {
             return false;
         }
+        //判断保持链接的请求数是否超过指定的最大值.
         if (methodStatus.active.incrementAndGet() > max) {
             methodStatus.active.decrementAndGet();
             return false;

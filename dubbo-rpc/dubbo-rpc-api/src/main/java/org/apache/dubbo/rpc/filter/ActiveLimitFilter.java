@@ -41,16 +41,31 @@ import static org.apache.dubbo.rpc.Constants.ACTIVES_KEY;
  *
  * @see Filter
  */
+
+/***
+ * 使用方：消费者
+ * 用于限制消费者端对服务端的最大并行调用数
+ */
 @Activate(group = CONSUMER, value = ACTIVES_KEY)
 public class ActiveLimitFilter implements Filter, Filter.Listener {
 
     private static final String ACTIVELIMIT_FILTER_START_TIME = "activelimit_filter_start_time";
 
+    /***
+     *
+     * @param invoker
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、获得url、method方法名、actives属性
+     * 2、根据url和方法，获得方法调用的统计信息 RpcStatus
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         URL url = invoker.getUrl();
         String methodName = invocation.getMethodName();
         int max = invoker.getUrl().getMethodParameter(methodName, ACTIVES_KEY, 0);
+        //根据url和方法，获得方法调用的统计信息
         final RpcStatus rpcStatus = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName());
         if (!RpcStatus.beginCount(url, methodName, max)) {
             long timeout = invoker.getUrl().getMethodParameter(invocation.getMethodName(), TIMEOUT_KEY, 0);

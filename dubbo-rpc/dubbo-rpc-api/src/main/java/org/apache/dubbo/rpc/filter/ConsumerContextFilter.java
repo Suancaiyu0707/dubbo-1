@@ -37,6 +37,11 @@ import static org.apache.dubbo.common.constants.CommonConstants.REMOTE_APPLICATI
  * @see org.apache.dubbo.rpc.Filter
  * @see RpcContext
  */
+
+/**
+ * 使用法：消费者
+ * 为消费者把一些上下文信息设置到当前线程的RpcContext中
+ */
 @Activate(group = CONSUMER, order = -10000)
 public class ConsumerContextFilter implements Filter {
 

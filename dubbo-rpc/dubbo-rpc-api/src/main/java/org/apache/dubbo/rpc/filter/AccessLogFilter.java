@@ -62,6 +62,11 @@ import static org.apache.dubbo.rpc.Constants.ACCESS_LOG_KEY;
  * &lt;/logger&gt;
  * </pre></code>
  */
+
+/***
+ * 使用方是服务提供者
+ * 用于打印每一次请求的访问日志。会创建一个定时任务，每隔5秒刷新一次日志
+ */
 @Activate(group = PROVIDER, value = ACCESS_LOG_KEY)
 public class AccessLogFilter implements Filter {
 
@@ -85,6 +90,7 @@ public class AccessLogFilter implements Filter {
     /**
      * Default constructor initialize demon thread for writing into access log file with names with access log key
      * defined in url <b>accesslog</b>
+     * 创建一个定时任务，每隔5秒刷新一次日志
      */
     public AccessLogFilter() {
         LOG_SCHEDULED.scheduleWithFixedDelay(this::writeLogToFile, LOG_OUTPUT_INTERVAL, LOG_OUTPUT_INTERVAL, TimeUnit.MILLISECONDS);
@@ -101,9 +107,13 @@ public class AccessLogFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {
         try {
+            //获得提供者配置日志key,通过accesslog属性指定
             String accessLogKey = invoker.getUrl().getParameter(ACCESS_LOG_KEY);
+            //如果配置了accesslog，则创建一条调用日志
             if (ConfigUtils.isNotEmpty(accessLogKey)) {
+                //创建一条日志
                 AccessLogData logData = buildAccessLogData(invoker, inv);
+                //根据accessLogKey聚合日志
                 log(accessLogKey, logData);
             }
         } catch (Throwable t) {
@@ -112,6 +122,12 @@ public class AccessLogFilter implements Filter {
         return invoker.invoke(inv);
     }
 
+    /**
+     * 将日志写入缓冲区(缓冲区最大只有5000个，满了直接就丢弃掉)
+     * @param accessLog 日志key
+     * @param accessLogData  日志key需要添加的数据
+     *
+     */
     private void log(String accessLog, AccessLogData accessLogData) {
         Set<AccessLogData> logSet = LOG_ENTRIES.computeIfAbsent(accessLog, k -> new ConcurrentHashSet<>());
 
@@ -123,6 +139,10 @@ public class AccessLogFilter implements Filter {
         }
     }
 
+    /***
+     * 1、如果缓冲区LOG_ENTRIES不为空
+     * 2、如果缓冲区不为空，遍历缓冲区，并将日志写到磁盘中
+     */
     private void writeLogToFile() {
         if (!LOG_ENTRIES.isEmpty()) {
             for (Map.Entry<String, Set<AccessLogData>> entry : LOG_ENTRIES.entrySet()) {
@@ -160,15 +180,21 @@ public class AccessLogFilter implements Filter {
         }
     }
 
+    /***
+     * 创建调用日志
+     * @param invoker
+     * @param inv
+     * @return
+     */
     private AccessLogData buildAccessLogData(Invoker<?> invoker, Invocation inv) {
         AccessLogData logData = AccessLogData.newLogData();
-        logData.setServiceName(invoker.getInterface().getName());
-        logData.setMethodName(inv.getMethodName());
-        logData.setVersion(invoker.getUrl().getParameter(VERSION_KEY));
-        logData.setGroup(invoker.getUrl().getParameter(GROUP_KEY));
-        logData.setInvocationTime(new Date());
-        logData.setTypes(inv.getParameterTypes());
-        logData.setArguments(inv.getArguments());
+        logData.setServiceName(invoker.getInterface().getName());//接口名称
+        logData.setMethodName(inv.getMethodName());//方法名称
+        logData.setVersion(invoker.getUrl().getParameter(VERSION_KEY));//版本
+        logData.setGroup(invoker.getUrl().getParameter(GROUP_KEY));//group组信息
+        logData.setInvocationTime(new Date());//日期
+        logData.setTypes(inv.getParameterTypes());//参数类型
+        logData.setArguments(inv.getArguments());//参数值
         return logData;
     }
 

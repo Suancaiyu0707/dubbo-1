@@ -36,6 +36,11 @@ import static org.apache.dubbo.rpc.Constants.TOKEN_KEY;
  *
  * @see Filter
  */
+
+/***
+ * 使用方：服务提供者
+ * 服务提供者下发令牌给消费者，通常用于防止消费者绕过注册中心直接调用服务提供者
+ */
 @Activate(group = CommonConstants.PROVIDER, value = TOKEN_KEY)
 public class TokenFilter implements Filter {
 

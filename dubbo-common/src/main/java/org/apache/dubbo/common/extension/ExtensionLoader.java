@@ -116,6 +116,13 @@ public class ExtensionLoader<T> {
         return type.isAnnotationPresent(SPI.class);
     }
 
+    /***
+     * 根据接口类型，获取对应的拓展类加载器，用于加载拓展类。
+     * 接口的拓展类加载器会放到内存里
+     * @param type
+     * @param <T>
+     * @return
+     */
     @SuppressWarnings("unchecked")
     public static <T> ExtensionLoader<T> getExtensionLoader(Class<T> type) {
         if (type == null) {
@@ -204,14 +211,18 @@ public class ExtensionLoader<T> {
     /**
      * This is equivalent to {@code getActivateExtension(url, url.getParameter(key).split(","), null)}
      *
-     * @param url   url
-     * @param key   url parameter key which used to get extension point names
+     * @param url   请求的url
+     * @param key   用于从请求url获取指定key的值，再根据这个值获取对应的拓展类
      * @param group group
      * @return extension list which are activated.
      * @see #getActivateExtension(org.apache.dubbo.common.URL, String[], String)
+     * 1、从url中获取指定的key的值
+     * 2、根据key的值获得激活的拓展类
      */
+
     public List<T> getActivateExtension(URL url, String key, String group) {
         String value = url.getParameter(key);
+        //根据key的值获得激活的拓展类
         return getActivateExtension(url, StringUtils.isEmpty(value) ? null : COMMA_SPLIT_PATTERN.split(value), group);
     }
 
@@ -227,14 +238,14 @@ public class ExtensionLoader<T> {
     public List<T> getActivateExtension(URL url, String[] values, String group) {
         List<T> exts = new ArrayList<>();
         List<String> names = values == null ? new ArrayList<>(0) : Arrays.asList(values);
-        if (!names.contains(REMOVE_VALUE_PREFIX + DEFAULT_KEY)) {
+        if (!names.contains(REMOVE_VALUE_PREFIX + DEFAULT_KEY)) {//如果names不包含'-default'
             getExtensionClasses();
             for (Map.Entry<String, Object> entry : cachedActivates.entrySet()) {
                 String name = entry.getKey();
                 Object activate = entry.getValue();
 
                 String[] activateGroup, activateValue;
-
+                //分析Activate注解的value和group
                 if (activate instanceof Activate) {
                     activateGroup = ((Activate) activate).group();
                     activateValue = ((Activate) activate).value();
@@ -244,6 +255,7 @@ public class ExtensionLoader<T> {
                 } else {
                     continue;
                 }
+                //判断group是否匹配
                 if (isMatchGroup(group, activateGroup)
                         && !names.contains(name)
                         && !names.contains(REMOVE_VALUE_PREFIX + name)

@@ -36,6 +36,11 @@ import static org.apache.dubbo.rpc.Constants.EXECUTES_KEY;
  * continue the same behaviour un till it is <10.
  *
  */
+
+/***
+ * 使用方：服务提供者
+ * 用于限制服务端的最大并行数
+ */
 @Activate(group = CommonConstants.PROVIDER, value = EXECUTES_KEY)
 public class ExecuteLimitFilter implements Filter, Filter.Listener {
 

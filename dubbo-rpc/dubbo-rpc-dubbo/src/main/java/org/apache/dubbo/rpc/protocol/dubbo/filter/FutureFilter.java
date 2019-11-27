@@ -35,6 +35,8 @@ import static org.apache.dubbo.common.constants.CommonConstants.$INVOKE;
 
 /**
  * EventFilter
+ * 使用方：服务消费者
+ * 在发起invoker或得到返回值、出现异常时触发回调事件
  */
 @Activate(group = CommonConstants.CONSUMER)
 public class FutureFilter implements Filter, Filter.Listener {

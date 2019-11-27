@@ -45,6 +45,11 @@ import static org.apache.dubbo.remoting.Constants.SERIALIZATION_KEY;
  * @see Filter
  *
  */
+
+/***
+ * 用于返回值与调用程序的对象版本兼容，默认不启用。
+ * 如果启用，则会把JSON或fastjson类型的返回值转换成map类型
+ */
 public class CompatibleFilter implements Filter, Filter.Listener {
 
     private static Logger logger = LoggerFactory.getLogger(CompatibleFilter.class);

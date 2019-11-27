@@ -51,25 +51,40 @@ import static org.apache.dubbo.rpc.Constants.GENERIC_KEY;
 
 /**
  * GenericInvokerFilter.
+ * 使用方：服务消费者
+ * 用于服务消费端，实现泛化调用，实现序列化的检查和处理
  */
 @Activate(group = CommonConstants.PROVIDER, order = -20000)
 public class GenericFilter implements Filter, Filter.Listener {
-
+    /***
+     * 会处理泛化调用的信息
+     * @param invoker
+     * @param inv
+     * @return
+     * @throws RpcException
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {
         if ((inv.getMethodName().equals($INVOKE) || inv.getMethodName().equals($INVOKE_ASYNC))
                 && inv.getArguments() != null
                 && inv.getArguments().length == 3
                 && !GenericService.class.isAssignableFrom(invoker.getInterface())) {
+            //获得方法名
             String name = ((String) inv.getArguments()[0]).trim();
+            //获得方法参数类型
             String[] types = (String[]) inv.getArguments()[1];
+            //获得方法参数
             Object[] args = (Object[]) inv.getArguments()[2];
             try {
+                //通过方法签名查找真正的接口方法
                 Method method = ReflectUtils.findMethodByMethodSignature(invoker.getInterface(), name, types);
+                //获得查找到的接口方法的参数类型数组
                 Class<?>[] params = method.getParameterTypes();
                 if (args == null) {
+                    //根据参数类型数组初始化一个空数组代表入参
                     args = new Object[params.length];
                 }
+                //获取generic参数
                 String generic = (String) inv.getAttachment(GENERIC_KEY);
 
                 if (StringUtils.isBlank(generic)) {

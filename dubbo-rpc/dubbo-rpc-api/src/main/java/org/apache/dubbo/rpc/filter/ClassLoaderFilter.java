@@ -27,6 +27,11 @@ import org.apache.dubbo.rpc.RpcException;
 /**
  * Set the current execution thread class loader to service interface's class loader.
  */
+
+/***
+ * 使用方：服务提供者
+ * 用于切换不同线程池的类加载器，服务调用完成后会切换回去
+ */
 @Activate(group = CommonConstants.PROVIDER, order = -30000)
 public class ClassLoaderFilter implements Filter {
 
