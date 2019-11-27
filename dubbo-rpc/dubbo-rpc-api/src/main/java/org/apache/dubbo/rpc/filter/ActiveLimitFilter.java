@@ -59,6 +59,11 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
      * @throws RpcException
      * 1、获得url、method方法名、actives属性
      * 2、根据url和方法，获得方法调用的统计信息 RpcStatus
+     * 3、判断当前服务的客户端请求是否超过限制的最大并行数
+     * 4、如果当前客户端的请求数超过客户端最大的限制，则调用wait 挂起等待，最大等待时间可以通过timeout来配置，不然不等待。直接返回
+     *   那么这个挂起的等待会在什么时候被唤醒的呢？
+     *   a、对应的url执行成功，会唤醒这个rpcStatus
+     *   b、对应的url执行错误，也会唤醒这个rpcStatus
      */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
@@ -67,13 +72,23 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
         int max = invoker.getUrl().getMethodParameter(methodName, ACTIVES_KEY, 0);
         //根据url和方法，获得方法调用的统计信息
         final RpcStatus rpcStatus = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName());
+        //判断当前服务的客户端请求是否超过限制的最大并行数
         if (!RpcStatus.beginCount(url, methodName, max)) {
+            //获得 timeout 配置
             long timeout = invoker.getUrl().getMethodParameter(invocation.getMethodName(), TIMEOUT_KEY, 0);
+            //计算开始时间
             long start = System.currentTimeMillis();
             long remain = timeout;
             synchronized (rpcStatus) {
+                //校验当前是否可以获得请求的信号，如果拿不到，则等待。最大等待时间remain.
+                // 这个等待在什么以后唤醒呢？
+                //   1、对应的url执行成功，会唤醒这个rpcStatus
+                //   2、对应的url执行错误，也会唤醒这个rpcStatus
                 while (!RpcStatus.beginCount(url, methodName, max)) {
                     try {
+                        //等待获取当前信号。这个等待在什么以后唤醒呢？
+                        //  1、对应的url执行成功，会唤醒这个rpcStatus
+                        //  2、对应的url执行错误，也会唤醒这个rpcStatus
                         rpcStatus.wait(remain);
                     } catch (InterruptedException e) {
                         // ignore
@@ -96,6 +111,16 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
         return invoker.invoke(invocation);
     }
 
+    /***
+     * 请求正常结束后
+     * 1、会更新对应的url的RpcStatus统计信息：
+     *      active： 活跃数减1
+     * 2、唤醒上面url对应的被阻塞挂起等待的请求
+     *
+     * @param appResponse
+     * @param invoker
+     * @param invocation
+     */
     @Override
     public void onMessage(Result appResponse, Invoker<?> invoker, Invocation invocation) {
         String methodName = invocation.getMethodName();
@@ -103,9 +128,18 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
         int max = invoker.getUrl().getMethodParameter(methodName, ACTIVES_KEY, 0);
 
         RpcStatus.endCount(url, methodName, getElapsed(invocation), true);
+        //则会释放连接数，唤醒url、methodName对应的RpcStatus
         notifyFinish(RpcStatus.getStatus(url, methodName), max);
     }
-
+    /***
+     * 请求异常结束后
+     * 1、会更新对应的url的RpcStatus统计信息：
+     *      active： 活跃数减1
+     * 2、唤醒上面url对应的被阻塞挂起等待的请求
+     *
+     * @param invoker
+     * @param invocation
+     */
     @Override
     public void onError(Throwable t, Invoker<?> invoker, Invocation invocation) {
         String methodName = invocation.getMethodName();
@@ -119,6 +153,7 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
             }
         }
         RpcStatus.endCount(url, methodName, getElapsed(invocation), false);
+        //如果请求异常了，则会释放连接数，唤醒url、methodName对应的RpcStatus
         notifyFinish(RpcStatus.getStatus(url, methodName), max);
     }
 
@@ -127,6 +162,11 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
         return beginTime != null ? System.currentTimeMillis() - (Long) beginTime : 0;
     }
 
+    /***
+     * 为什么会唤醒所有的等待的请求，让这些请求继续抢占资源
+     * @param rpcStatus
+     * @param max
+     */
     private void notifyFinish(final RpcStatus rpcStatus, int max) {
         if (max > 0) {
             synchronized (rpcStatus) {

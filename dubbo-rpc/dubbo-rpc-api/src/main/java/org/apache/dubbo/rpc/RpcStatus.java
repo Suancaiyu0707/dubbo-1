@@ -131,6 +131,7 @@ public class RpcStatus {
      * 1、根据服务，从本地内存获取服务调用状态的统计对象 RpcStatus
      * 2、判断保持链接的请求数是否超过指定的最大值.
      * 3、维护统计信息
+     * 4、如果成功通过校验，则返回true，否则返回false
      */
     public static boolean beginCount(URL url, String methodName, int max) {
         max = (max <= 0) ? Integer.MAX_VALUE : max;

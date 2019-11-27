@@ -1337,7 +1337,7 @@ class URL implements Serializable {
      * @param useService
      * @param parameters
      * @return
-     * protocol://username:password@host:port/ServiceKey?parameters
+     *
      */
     private String buildString(boolean appendUser, boolean appendParameter, boolean useIP, boolean useService, String... parameters) {
         StringBuilder buf = new StringBuilder();
@@ -1370,6 +1370,7 @@ class URL implements Serializable {
         if (useService) {
             path = getServiceKey();
         } else {
+            //服务路径，不带具体信息
             path = getPath();
         }
         if (StringUtils.isNotEmpty(path)) {
