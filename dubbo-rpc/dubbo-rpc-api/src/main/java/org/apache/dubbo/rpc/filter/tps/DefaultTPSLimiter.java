@@ -36,6 +36,16 @@ public class DefaultTPSLimiter implements TPSLimiter {
 
     private final ConcurrentMap<String, StatItem> stats = new ConcurrentHashMap<String, StatItem>();
 
+    /***
+     *
+     * @param url        url
+     * @param invocation invocation
+     * @return
+     * 1、获取服务设置参数tps，默认-1
+     * 2、获取限流华东窗口时间，默认60s
+     * 3、根据服务名称获取统计信息对象 StatItem
+     * 4、从 StatItem 中尝试获取信号量，获取成功，则返回true，获取失败，则返回false
+     */
     @Override
     public boolean isAllowable(URL url, Invocation invocation) {
         int rate = url.getParameter(TPS_LIMIT_RATE_KEY, -1);

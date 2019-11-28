@@ -62,6 +62,7 @@ public class GenericFilter implements Filter, Filter.Listener {
      * @param inv
      * @return
      * @throws RpcException
+     * 1、从泛化参数里拿到所有的参数，重新组装一个Invocation，用于向真正的业务发起调用。
      */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {

@@ -43,7 +43,15 @@ import static org.apache.dubbo.rpc.Constants.TOKEN_KEY;
  */
 @Activate(group = CommonConstants.PROVIDER, value = TOKEN_KEY)
 public class TokenFilter implements Filter {
-
+    /***
+     *
+     * @param invoker
+     * @param inv
+     * @return
+     * @throws RpcException
+     * 1、从服务中获取token信息
+     * 2、如果token不为空，则判断请求过来的token是否等于服务设置的token,如果不匹配，则抛出异常。
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv)
             throws RpcException {

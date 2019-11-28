@@ -46,6 +46,16 @@ public class TpsLimitFilter implements Filter {
 
     private final TPSLimiter tpsLimiter = new DefaultTPSLimiter();
 
+    /***
+     *
+     * @param invoker
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、检查服务端是否设置了限流属性：tps
+     * 2、如果服务设置了tps，则会维护一个StatsItem,这个StatsItem是一个服务一个对象。
+     *  每个StatsItem维护了一个滑动窗口大小，以及滑动窗口内服务调用次数，并判断是否对本次服务的调用进行限流
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
 

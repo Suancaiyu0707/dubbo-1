@@ -46,11 +46,24 @@ public class ExecuteLimitFilter implements Filter, Filter.Listener {
 
     private static final String EXECUTELIMIT_FILTER_START_TIME = "execugtelimit_filter_start_time";
 
+    /***
+     * 用于限制服务端的最大并行数
+     * @param invoker
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、获取服务提供者的url和调用方法
+     * 2、从提供者的url里获取当前调用方法最大的并行数
+     * 3、开始统计当前方法的活跃的并行数是否超过限制，如果是的话，则拒绝当前请求，抛出异常。
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        //获取服务提供者的url和调用方法
         URL url = invoker.getUrl();
         String methodName = invocation.getMethodName();
+        //从提供者的url里获取当前调用方法最大的并行数
         int max = url.getMethodParameter(methodName, EXECUTES_KEY, 0);
+        //开始统计当前方法的活跃的并行数是否超过限制，如果是的话，则拒绝当前请求，抛出异常
         if (!RpcStatus.beginCount(url, methodName, max)) {
             throw new RpcException(RpcException.LIMIT_EXCEEDED_EXCEPTION,
                     "Failed to invoke method " + invocation.getMethodName() + " in provider " +
@@ -70,11 +83,23 @@ public class ExecuteLimitFilter implements Filter, Filter.Listener {
         }
     }
 
+    /***
+     * 如果服务调用成功，则更新活跃的并行数
+     * @param appResponse
+     * @param invoker
+     * @param invocation
+     */
     @Override
     public void onMessage(Result appResponse, Invoker<?> invoker, Invocation invocation) {
         RpcStatus.endCount(invoker.getUrl(), invocation.getMethodName(), getElapsed(invocation), true);
     }
 
+    /***
+     * 如果服务调用失败，则更新活跃的并行数
+     * @param t
+     * @param invoker
+     * @param invocation
+     */
     @Override
     public void onError(Throwable t, Invoker<?> invoker, Invocation invocation) {
         if (t instanceof RpcException) {

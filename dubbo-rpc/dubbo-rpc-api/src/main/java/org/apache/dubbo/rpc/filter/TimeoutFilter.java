@@ -40,12 +40,27 @@ public class TimeoutFilter implements Filter, Filter.Listener {
 
     private static final String TIMEOUT_FILTER_START_TIME = "timeout_filter_start_time";
 
+    /***
+     * 服务发起请求，设置请求开始时间，比向过滤链传递
+     * @param invoker
+     * @param invocation
+     * @return
+     * @throws RpcException
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         invocation.put(TIMEOUT_FILTER_START_TIME, System.currentTimeMillis());
         return invoker.invoke(invocation);
     }
 
+    /***
+     *
+     * @param appResponse
+     * @param invoker
+     * @param invocation
+     * 1、服务请求响应后，根据上面打下的调用开始时间的标记，计算本次调用的耗时。
+     * 2、如果调用耗时超过设置的timeout，则打出warn日志。
+     */
     @Override
     public void onMessage(Result appResponse, Invoker<?> invoker, Invocation invocation) {
         Object startTime = invocation.get(TIMEOUT_FILTER_START_TIME);
