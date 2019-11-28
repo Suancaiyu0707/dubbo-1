@@ -34,7 +34,15 @@ import org.apache.dubbo.rpc.RpcException;
  */
 @Activate(group = CommonConstants.PROVIDER, order = -30000)
 public class ClassLoaderFilter implements Filter {
-
+    /***
+     *
+     * @param invoker
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、设置当前线程的类加载器为调用服务的类加载器
+     * 2、服务调用完成后，加当前线程的类加载器设置回去
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         ClassLoader ocl = Thread.currentThread().getContextClassLoader();

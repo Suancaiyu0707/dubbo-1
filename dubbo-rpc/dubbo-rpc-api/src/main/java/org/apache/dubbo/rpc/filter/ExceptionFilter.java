@@ -57,17 +57,30 @@ public class ExceptionFilter implements Filter, Filter.Listener {
         return invoker.invoke(invocation);
     }
 
+    /***
+     * 服务调用相应后会走到这边，会在这里对异常进行统一处理。
+     * @param appResponse
+     * @param invoker
+     * @param invocation
+     * 1、如果响应存在异常，且不是泛化调用
+     *      a、如果当前异常不是运行期exception.则忽略。
+     *      b、检查产生的异常是否在调用方法里申明外抛了，如果是的话，不进行统一处理。
+     *      c、如果异常和接口是同一个类，则直接继续往外抛，不做任何处理。
+     *      d、如果是一个jdk内置的异常，也直接外抛，不做任何处理。
+     *      e、如果是一个Dubbo的异常RpcException,则也直接往外抛
+     *      f、除以上集中情况之外，其它的异常都会被包装为运行期异常然后继续往外抛。
+     */
     @Override
     public void onMessage(Result appResponse, Invoker<?> invoker, Invocation invocation) {
         if (appResponse.hasException() && GenericService.class != invoker.getInterface()) {
             try {
                 Throwable exception = appResponse.getException();
 
-                // directly throw if it's checked exception
+                // 如果当前异常不是运行期exception.则忽略。
                 if (!(exception instanceof RuntimeException) && (exception instanceof Exception)) {
                     return;
                 }
-                // directly throw if the exception appears in the signature
+                // 根据请求方法名和参数类型查找对应的方法对象。然后检查调用返回的异常是否在方法里指定外抛，如果外抛，则不对该异常统一处理
                 try {
                     Method method = invoker.getInterface().getMethod(invocation.getMethodName(), invocation.getParameterTypes());
                     Class<?>[] exceptionClassses = method.getExceptionTypes();

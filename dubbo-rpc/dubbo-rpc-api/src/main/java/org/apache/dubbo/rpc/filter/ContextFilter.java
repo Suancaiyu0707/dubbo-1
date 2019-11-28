@@ -57,6 +57,23 @@ import static org.apache.dubbo.rpc.Constants.TOKEN_KEY;
 public class ContextFilter implements Filter, Filter.Listener {
     private static final String TAG_KEY = "dubbo.tag";
 
+    /***
+     *
+     * @param invoker
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、为提供者把一些上下文的信息设置到当前线程的RpcContext中
+     * 2、如果隐式参数不为空，则先移除一些额外的参数，这些参数包括：
+     *      path：服务路径
+     *      interface：服务名
+     *      group：组
+     *      token：认证信息
+     *      timeout：超时时间
+     *      async：异步标志
+     *      tag：tag过滤标签
+     *
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         Map<String, Object> attachments = invocation.getAttachments();

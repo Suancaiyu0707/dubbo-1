@@ -40,11 +40,23 @@ import static org.apache.dubbo.common.constants.CommonConstants.REMOTE_APPLICATI
 
 /**
  * 使用法：消费者
- * 为消费者把一些上下文信息设置到当前线程的RpcContext中
+ * 为消费者把一些上下文信息设置到当前线程的RpcContext中，RpcContext会传到服务端
  */
 @Activate(group = CONSUMER, order = -10000)
 public class ConsumerContextFilter implements Filter {
-
+    /***
+     *
+     * @param invoker
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、设置消费者的当前线程的RpcContext，RpcContext会传到服务端
+     *      invoker：调用服务信息
+     *      localAddress：客户端host
+     *      remoteAddress：远程服务地址
+     *      remoteApplicationName：远程服务应用
+     *      attachment：remote.application设置为
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         RpcContext.getContext()

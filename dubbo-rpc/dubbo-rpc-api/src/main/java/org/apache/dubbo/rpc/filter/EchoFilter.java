@@ -37,7 +37,15 @@ import static org.apache.dubbo.rpc.Constants.$ECHO;
  */
 @Activate(group = CommonConstants.PROVIDER, order = -110000)
 public class EchoFilter implements Filter {
-
+    /***
+     *
+     * @param invoker
+     * @param inv
+     * @return
+     * @throws RpcException
+     * 1、如果是回声测试调用，则直接返回一个异步结果对象。
+     * 2、如果不是回声测试的，则继续下过滤链传递
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {
 

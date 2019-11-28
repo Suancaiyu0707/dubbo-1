@@ -59,6 +59,16 @@ public class CompatibleFilter implements Filter, Filter.Listener {
         return invoker.invoke(invocation);
     }
 
+    /****
+     *
+     * @param appResponse
+     * @param invoker
+     * @param invocation
+     * 1、判断调用方法是不带'$'
+     * 2、根据调用方法名和请求参数找到相应的调用方法
+     * 3、如果调用服务的url类里将序列化设置为json或者fastjson，则将返回类型转换成map
+     * 4、如果返回值和方法返回类型不匹配，则进行返回类型转换
+     */
     @Override
     public void onMessage(Result appResponse, Invoker<?> invoker, Invocation invocation) {
         if (!invocation.getMethodName().startsWith("$") && !appResponse.hasException()) {
@@ -66,7 +76,7 @@ public class CompatibleFilter implements Filter, Filter.Listener {
             if (value != null) {
                 try {
                     Method method = invoker.getInterface().getMethod(invocation.getMethodName(), invocation.getParameterTypes());
-                    Class<?> type = method.getReturnType();
+                    Class<?> type = method.getReturnType();//返回的返回类型
                     Object newValue;
                     String serialization = invoker.getUrl().getParameter(SERIALIZATION_KEY);
                     if ("json".equals(serialization) || "fastjson".equals(serialization)) {
