@@ -7,9 +7,9 @@ import org.apache.dubbo.common.utils.StringUtils;
  */
 public class ServiceDescriptor {
     public static final char COLON_SEPERATOR = ':';
-
+    //org.apache.dubbo.demo.HelloService
     protected String serviceKey;
-    protected String serviceInterfaceName;
+    protected String serviceInterfaceName;//org.apache.dubbo.demo.HelloService
     protected String version;
     protected volatile String group;
 

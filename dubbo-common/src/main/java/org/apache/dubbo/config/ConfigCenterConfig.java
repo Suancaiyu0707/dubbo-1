@@ -91,7 +91,14 @@ public class ConfigCenterConfig extends AbstractConfig {
 
     public URL toUrl() {
         Map<String, String> map = new HashMap<>();
-        appendParameters(map, this);
+        //0 = {HashMap$Node@2916} "protocol" -> "zookeeper"
+        //1 = {HashMap$Node@2917} "config-file" -> "dubbo.properties"
+        //2 = {HashMap$Node@2918} "client" -> "null"
+        //3 = {HashMap$Node@2919} "check" -> "true"
+        //4 = {HashMap$Node@2920} "highest-priority" -> "false"
+        //5 = {HashMap$Node@2921} "timeout" -> "3000"
+        //6 = {HashMap$Node@2922} "group" -> "dubbo"
+        appendParameters(map, this);//解析
         if (StringUtils.isEmpty(address)) {
             address = ANYHOST_VALUE;
         }

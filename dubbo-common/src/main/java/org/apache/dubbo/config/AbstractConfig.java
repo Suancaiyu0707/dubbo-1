@@ -112,29 +112,49 @@ public abstract class AbstractConfig implements Serializable {
     public static void appendParameters(Map<String, String> parameters, Object config) {
         appendParameters(parameters, config, null);
     }
-
+    /***
+     * 该方法主要是返回一个解析config配置对象，并存储到parameters，到时候会根据map集合拼凑URL
+     * @param parameters
+     * @param config config配置对象
+     * @param prefix 属性前缀，用于配置项添加到 parameters 中时的前缀
+     *  <p>
+     *
+     *       本方法主要是通过反射来读取config对象的get/is方法，并获得属性和值，并以key-value的存储方式存放到一个map中，以便拼凑url
+     *       过滤的方法：
+     *               返回类型是Object
+     *               返回类型不是基本类型的
+     *               非public方法
+     *               参数个数大于0
+     *               方法上配置parameter注解且设置excelued=true
+     *  </p>
+     */
     @SuppressWarnings("unchecked")
     public static void appendParameters(Map<String, String> parameters, Object config, String prefix) {
         if (config == null) {
             return;
         }
-        Method[] methods = config.getClass().getMethods();
-        for (Method method : methods) {
+        Method[] methods = config.getClass().getMethods();//获取类所有的方法
+        for (Method method : methods) {//遍历类方法
             try {
-                String name = method.getName();
-                if (MethodUtils.isGetter(method)) {
+                String name = method.getName();//获取方法名
+                if (MethodUtils.isGetter(method)) {//检查get方法是否合法
+                    //如果方法上有 Parameter注解且配置了属性excelued=true，则跳过该参数
                     Parameter parameter = method.getAnnotation(Parameter.class);
-                    if (method.getReturnType() == Object.class || parameter != null && parameter.excluded()) {
+                    if (method.getReturnType() == Object.class || (parameter != null && parameter.excluded())) {
                         continue;
                     }
                     String key;
+                    //如果配置了parameter注解，且设置了key,则map的key就用指定的属性key。否则直接从get方法上获取key
                     if (parameter != null && parameter.key().length() > 0) {
                         key = parameter.key();
                     } else {
                         key = calculatePropertyFromGetter(name);
                     }
+                    //获取对象config上的对应的属性值
                     Object value = method.invoke(config);
                     String str = String.valueOf(value).trim();
+                    //如果通过parameter注解指定了该方法的escaped=true，则要对值进行编码。
+                    //如果通过parameter注解指定了该方法的append=true，也就是允许为同一个属性设置多个值，则用逗号分割拼接
                     if (value != null && str.length() > 0) {
                         if (parameter != null && parameter.escaped()) {
                             str = URL.encode(str);
@@ -145,14 +165,17 @@ public abstract class AbstractConfig implements Serializable {
                                 str = pre + "," + str;
                             }
                         }
+                        //是否要对对应种类的属性加前缀
                         if (prefix != null && prefix.length() > 0) {
                             key = prefix + "." + key;
                         }
+                        //将key-value放到一个map里
                         parameters.put(key, str);
                     } else if (parameter != null && parameter.required()) {
                         throw new IllegalStateException(config.getClass().getSimpleName() + "." + key + " == null");
                     }
-                } else if (isParametersGetter(method)) {
+                } else if (isParametersGetter(method)) {//如果时候getParameters方法
+                    //调用config 的getParameters方法，并返回一个Map
                     Map<String, String> map = (Map<String, String>) method.invoke(config, new Object[0]);
                     parameters.putAll(convert(map, prefix));
                 }
@@ -451,7 +474,7 @@ public abstract class AbstractConfig implements Serializable {
     }
 
     public void refresh() {
-        Environment env = ApplicationModel.getEnvironment();
+        Environment env = ApplicationModel.getEnvironment();//获得环境变量
         try {
             CompositeConfiguration compositeConfiguration = env.getConfiguration(getPrefix(), getId());
             Configuration config = new ConfigConfigurationAdapter(this);

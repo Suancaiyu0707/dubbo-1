@@ -20,7 +20,16 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
 public class MethodUtils {
-
+    /***
+     * 检查set方法前缀：
+     *      set开头
+     *      && 方法名不叫: set
+     *      && 方法权限是 public
+     *      && 方法有入参只有一个
+     *      && 且方法参数类型是：String、Character、Boolean、Byte、Short、Integer、Long、Float、Double、Object
+     * @param method
+     * @return
+     */
     public static boolean isSetter(Method method) {
         return method.getName().startsWith("set")
                 && !"set".equals(method.getName())
@@ -29,6 +38,17 @@ public class MethodUtils {
                 && ClassUtils.isPrimitive(method.getParameterTypes()[0]);
     }
 
+    /***
+     * 检查get方法的前缀：
+     *      get或is开头
+     *      && 方法名不叫: get、is、getClass、getObject
+     *      && 方法权限是 public
+     *      && 方法有返回参数
+     *      && 且方法返回类型是：String、Character、Boolean、Byte、Short、Integer、Long、Float、Double、Object
+     * @param method
+     * @return
+     *
+     */
     public static boolean isGetter(Method method) {
         String name = method.getName();
         return (name.startsWith("get") || name.startsWith("is"))

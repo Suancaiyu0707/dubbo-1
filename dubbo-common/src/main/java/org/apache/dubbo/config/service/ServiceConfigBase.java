@@ -47,30 +47,30 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
 
     private static final long serialVersionUID = 3033787999037024738L;
 
-    /**
+    /** org.apache.dubbo.demo.HelloService
      * The interface name of the exported service
      */
     protected String interfaceName;
 
-    /**
+    /** interface org.apache.dubbo.demo.HelloService
      * The interface class of the exported service
      */
     protected Class<?> interfaceClass;
 
-    /**
+    /** 实例对象
      * The reference of the interface implementation
      */
     protected T ref;
 
     /**
      * The service name
-     * 服务名称
+     * 服务名称 org.apache.dubbo.demo.HelloService
      */
     protected String path;
 
     /**
      * The provider configuration
-     * 对应的服务提供者配置
+     * 对应的服务提供者配置 <dubbo:provider dynamic="true" deprecated="false" valid="true" prefix="dubbo.provider" />
      */
     protected ProviderConfig provider;
 
@@ -167,11 +167,11 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
      * @return
      */
     public boolean shouldExport() {
-        Boolean export = getExport();
+        Boolean export = getExport();//返回provider的export属性
         // default value is true
         return export == null ? true : export;
     }
-
+    //
     @Override
     public Boolean getExport() {
         return (export == null && provider != null) ? provider.getExport() : export;

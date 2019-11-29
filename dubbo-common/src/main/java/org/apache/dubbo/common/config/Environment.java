@@ -120,18 +120,25 @@ public class Environment extends LifecycleAdapter implements FrameworkExt {
      * Otherwise, if use cache, we should make sure each Config has a unique id which is difficult to guarantee because is on the user's side,
      * especially when it comes to ServiceConfig and ReferenceConfig.
      *
-     * @param prefix
-     * @param id
+     * @param prefix dubbo.service.org.apache.dubbo.demo.DemoService
+     * @param id org.apache.dubbo.demo.DemoService
      * @return
+     *  根据服务名和服务id分别从多个地方查找当前服务的配置：
+     *      配置中心->环境变量->
      */
     public CompositeConfiguration getConfiguration(String prefix, String id) {
         CompositeConfiguration compositeConfiguration = new CompositeConfiguration();
         // Config center has the highest priority
         compositeConfiguration.addConfiguration(this.getSystemConfig(prefix, id));
+
         compositeConfiguration.addConfiguration(this.getEnvironmentConfig(prefix, id));
+
         compositeConfiguration.addConfiguration(this.getAppExternalConfig(prefix, id));
+
         compositeConfiguration.addConfiguration(this.getExternalConfig(prefix, id));
+
         compositeConfiguration.addConfiguration(this.getPropertiesConfig(prefix, id));
+
         return compositeConfiguration;
     }
 

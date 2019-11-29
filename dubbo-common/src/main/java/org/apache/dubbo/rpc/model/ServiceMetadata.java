@@ -31,9 +31,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ServiceMetadata extends ServiceDescriptor {
 
     private String defaultGroup;
-    private Class<?> serviceType;
+    private Class<?> serviceType;//eg：interface org.apache.dubbo.demo.HelloService
 
-    private Object target;
+    private Object target;//绑定的具体的被代理对象
 
     /* will be transferred to remote side */
     private final Map<String, Object> attachments = new ConcurrentHashMap<String, Object>();

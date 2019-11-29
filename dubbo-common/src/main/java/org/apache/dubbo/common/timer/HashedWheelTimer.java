@@ -76,6 +76,10 @@ import java.util.concurrent.atomic.AtomicLong;
  * and Hierarchical Timing Wheels: data structures to efficiently implement a
  * timer facility'</a>.  More comprehensive slides are located
  * <a href="http://www.cse.wustl.edu/~cdgill/courses/cs6874/TimingWheels.ppt">here</a>.
+ *
+ * 不提供准确的定时执行任务的功能，也就是不能指定几点几分几秒准时执行某个任务，而是在每个tick（也就是时间轮的一个“时间槽”）中，
+ * 检测是否存在TimerTask已经落后于当前时间，如果是则执行它。
+ * 我们可以通过设定更小或更大的tick duration（时间槽的持续时间），来提高或降低执行时间的准确率。
  */
 public class HashedWheelTimer implements Timer {
 
@@ -85,18 +89,24 @@ public class HashedWheelTimer implements Timer {
     public static final String NAME = "hased";
 
     private static final Logger logger = LoggerFactory.getLogger(HashedWheelTimer.class);
-
+    // 实例计数器，用于记录创建了多少个本类的对象
     private static final AtomicInteger INSTANCE_COUNTER = new AtomicInteger();
+    // 用于对象数超过限制时的告警
     private static final AtomicBoolean WARNED_TOO_MANY_INSTANCES = new AtomicBoolean();
+    // 实例上限
     private static final int INSTANCE_COUNT_LIMIT = 64;
+    // 原子化更新workState变量的工具
     private static final AtomicIntegerFieldUpdater<HashedWheelTimer> WORKER_STATE_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(HashedWheelTimer.class, "workerState");
-
+    // 推动时间轮运转的执行类
     private final Worker worker = new Worker();
+    // 绑定的执行线程
     private final Thread workerThread;
-
+    // WORKER初始化状态
     private static final int WORKER_STATE_INIT = 0;
+    // WORKER已开始状态
     private static final int WORKER_STATE_STARTED = 1;
+    // WORKER已停止状态
     private static final int WORKER_STATE_SHUTDOWN = 2;
 
     /**
@@ -104,16 +114,23 @@ public class HashedWheelTimer implements Timer {
      */
     @SuppressWarnings({"unused", "FieldMayBeFinal"})
     private volatile int workerState;
-
+    // 时间槽持续时间
     private final long tickDuration;
+    // 时间槽数组
     private final HashedWheelBucket[] wheel;
+    // 计算任务应该放到哪个时间槽时使用的掩码
     private final int mask;
+    // 线程任务同步工具
     private final CountDownLatch startTimeInitialized = new CountDownLatch(1);
+    // 保存任务调度的队列
     private final Queue<HashedWheelTimeout> timeouts = new LinkedBlockingQueue<>();
+    // 已取消的任务调度队列
     private final Queue<HashedWheelTimeout> cancelledTimeouts = new LinkedBlockingQueue<>();
+    // 等待中的任务调度数量
     private final AtomicLong pendingTimeouts = new AtomicLong(0);
+    // 最大等待任务调度数量
     private final long maxPendingTimeouts;
-
+    // 时间轮的初始时间
     private volatile long startTime;
 
     /**

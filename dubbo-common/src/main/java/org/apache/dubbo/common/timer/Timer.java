@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Schedules {@link TimerTask}s for one-time future execution in a background
  * thread.
+ * 调度器
  */
 public interface Timer {
 
@@ -34,6 +35,7 @@ public interface Timer {
      * @throws IllegalStateException      if this timer has been {@linkplain #stop() stopped} already
      * @throws RejectedExecutionException if the pending timeouts are too many and creating new timeout
      *                                    can cause instability in the system.
+     * 把一个任务交给调度器执行
      */
     Timeout newTimeout(TimerTask task, long delay, TimeUnit unit);
 
@@ -43,6 +45,7 @@ public interface Timer {
      *
      * @return the handles associated with the tasks which were canceled by
      * this method
+     * 停止调度器的运行
      */
     Set<Timeout> stop();
 
@@ -50,6 +53,7 @@ public interface Timer {
      * the timer is stop
      *
      * @return true for stop
+     * 它有一个isStop方法，用来判断这个调度器是否停止运行
      */
     boolean isStop();
 }

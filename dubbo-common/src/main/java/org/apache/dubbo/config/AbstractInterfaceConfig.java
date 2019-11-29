@@ -170,7 +170,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
         loadRegistriesFromBackwardConfig();
 
         convertRegistryIdsToRegistries();
-
+        //遍历注册中心，必须都是有效的
         for (RegistryConfig registryConfig : registries) {
             if (!registryConfig.isValid()) {
                 throw new IllegalStateException("No registry config found or it's not a valid config! " +
@@ -262,7 +262,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
     }
 
     private void convertRegistryIdsToRegistries() {
-        computeValidRegistryIds();
+        computeValidRegistryIds();//校验注册中心的id
         if (StringUtils.isEmpty(registryIds)) {
             if (CollectionUtils.isEmpty(registries)) {
                 List<RegistryConfig> registryConfigs = ApplicationModel.getConfigManager().getDefaultRegistries();

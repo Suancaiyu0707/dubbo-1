@@ -193,7 +193,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
      * 暴露服务的入口
      */
     public synchronized void export() {
-        if (!shouldExport()) {
+        if (!shouldExport()) {//检查是否需要暴露服务
             return;
         }
 
@@ -402,16 +402,16 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 }
             } // end of methods for
         }
-
+        //判断是否是泛化类型的服务，是否指定了 'generic' 属性
         if (ProtocolUtils.isGeneric(generic)) {
             map.put(GENERIC_KEY, generic);
             map.put(METHODS_KEY, ANY_VALUE);
         } else {
-            String revision = Version.getVersion(interfaceClass, version);
+            String revision = Version.getVersion(interfaceClass, version);//获得版本号
             if (revision != null && revision.length() > 0) {
                 map.put(REVISION_KEY, revision);
             }
-
+            //获取接口所有方法名称列表，不包含来自Object对象的方法。然后用','拼接
             String[] methods = Wrapper.getWrapper(interfaceClass).getMethodNames();
             if (methods.length == 0) {
                 logger.warn("No method found in service interface " + interfaceClass.getName());
@@ -420,20 +420,20 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 map.put(METHODS_KEY, StringUtils.join(new HashSet<String>(Arrays.asList(methods)), ","));
             }
         }
-        if (!ConfigUtils.isEmpty(token)) {
-            if (ConfigUtils.isDefault(token)) {
+        if (!ConfigUtils.isEmpty(token)) {//判断提供者服务是否配置了token
+            if (ConfigUtils.isDefault(token)) {//如果token=true或者token=default，则为服务分配一个随机值
                 map.put(TOKEN_KEY, UUID.randomUUID().toString());
             } else {
                 map.put(TOKEN_KEY, token);
             }
         }
-        //init serviceMetadata attachments
+        //init serviceMetadata attachments 根据上面的参数，初始化隐参
         serviceMetadata.getAttachments().putAll(map);
-
-        // export service
-        String host = findConfigedHosts(protocolConfig, registryURLs, map);
+        //protocolConfig：<dubbo:protocol name="dubbo" valid="true" id="dubbo" prefix="dubbo.protocols." />
+        // registryURLs： registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=78763&qos.port=22222&registry=zookeeper&timestamp=1574988712664
+        String host = findConfigedHosts(protocolConfig, registryURLs, map);//获得配置的地址，默认本机地址 192.168.0.103
         Integer port = findConfigedPorts(protocolConfig, name, map);
-        URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);
+        URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);//dubbo://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
 
         // You can customize Configurator to append extra parameters
         if (ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
@@ -444,27 +444,27 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
         String scope = url.getParameter(SCOPE_KEY);
         // don't export when none is configured
-        if (!SCOPE_NONE.equalsIgnoreCase(scope)) {
+        if (!SCOPE_NONE.equalsIgnoreCase(scope)) {//如果scope=none，则不暴露url配置
 
             // export to local if the config is not remote (export to remote only when config is remote)
-            if (!SCOPE_REMOTE.equalsIgnoreCase(scope)) {
+            if (!SCOPE_REMOTE.equalsIgnoreCase(scope)) {//如果sopce未配置为remote，则先进行本地暴露(方便本地直连测试)
                 exportLocal(url);
             }
             // export to remote if the config is not local (export to local only when config is local)
-            if (!SCOPE_LOCAL.equalsIgnoreCase(scope)) {
-                if (CollectionUtils.isNotEmpty(registryURLs)) {
-                    for (URL registryURL : registryURLs) {
+            if (!SCOPE_LOCAL.equalsIgnoreCase(scope)) {//如果scope未配置为local，则开始远程暴露
+                if (CollectionUtils.isNotEmpty(registryURLs)) {//如果注册中心不为空
+                    for (URL registryURL : registryURLs) {//遍历注册中心
                         //if protocol is only injvm ,not register
-                        if (LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {
+                        if (LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {//如果注册中心的协议是dubbo，则不远程暴露
                             continue;
-                        }
+                        }//根据注册中心的dynamic为url添加dynamic配置
                         url = url.addParameterIfAbsent(DYNAMIC_KEY, registryURL.getParameter(DYNAMIC_KEY));
-                        URL monitorUrl = ConfigValidationUtils.loadMonitor(this, registryURL);
+                        URL monitorUrl = ConfigValidationUtils.loadMonitor(this, registryURL);//获得监控中心地址
                         if (monitorUrl != null) {
                             url = url.addParameterAndEncoded(MONITOR_KEY, monitorUrl.toFullString());
                         }
                         if (logger.isInfoEnabled()) {
-                            if (url.getParameter(REGISTER_KEY, true)) {
+                            if (url.getParameter(REGISTER_KEY, true)) {//从url中获取register属性，默认是true
                                 logger.info("Register dubbo service " + interfaceClass.getName() + " url " + url + " to registry " + registryURL);
                             } else {
                                 logger.info("Export dubbo service " + interfaceClass.getName() + " to url " + url);
@@ -472,14 +472,14 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                         }
 
                         // For providers, this is used to enable custom proxy to generate invoker
-                        String proxy = url.getParameter(PROXY_KEY);
+                        String proxy = url.getParameter(PROXY_KEY);//从url中获取 proxy 属性
                         if (StringUtils.isNotEmpty(proxy)) {
                             registryURL = registryURL.addParameter(PROXY_KEY, proxy);
                         }
-
+                        //代理对象工厂会根据接口服务和url创建一个Invoker对象
                         Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
-
+                        //利用 protocol 将服务暴露注册到注册中心上，这里默认的是：RegistryProtocol
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
                         exporters.add(exporter);
                     }
@@ -508,17 +508,17 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     /**
-     * always export injvm
+     * always export injvm 本地暴露
      */
-    private void exportLocal(URL url) {
+    private void exportLocal(URL url) {//旧的：url=dubbo://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
         URL local = URLBuilder.from(url)
-                .setProtocol(LOCAL_PROTOCOL)
-                .setHost(LOCALHOST_VALUE)
+                .setProtocol(LOCAL_PROTOCOL)//固定是：injvm协议
+                .setHost(LOCALHOST_VALUE)//host：127.0.0.1
                 .setPort(0)
-                .build();
+                .build();//local：injvm://127.0.0.1/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
         Exporter<?> exporter = protocol.export(
                 PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, local));
-        exporters.add(exporter);
+        exporters.add(exporter);//缓存暴露的服务
         logger.info("Export dubbo service " + interfaceClass.getName() + " to local registry url : " + local);
     }
 
@@ -527,8 +527,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
      *
      * @return
      */
-    private boolean isOnlyInJvm() {
-        return getProtocols().size() == 1
+    private boolean isOnlyInJvm() {//检查是否只允许jvm内部访问
+        return getProtocols().size() == 1//如果只配置了一个protocol标签，且协议是injvm
                 && LOCAL_PROTOCOL.equalsIgnoreCase(getProtocols().get(0).getName());
     }
 
@@ -538,8 +538,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
      * Configuration priority: environment variables -> java system properties -> host property in config file ->
      * /etc/hosts -> default network address -> first available network address
      *
-     * @param protocolConfig
-     * @param registryURLs
+     * @param protocolConfig ：<dubbo:protocol name="dubbo" valid="true" id="dubbo" prefix="dubbo.protocols." />
+     * @param registryURLs：registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=78763&qos.port=22222&registry=zookeeper&timestamp=1574988712664
      * @param map
      * @return
      */
@@ -547,7 +547,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                                      List<URL> registryURLs,
                                      Map<String, String> map) {
         boolean anyhost = false;
-
+        //从协议protocolConfig获得DUBBO_IP_TO_BIND属性
         String hostToBind = getValueFromConfig(protocolConfig, DUBBO_IP_TO_BIND);
         if (hostToBind != null && hostToBind.length() > 0 && isInvalidLocalHost(hostToBind)) {
             throw new IllegalArgumentException("Specified invalid bind ip from property:" + DUBBO_IP_TO_BIND + ", value:" + hostToBind);
@@ -555,15 +555,15 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
         // if bind ip is not found in environment, keep looking up
         if (StringUtils.isEmpty(hostToBind)) {
-            hostToBind = protocolConfig.getHost();
+            hostToBind = protocolConfig.getHost();//从协议中获得host
             if (provider != null && StringUtils.isEmpty(hostToBind)) {
-                hostToBind = provider.getHost();
+                hostToBind = provider.getHost();//查找
             }
             if (isInvalidLocalHost(hostToBind)) {
                 anyhost = true;
                 try {
                     logger.info("No valid ip found from environment, try to find valid host from DNS.");
-                    hostToBind = InetAddress.getLocalHost().getHostAddress();
+                    hostToBind = InetAddress.getLocalHost().getHostAddress();//获得本机地址
                 } catch (UnknownHostException e) {
                     logger.warn(e.getMessage(), e);
                 }

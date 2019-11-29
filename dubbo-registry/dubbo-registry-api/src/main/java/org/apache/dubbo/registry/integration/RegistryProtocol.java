@@ -185,15 +185,15 @@ public class RegistryProtocol implements Protocol {
 
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
-        URL registryUrl = getRegistryUrl(originInvoker);
-        // url to export locally
+        URL registryUrl = getRegistryUrl(originInvoker);//获得注册地址：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.0.103%3A20880%2Forg.apache.dubbo.demo.HelloService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.DemoService%26bind.ip%3D192.168.0.103%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%2CsayHelloAsync%26pid%3D78763%26release%3D%26side%3Dprovider%26timestamp%3D1574988715703&pid=78763&qos.port=22222&timestamp=1574988712664
+        // url to export locally dubbo://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.HelloService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
         URL providerUrl = getProviderUrl(originInvoker);
 
         // Subscribe the override data
         // FIXME When the provider subscribes, it will affect the scene : a certain JVM exposes the service and call
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
-        final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);
+        final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);//provider://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.HelloService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
 
