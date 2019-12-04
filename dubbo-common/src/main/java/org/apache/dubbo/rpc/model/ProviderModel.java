@@ -32,6 +32,7 @@ import java.util.Set;
  * ProviderModel is about published services
  */
 public class ProviderModel {
+
     private final String serviceKey;
     private final Object serviceInstance;
     private final ServiceDescriptor serviceModel;

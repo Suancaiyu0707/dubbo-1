@@ -43,7 +43,7 @@ public class DelegateProviderMetaDataInvoker<T> implements Invoker {
 
     @Override
     public URL getUrl() {
-        return invoker.getUrl();
+        return invoker.getUrl();// registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.0.108%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.DemoService%26bind.ip%3D192.168.0.108%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%2CsayHelloAsync%26pid%3D5410%26release%3D%26side%3Dprovider%26timestamp%3D1575332340328&pid=5410&qos.port=22222&registry=zookeeper&timestamp=1575332257645
     }
 
     @Override

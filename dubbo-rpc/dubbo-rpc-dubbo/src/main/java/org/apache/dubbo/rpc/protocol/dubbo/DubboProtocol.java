@@ -279,10 +279,11 @@ public class DubboProtocol extends AbstractProtocol {
 
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
-        URL url = invoker.getUrl();
+        URL url = invoker.getUrl();//dubbo://192.168.0.108:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
 
-        // export service.
-        String key = serviceKey(url);
+        // export service. 获得服务的key
+        //
+        String key = serviceKey(url);//org.apache.dubbo.demo.DemoService:20880
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
         exporterMap.put(key, exporter);
 
@@ -308,13 +309,13 @@ public class DubboProtocol extends AbstractProtocol {
         return exporter;
     }
 
-    private void openServer(URL url) {
+    private void openServer(URL url) {//dubbo://192.168.0.108:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
         // find server.
-        String key = url.getAddress();
+        String key = url.getAddress();//192.168.0.108:20880
         //client can export a service which's only for server to invoke
-        boolean isServer = url.getParameter(IS_SERVER_KEY, true);
+        boolean isServer = url.getParameter(IS_SERVER_KEY, true);//true
         if (isServer) {
-            ProtocolServer server = serverMap.get(key);
+            ProtocolServer server = serverMap.get(key);//检查本地内存
             if (server == null) {
                 synchronized (this) {
                     server = serverMap.get(key);
@@ -336,7 +337,7 @@ public class DubboProtocol extends AbstractProtocol {
                 // enable heartbeat by default
                 .addParameterIfAbsent(HEARTBEAT_KEY, String.valueOf(DEFAULT_HEARTBEAT))
                 .addParameter(CODEC_KEY, DubboCodec.NAME)
-                .build();
+                .build();//dubbo://192.168.0.108:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&channel.readonly.sent=true&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&heartbeat=60000&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
         String str = url.getParameter(SERVER_KEY, DEFAULT_REMOTING_SERVER);
 
         if (str != null && str.length() > 0 && !ExtensionLoader.getExtensionLoader(Transporter.class).hasExtension(str)) {

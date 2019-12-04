@@ -448,6 +448,11 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
         return DUBBO + ".service." + interfaceName;
     }
 
+    /***
+     * 拼接一个维护的接口对应的key:
+     *      interfaceName+group+version
+     * @return
+     */
     @Parameter(excluded = true)
     public String getUniqueServiceName() {
         return URL.buildKey(interfaceName, group, version);

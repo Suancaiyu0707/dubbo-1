@@ -140,7 +140,34 @@ public class DubboBootstrap extends GenericEventListener {
     private final EventDispatcher eventDispatcher = EventDispatcher.getDefaultExtension();
 
     private final ExecutorRepository executorRepository = ExtensionLoader.getExtensionLoader(ExecutorRepository.class).getDefaultExtension();
-
+    /***
+     * 0 = {HashMap$Node@2567} "registry" -> " size = 1"
+     *  key = "registry"
+     *  value = {HashMap@2573}  size = 1
+     *   0 = {HashMap$Node@2586} "org.apache.dubbo.config.RegistryConfig" -> "<dubbo:registry address="zookeeper://127.0.0.1:2181" protocol="zookeeper" port="2181" valid="true" id="org.apache.dubbo.config.RegistryConfig" prefix="dubbo.registry" />"
+     * 1 = {HashMap$Node@2568} "protocol" -> " size = 1"
+     *  key = "protocol"
+     *  value = {HashMap@2575}  size = 1
+     *   0 = {HashMap$Node@2594} "dubbo" -> "<dubbo:protocol name="dubbo" valid="true" id="dubbo" prefix="dubbo.protocol" />"
+     * 2 = {HashMap$Node@2569} "method" -> " size = 1"
+     *  key = "method"
+     *  value = {HashMap@2577}  size = 1
+     *   0 = {HashMap$Node@2601} "addListener" -> "<dubbo:method name="addListener" prefix="dubbo.null.addListener" id="addListener" valid="true" />"
+     * 3 = {HashMap$Node@2570} "application" -> " size = 1"
+     *  key = "application"
+     *  value = {HashMap@2579}  size = 1
+     * 4 = {HashMap$Node@2571} "service" -> " size = 8"
+     *  key = "service"
+     *  value = {HashMap@2581}  size = 8
+     *   0 = {HashMap$Node@2607} "org.apache.dubbo.demo.EventNotifyService" -> "<dubbo:service beanName="org.apache.dubbo.demo.EventNotifyService" exported="false" unexported="false" path="org.apache.dubbo.demo.EventNotifyService" ref="org.apache.dubbo.demo.provider.EventNotifyServiceImpl@363042d7" interface="org.apache.dubbo.demo.EventNotifyService" uniqueServiceName="cn/org.apache.dubbo.demo.EventNotifyService:1.0.0" prefix="dubbo.service.org.apache.dubbo.demo.EventNotifyService" dynamic="true" deprecated="false" group="cn" version="1.0.0" id="org.apache.dubbo.demo.EventNotifyService" valid="true" />"
+     *   1 = {HashMap$Node@2608} "org.apache.dubbo.demo.AsyncService2" -> "<dubbo:service beanName="org.apache.dubbo.demo.AsyncService2" exported="false" unexported="false" path="org.apache.dubbo.demo.AsyncService2" ref="org.apache.dubbo.demo.provider.AsyncServiceImpl2@366ac49b" interface="org.apache.dubbo.demo.AsyncService2" uniqueServiceName="org.apache.dubbo.demo.AsyncService2" prefix="dubbo.service.org.apache.dubbo.demo.AsyncService2" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.AsyncService2" valid="true" />"
+     *   2 = {HashMap$Node@2609} "org.apache.dubbo.demo.CallbackService" -> "<dubbo:service beanName="org.apache.dubbo.demo.CallbackService" exported="false" unexported="false" path="org.apache.dubbo.demo.CallbackService" ref="org.apache.dubbo.demo.provider.CallbackServiceImpl@6ad59d92" interface="org.apache.dubbo.demo.CallbackService" uniqueServiceName="org.apache.dubbo.demo.CallbackService" prefix="dubbo.service.org.apache.dubbo.demo.CallbackService" dynamic="true" deprecated="false" connections="1" callbacks="1000" id="org.apache.dubbo.demo.CallbackService" valid="true" />"
+     *   3 = {HashMap$Node@2610} "org.apache.dubbo.demo.AsyncService" -> "<dubbo:service beanName="org.apache.dubbo.demo.AsyncService" exported="false" unexported="false" path="org.apache.dubbo.demo.AsyncService" ref="org.apache.dubbo.demo.provider.AsyncServiceImpl@56f0cc85" interface="org.apache.dubbo.demo.AsyncService" uniqueServiceName="org.apache.dubbo.demo.AsyncService" prefix="dubbo.service.org.apache.dubbo.demo.AsyncService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.AsyncService" valid="true" />"
+     *   4 = {HashMap$Node@2611} "org.apache.dubbo.demo.StubService" -> "<dubbo:service beanName="org.apache.dubbo.demo.StubService" exported="false" unexported="false" path="org.apache.dubbo.demo.StubService" ref="org.apache.dubbo.demo.provider.StubServiceImpl@62e20a76" interface="org.apache.dubbo.demo.StubService" uniqueServiceName="org.apache.dubbo.demo.StubService" prefix="dubbo.service.org.apache.dubbo.demo.StubService" dynamic="true" deprecated="false" stub="org.apache.dubbo.demo.StubServiceStub" id="org.apache.dubbo.demo.StubService" valid="true" />"
+     *   5 = {HashMap$Node@2612} "org.apache.dubbo.demo.MockService" -> "<dubbo:service beanName="org.apache.dubbo.demo.MockService" exported="false" unexported="false" path="org.apache.dubbo.demo.MockService" ref="org.apache.dubbo.demo.provider.MockServiceImpl@2cc44ad" interface="org.apache.dubbo.demo.MockService" uniqueServiceName="org.apache.dubbo.demo.MockService" prefix="dubbo.service.org.apache.dubbo.demo.MockService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.MockService" valid="true" />"
+     *   6 = {HashMap$Node@2613} "org.apache.dubbo.demo.DemoService" -> "<dubbo:service beanName="org.apache.dubbo.demo.DemoService" exported="false" unexported="false" path="org.apache.dubbo.demo.DemoService" ref="org.apache.dubbo.demo.provider.DemoServiceImpl@44b3606b" interface="org.apache.dubbo.demo.DemoService" uniqueServiceName="org.apache.dubbo.demo.DemoService" prefix="dubbo.service.org.apache.dubbo.demo.DemoService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.DemoService" valid="true" />"
+     *   7 = {HashMap$Node@2614} "org.apache.dubbo.demo.InjvmService" -> "<dubbo:service beanName="org.apache.dubbo.demo.InjvmService" exported="false" unexported="false" path="org.apache.dubbo.demo.InjvmService" ref="org.apache.dubbo.demo.provider.InjvmServiceImpl@1477089c" interface="org.apache.dubbo.demo.InjvmService" uniqueServiceName="org.apache.dubbo.demo.InjvmService" prefix="dubbo.service.org.apache.dubbo.demo.InjvmService" dynamic="true" deprecated="false" protocolIds="injvm" id="org.apache.dubbo.demo.InjvmService" valid="true" />"
+     */
     private final ConfigManager configManager;
 
     private final Environment environment;
@@ -178,9 +205,37 @@ public class DubboBootstrap extends GenericEventListener {
     }
 
     private DubboBootstrap() {
-        configManager = ApplicationModel.getConfigManager();
-        environment = ApplicationModel.getEnvironment();
-
+        /***
+         * 0 = {HashMap$Node@2567} "registry" -> " size = 1"
+         *  key = "registry"
+         *  value = {HashMap@2573}  size = 1
+         *   0 = {HashMap$Node@2586} "org.apache.dubbo.config.RegistryConfig" -> "<dubbo:registry address="zookeeper://127.0.0.1:2181" protocol="zookeeper" port="2181" valid="true" id="org.apache.dubbo.config.RegistryConfig" prefix="dubbo.registry" />"
+         * 1 = {HashMap$Node@2568} "protocol" -> " size = 1"
+         *  key = "protocol"
+         *  value = {HashMap@2575}  size = 1
+         *   0 = {HashMap$Node@2594} "dubbo" -> "<dubbo:protocol name="dubbo" valid="true" id="dubbo" prefix="dubbo.protocol" />"
+         * 2 = {HashMap$Node@2569} "method" -> " size = 1"
+         *  key = "method"
+         *  value = {HashMap@2577}  size = 1
+         *   0 = {HashMap$Node@2601} "addListener" -> "<dubbo:method name="addListener" prefix="dubbo.null.addListener" id="addListener" valid="true" />"
+         * 3 = {HashMap$Node@2570} "application" -> " size = 1"
+         *  key = "application"
+         *  value = {HashMap@2579}  size = 1
+         * 4 = {HashMap$Node@2571} "service" -> " size = 8"
+         *  key = "service"
+         *  value = {HashMap@2581}  size = 8
+         *   0 = {HashMap$Node@2607} "org.apache.dubbo.demo.EventNotifyService" -> "<dubbo:service beanName="org.apache.dubbo.demo.EventNotifyService" exported="false" unexported="false" path="org.apache.dubbo.demo.EventNotifyService" ref="org.apache.dubbo.demo.provider.EventNotifyServiceImpl@363042d7" interface="org.apache.dubbo.demo.EventNotifyService" uniqueServiceName="cn/org.apache.dubbo.demo.EventNotifyService:1.0.0" prefix="dubbo.service.org.apache.dubbo.demo.EventNotifyService" dynamic="true" deprecated="false" group="cn" version="1.0.0" id="org.apache.dubbo.demo.EventNotifyService" valid="true" />"
+         *   1 = {HashMap$Node@2608} "org.apache.dubbo.demo.AsyncService2" -> "<dubbo:service beanName="org.apache.dubbo.demo.AsyncService2" exported="false" unexported="false" path="org.apache.dubbo.demo.AsyncService2" ref="org.apache.dubbo.demo.provider.AsyncServiceImpl2@366ac49b" interface="org.apache.dubbo.demo.AsyncService2" uniqueServiceName="org.apache.dubbo.demo.AsyncService2" prefix="dubbo.service.org.apache.dubbo.demo.AsyncService2" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.AsyncService2" valid="true" />"
+         *   2 = {HashMap$Node@2609} "org.apache.dubbo.demo.CallbackService" -> "<dubbo:service beanName="org.apache.dubbo.demo.CallbackService" exported="false" unexported="false" path="org.apache.dubbo.demo.CallbackService" ref="org.apache.dubbo.demo.provider.CallbackServiceImpl@6ad59d92" interface="org.apache.dubbo.demo.CallbackService" uniqueServiceName="org.apache.dubbo.demo.CallbackService" prefix="dubbo.service.org.apache.dubbo.demo.CallbackService" dynamic="true" deprecated="false" connections="1" callbacks="1000" id="org.apache.dubbo.demo.CallbackService" valid="true" />"
+         *   3 = {HashMap$Node@2610} "org.apache.dubbo.demo.AsyncService" -> "<dubbo:service beanName="org.apache.dubbo.demo.AsyncService" exported="false" unexported="false" path="org.apache.dubbo.demo.AsyncService" ref="org.apache.dubbo.demo.provider.AsyncServiceImpl@56f0cc85" interface="org.apache.dubbo.demo.AsyncService" uniqueServiceName="org.apache.dubbo.demo.AsyncService" prefix="dubbo.service.org.apache.dubbo.demo.AsyncService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.AsyncService" valid="true" />"
+         *   4 = {HashMap$Node@2611} "org.apache.dubbo.demo.StubService" -> "<dubbo:service beanName="org.apache.dubbo.demo.StubService" exported="false" unexported="false" path="org.apache.dubbo.demo.StubService" ref="org.apache.dubbo.demo.provider.StubServiceImpl@62e20a76" interface="org.apache.dubbo.demo.StubService" uniqueServiceName="org.apache.dubbo.demo.StubService" prefix="dubbo.service.org.apache.dubbo.demo.StubService" dynamic="true" deprecated="false" stub="org.apache.dubbo.demo.StubServiceStub" id="org.apache.dubbo.demo.StubService" valid="true" />"
+         *   5 = {HashMap$Node@2612} "org.apache.dubbo.demo.MockService" -> "<dubbo:service beanName="org.apache.dubbo.demo.MockService" exported="false" unexported="false" path="org.apache.dubbo.demo.MockService" ref="org.apache.dubbo.demo.provider.MockServiceImpl@2cc44ad" interface="org.apache.dubbo.demo.MockService" uniqueServiceName="org.apache.dubbo.demo.MockService" prefix="dubbo.service.org.apache.dubbo.demo.MockService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.MockService" valid="true" />"
+         *   6 = {HashMap$Node@2613} "org.apache.dubbo.demo.DemoService" -> "<dubbo:service beanName="org.apache.dubbo.demo.DemoService" exported="false" unexported="false" path="org.apache.dubbo.demo.DemoService" ref="org.apache.dubbo.demo.provider.DemoServiceImpl@44b3606b" interface="org.apache.dubbo.demo.DemoService" uniqueServiceName="org.apache.dubbo.demo.DemoService" prefix="dubbo.service.org.apache.dubbo.demo.DemoService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.DemoService" valid="true" />"
+         *   7 = {HashMap$Node@2614} "org.apache.dubbo.demo.InjvmService" -> "<dubbo:service beanName="org.apache.dubbo.demo.InjvmService" exported="false" unexported="false" path="org.apache.dubbo.demo.InjvmService" ref="org.apache.dubbo.demo.provider.InjvmServiceImpl@1477089c" interface="org.apache.dubbo.demo.InjvmService" uniqueServiceName="org.apache.dubbo.demo.InjvmService" prefix="dubbo.service.org.apache.dubbo.demo.InjvmService" dynamic="true" deprecated="false" protocolIds="injvm" id="org.apache.dubbo.demo.InjvmService" valid="true" />"
+         */
+        configManager = ApplicationModel.getConfigManager();//创建一个配置管理器ConfigManager
+        environment = ApplicationModel.getEnvironment();//初始化创建一个Environment实例
+        //添加一个钩子函数，当jvm退出时回调刚方法进行销毁
         ShutdownHookCallbacks.INSTANCE.addCallback(new ShutdownHookCallback() {
             @Override
             public void callback() throws Throwable {
@@ -199,9 +254,9 @@ public class DubboBootstrap extends GenericEventListener {
     }
 
     private String getMetadataType() {
-        String type = getApplication().getMetadataType();
+        String type = getApplication().getMetadataType();//从Application中获取 MetaType
         if (StringUtils.isEmpty(type)) {
-            type = DEFAULT_METADATA_STORAGE_TYPE;
+            type = DEFAULT_METADATA_STORAGE_TYPE;//default
         }
         return type;
     }
@@ -499,21 +554,21 @@ public class DubboBootstrap extends GenericEventListener {
         }
 
         ApplicationModel.iniFrameworkExts();
-
+        //检查配置中心(如有有的话)
         startConfigCenter();
-
+        //如果没有配置config-center的话，则用registry作为配置中心
         useRegistryAsConfigCenterIfNecessary();
 
         startMetadataReport();
-
+        //如果配置了远程的配置中心，检查远程配置中心的RegistryIds和ProtocolIds
         loadRemoteConfigs();
-
+        //检查各个配置标签的命名规范和长度
         checkGlobalConfigs();
-
+        //默认的 metadataService=InMemoryWritableMetadataService
         initMetadataService();
-
+        //this.metadataServiceExporter = new ConfigurableMetadataServiceExporter(InMemoryWritableMetadataService);
         initMetadataServiceExporter();
-
+        //把自身作为一个监听器添加到 eventDispatcher
         initEventListener();
 
         if (logger.isInfoEnabled()) {
@@ -522,7 +577,7 @@ public class DubboBootstrap extends GenericEventListener {
     }
 
     private void checkGlobalConfigs() {
-        // check Application
+        // 检查</appliation>，没有则初始化一个
         ConfigValidationUtils.validateApplicationConfig(getApplication());
         // check Config Center
         Collection<ConfigCenterConfig> configCenters = configManager.getConfigCenters();
@@ -531,24 +586,24 @@ public class DubboBootstrap extends GenericEventListener {
                 ConfigValidationUtils.validateConfigCenterConfig(configCenterConfig);
             }
         }
-        // check Metadata
+        // 检查 <meta-config>标签
         Collection<MetadataReportConfig> metadatas = configManager.getMetadataConfigs();
         for (MetadataReportConfig metadataReportConfig : metadatas) {
             ConfigValidationUtils.validateMetadataConfig(metadataReportConfig);
         }
-        // check Monitor
+        // 检查 <Monitor>标签，没有就初始化一个
         ConfigValidationUtils.validateMonitorConfig(getMonitor());
-        // check Metrics
+        // 检查 MetricsConfig标签，没有就初始化一个
         ConfigValidationUtils.validateMetricsConfig(getMetrics());
-        // check Module
+        // 检查 ModuleConfig标签，没有就初始化一个
         ConfigValidationUtils.validateModuleConfig(getModule());
-        // check Ssl
+        // 检查 SslConfig标签，没有就初始化一个
         ConfigValidationUtils.validateSslConfig(getSsl());
     }
-
+    //启动配置中心
     private void startConfigCenter() {
-        Collection<ConfigCenterConfig> configCenters = configManager.getConfigCenters();
-
+        Collection<ConfigCenterConfig> configCenters = configManager.getConfigCenters();//获得配置中心
+        //如果配置中心不为空（默认没有配置中心的话，则使用注册中心作为配置中心）
         if (CollectionUtils.isNotEmpty(configCenters)) {
             CompositeDynamicConfiguration compositeDynamicConfiguration = new CompositeDynamicConfiguration();
             for (ConfigCenterConfig configCenter : configCenters) {
@@ -591,11 +646,11 @@ public class DubboBootstrap extends GenericEventListener {
         if (environment.getDynamicConfiguration().isPresent()) {
             return;
         }
-
+        //检查时否使用配置中心
         if (CollectionUtils.isNotEmpty(configManager.getConfigCenters())) {
             return;
         }
-
+        //使用注册中心初始化一个配置中心
         configManager.getDefaultRegistries().stream()
                 .filter(registryConfig -> registryConfig.getUseAsConfigCenter() == null || registryConfig.getUseAsConfigCenter())
                 .forEach(registryConfig -> {
@@ -615,12 +670,12 @@ public class DubboBootstrap extends GenericEventListener {
                     cc.setNamespace(registryConfig.getGroup());
                     cc.setUsername(registryConfig.getUsername());
                     cc.setPassword(registryConfig.getPassword());
-                    cc.setHighestPriority(false);
+                    cc.setHighestPriority(false);//<dubbo:config-center address="zookeeper://127.0.0.1:2181" protocol="zookeeper" check="true" timeout="3000" group="dubbo" configFile="dubbo.properties" highestPriority="false" valid="true" id="config-center-zookeeper-2181" prefix="dubbo.config-center" />
                     configManager.addConfigCenter(cc);
                 });
         startConfigCenter();
     }
-
+    //检查远程配置中心的RegistryIds和ProtocolIds
     private void loadRemoteConfigs() {
         // registry ids to registry configs
         List<RegistryConfig> tmpRegistries = new ArrayList<>();
@@ -660,13 +715,13 @@ public class DubboBootstrap extends GenericEventListener {
      * Initialize {@link MetadataService} from {@link WritableMetadataService}'s extension
      */
     private void initMetadataService() {
-        this.metadataService = getExtension(getMetadataType());
+        this.metadataService = getExtension(getMetadataType());//默认是InMemoryWritableMetadataService
     }
 
     /**
      * Initialize {@link MetadataServiceExporter}
      */
-    private void initMetadataServiceExporter() {
+    private void initMetadataServiceExporter() {//metadataService =InMemoryWritableMetadataService
         this.metadataServiceExporter = new ConfigurableMetadataServiceExporter(metadataService);
     }
 
@@ -689,14 +744,18 @@ public class DubboBootstrap extends GenericEventListener {
 
     /**
      * Start the bootstrap
+     * 1、设置启动参数为true（避免并发）
+     * 2、初始化各种基本配置：config-center\application\monitor\module\metaService等
+     * 3、开始暴露服务
      */
     public DubboBootstrap start() {
         if (started.compareAndSet(false, true)) {
+            //初始化基本配置
             initialize();
             if (logger.isInfoEnabled()) {
                 logger.info(NAME + " is starting...");
             }
-            // 1. export Dubbo Services
+            // 开始暴露服务
             exportServices();
 
             // Not only provider register
@@ -854,6 +913,20 @@ public class DubboBootstrap extends GenericEventListener {
         metadataServiceExporter.unexport();
     }
 
+    /***
+     * 遍历所有的服务进行暴露
+     * 4 = {HashMap$Node@2571} "service" -> " size = 8"
+     *  key = "service"
+     *  value = {HashMap@2581}  size = 8
+     *   0 = {HashMap$Node@2607} "org.apache.dubbo.demo.EventNotifyService" -> "<dubbo:service beanName="org.apache.dubbo.demo.EventNotifyService" exported="false" unexported="false" path="org.apache.dubbo.demo.EventNotifyService" ref="org.apache.dubbo.demo.provider.EventNotifyServiceImpl@363042d7" interface="org.apache.dubbo.demo.EventNotifyService" uniqueServiceName="cn/org.apache.dubbo.demo.EventNotifyService:1.0.0" prefix="dubbo.service.org.apache.dubbo.demo.EventNotifyService" dynamic="true" deprecated="false" group="cn" version="1.0.0" id="org.apache.dubbo.demo.EventNotifyService" valid="true" />"
+     *   1 = {HashMap$Node@2608} "org.apache.dubbo.demo.AsyncService2" -> "<dubbo:service beanName="org.apache.dubbo.demo.AsyncService2" exported="false" unexported="false" path="org.apache.dubbo.demo.AsyncService2" ref="org.apache.dubbo.demo.provider.AsyncServiceImpl2@366ac49b" interface="org.apache.dubbo.demo.AsyncService2" uniqueServiceName="org.apache.dubbo.demo.AsyncService2" prefix="dubbo.service.org.apache.dubbo.demo.AsyncService2" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.AsyncService2" valid="true" />"
+     *   2 = {HashMap$Node@2609} "org.apache.dubbo.demo.CallbackService" -> "<dubbo:service beanName="org.apache.dubbo.demo.CallbackService" exported="false" unexported="false" path="org.apache.dubbo.demo.CallbackService" ref="org.apache.dubbo.demo.provider.CallbackServiceImpl@6ad59d92" interface="org.apache.dubbo.demo.CallbackService" uniqueServiceName="org.apache.dubbo.demo.CallbackService" prefix="dubbo.service.org.apache.dubbo.demo.CallbackService" dynamic="true" deprecated="false" connections="1" callbacks="1000" id="org.apache.dubbo.demo.CallbackService" valid="true" />"
+     *   3 = {HashMap$Node@2610} "org.apache.dubbo.demo.AsyncService" -> "<dubbo:service beanName="org.apache.dubbo.demo.AsyncService" exported="false" unexported="false" path="org.apache.dubbo.demo.AsyncService" ref="org.apache.dubbo.demo.provider.AsyncServiceImpl@56f0cc85" interface="org.apache.dubbo.demo.AsyncService" uniqueServiceName="org.apache.dubbo.demo.AsyncService" prefix="dubbo.service.org.apache.dubbo.demo.AsyncService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.AsyncService" valid="true" />"
+     *   4 = {HashMap$Node@2611} "org.apache.dubbo.demo.StubService" -> "<dubbo:service beanName="org.apache.dubbo.demo.StubService" exported="false" unexported="false" path="org.apache.dubbo.demo.StubService" ref="org.apache.dubbo.demo.provider.StubServiceImpl@62e20a76" interface="org.apache.dubbo.demo.StubService" uniqueServiceName="org.apache.dubbo.demo.StubService" prefix="dubbo.service.org.apache.dubbo.demo.StubService" dynamic="true" deprecated="false" stub="org.apache.dubbo.demo.StubServiceStub" id="org.apache.dubbo.demo.StubService" valid="true" />"
+     *   5 = {HashMap$Node@2612} "org.apache.dubbo.demo.MockService" -> "<dubbo:service beanName="org.apache.dubbo.demo.MockService" exported="false" unexported="false" path="org.apache.dubbo.demo.MockService" ref="org.apache.dubbo.demo.provider.MockServiceImpl@2cc44ad" interface="org.apache.dubbo.demo.MockService" uniqueServiceName="org.apache.dubbo.demo.MockService" prefix="dubbo.service.org.apache.dubbo.demo.MockService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.MockService" valid="true" />"
+     *   6 = {HashMap$Node@2613} "org.apache.dubbo.demo.DemoService" -> "<dubbo:service beanName="org.apache.dubbo.demo.DemoService" exported="false" unexported="false" path="org.apache.dubbo.demo.DemoService" ref="org.apache.dubbo.demo.provider.DemoServiceImpl@44b3606b" interface="org.apache.dubbo.demo.DemoService" uniqueServiceName="org.apache.dubbo.demo.DemoService" prefix="dubbo.service.org.apache.dubbo.demo.DemoService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.DemoService" valid="true" />"
+     *   7 = {HashMap$Node@2614} "org.apache.dubbo.demo.InjvmService" -> "<dubbo:service beanName="org.apache.dubbo.demo.InjvmService" exported="false" unexported="false" path="org.apache.dubbo.demo.InjvmService" ref="org.apache.dubbo.demo.provider.InjvmServiceImpl@1477089c" interface="org.apache.dubbo.demo.InjvmService" uniqueServiceName="org.apache.dubbo.demo.InjvmService" prefix="dubbo.service.org.apache.dubbo.demo.InjvmService" dynamic="true" deprecated="false" protocolIds="injvm" id="org.apache.dubbo.demo.InjvmService" valid="true" />"
+     */
     private void exportServices() {
         configManager.getServices().forEach(sc -> {
             // TODO, compatible with ServiceConfig.export()
@@ -1069,7 +1142,7 @@ public class DubboBootstrap extends GenericEventListener {
             lock.unlock();
         }
     }
-
+    //检查 配置文件里是否配置了Application,如果没有的话，初始化一个
     private ApplicationConfig getApplication() {
         ApplicationConfig application = configManager
                 .getApplication()

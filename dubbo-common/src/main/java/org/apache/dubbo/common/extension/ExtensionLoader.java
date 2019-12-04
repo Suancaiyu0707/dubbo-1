@@ -342,6 +342,11 @@ public class ExtensionLoader<T> {
         return (T) holder.get();
     }
 
+    /***
+     * 判断ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例
+     * @param name
+     * @return
+     */
     private Holder<Object> getOrCreateHolder(String name) {
         Holder<Object> holder = cachedInstances.get(name);
         if (holder == null) {
@@ -383,25 +388,30 @@ public class ExtensionLoader<T> {
 //
 //    }
 
-    /**
-     * Find the extension with the given name. If the specified name is not found, then {@link IllegalStateException}
-     * will be thrown.
+    /***获得普通拓展类，根据name返回拓展类型对应的实现类的实例
+     *      1、判断name是否为空
+     *      2、判断ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例
+     *      3、如果name没有对应的实例，则根据name对应的Class创建一个实例并返回
+     * 根据name从cachedInstances集合中获取配置的拓展类
+     *        0 = {ConcurrentHashMap$MapEntry@3976} "registry" ->
+     *      * 1 = {ConcurrentHashMap$MapEntry@3977} "injvm" ->
+     *      * 2 = {ConcurrentHashMap$MapEntry@3978} "dubbo" ->
      */
     @SuppressWarnings("unchecked")
     public T getExtension(String name) {
-        if (StringUtils.isEmpty(name)) {
+        if (StringUtils.isEmpty(name)) {//判断name是否为空
             throw new IllegalArgumentException("Extension name == null");
         }
         if ("true".equals(name)) {
             return getDefaultExtension();
-        }
-        final Holder<Object> holder = getOrCreateHolder(name);
+        }//本地内存里为每一类name维护一个Holder
+        final Holder<Object> holder = getOrCreateHolder(name);//判断ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例
         Object instance = holder.get();
         if (instance == null) {
             synchronized (holder) {
                 instance = holder.get();
                 if (instance == null) {
-                    instance = createExtension(name);
+                    instance = createExtension(name);//据name对应的Class创建一个实例并返回
                     holder.set(instance);
                 }
             }
@@ -595,20 +605,28 @@ public class ExtensionLoader<T> {
         }
         return new IllegalStateException(buf.toString());
     }
-
+    /***创建name对应的拓展类型的实现类的实例（保证了拓展类型下的每种实现类只需要一个实例对象即可）
+     *      1、根据name查询ExtensionLoader实例中的本地缓存cachedClasses集合，并获取name对应的拓展类型的实现类的Class实例。如果不存在或抛出异常
+     *      2、根据Class对象查询ExtensionLoader实例中的本地缓存EXTENSION_INSTANCES，如果存放拓展类型的实现实例的EXTENSION_INSTANCES已经存在相应的实例，则直接返回该实例，否则就新建一个实例
+     *      3、通过ExtensionFactory为实例对象注射初始值
+     *      4、循环遍历定义了包含拓展类型的构造方法的实现类，如果存在这样的构造方法，则会优先级使用带有接口类型的构造方法来实例化对象
+     */
     @SuppressWarnings("unchecked")
     private T createExtension(String name) {
+        //根据name从本地缓存cachedClasses查找对应的Class对象
         Class<?> clazz = getExtensionClasses().get(name);
         if (clazz == null) {
             throw findException(name);
         }
         try {
+            //检查name实例是否已创建，保证单例
             T instance = (T) EXTENSION_INSTANCES.get(clazz);
             if (instance == null) {
+                //新建一个实例 并放到本地内存 EXTENSION_INSTANCES 中
                 EXTENSION_INSTANCES.putIfAbsent(clazz, clazz.newInstance());
                 instance = (T) EXTENSION_INSTANCES.get(clazz);
             }
-            injectExtension(instance);
+            injectExtension(instance);//通过ExtensionFactory为实例对象注射初始值
             Set<Class<?>> wrapperClasses = cachedWrapperClasses;
             if (CollectionUtils.isNotEmpty(wrapperClasses)) {
                 for (Class<?> wrapperClass : wrapperClasses) {
@@ -708,6 +726,10 @@ public class ExtensionLoader<T> {
         return getExtensionClasses().get(name);
     }
 
+    /***
+     * 查找本地内存classes
+     * @return
+     */
     private Map<String, Class<?>> getExtensionClasses() {
         Map<String, Class<?>> classes = cachedClasses.get();
         if (classes == null) {

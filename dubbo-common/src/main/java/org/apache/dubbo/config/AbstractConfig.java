@@ -473,11 +473,22 @@ public abstract class AbstractConfig implements Serializable {
         this.prefix = prefix;
     }
 
+    /***
+     * 刷新配置
+     * 1、根据当前环境，加载当前服务的各种属性的值。加载属性值的顺序：
+     *     The sequence would be: SystemConfiguration -> AppExternalConfiguration
+     *                      -> ExternalConfiguration -> AbstractConfig -> PropertiesConfiguration
+     *     The sequence would be: SystemConfiguration -> AbstractConfig
+     *                      -> AppExternalConfiguration -> ExternalConfiguration -> PropertiesConfiguration
+     */
     public void refresh() {
         Environment env = ApplicationModel.getEnvironment();//获得环境变量
         try {
+            //根据服务和服务id 初始化一个组合的配置对象：CompositeConfiguration
             CompositeConfiguration compositeConfiguration = env.getConfiguration(getPrefix(), getId());
+            //初始化一个配置中心适配器
             Configuration config = new ConfigConfigurationAdapter(this);
+            //初始化 读取服务配置的优先级
             if (env.isConfigCenterFirst()) {
                 // The sequence would be: SystemConfiguration -> AppExternalConfiguration -> ExternalConfiguration -> AbstractConfig -> PropertiesConfiguration
                 compositeConfiguration.addConfiguration(4, config);
@@ -487,6 +498,7 @@ public abstract class AbstractConfig implements Serializable {
             }
 
             // loop methods, get override value and set the new value back to method
+            //获得当前服务的所有方法，校验服务中每个方法的合法性，确保每个属性都有getter/setter方法
             Method[] methods = getClass().getMethods();
             for (Method method : methods) {
                 if (MethodUtils.isSetter(method)) {

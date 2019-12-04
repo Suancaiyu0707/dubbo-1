@@ -165,31 +165,44 @@ public class ConfigValidationUtils {
      */
     private static final Pattern PATTERN_KEY = Pattern.compile("[*,\\-._0-9a-zA-Z]+");
 
-
+    /***
+     *
+     * @param interfaceConfig 具体服务提供者配置
+     * @param provider 服务端provider配置
+     * @return
+     */
     public static List<URL> loadRegistries(AbstractInterfaceConfig interfaceConfig, boolean provider) {
         // check && override if necessary
         List<URL> registryList = new ArrayList<URL>();
-        ApplicationConfig application = interfaceConfig.getApplication();
-        List<RegistryConfig> registries = interfaceConfig.getRegistries();
+        ApplicationConfig application = interfaceConfig.getApplication();//获得ApplicationConfig
+        List<RegistryConfig> registries = interfaceConfig.getRegistries();//获得注册配置列表
         if (CollectionUtils.isNotEmpty(registries)) {
-            for (RegistryConfig config : registries) {
-                String address = config.getAddress();
-                if (StringUtils.isEmpty(address)) {
-                    address = ANYHOST_VALUE;
+            for (RegistryConfig config : registries) {//遍历注册列表
+
+                String address = config.getAddress();//获得注册地址
+                if (StringUtils.isEmpty(address)) {//如果注册地址为空
+                    address = ANYHOST_VALUE;//0.0.0.0
                 }
+                //注册地址不是：N/A
                 if (!RegistryConfig.NO_AVAILABLE.equalsIgnoreCase(address)) {
                     Map<String, String> map = new HashMap<String, String>();
+                    //把应用的配置参数添加到map里
                     AbstractConfig.appendParameters(map, application);
+                    //把RegistryConfig的配置参数添加到map里
                     AbstractConfig.appendParameters(map, config);
+                    //添加path：接口名称
                     map.put(PATH_KEY, RegistryService.class.getName());
+                    //添加运行时参数
                     AbstractInterfaceConfig.appendRuntimeParameters(map);
+                    //如果未指定协议protocol，则默认未dubbo协议
                     if (!map.containsKey(PROTOCOL_KEY)) {
                         map.put(PROTOCOL_KEY, DUBBO_PROTOCOL);
                     }
+                    //将配置参数和address地址拼接成 URL对象
                     List<URL> urls = UrlUtils.parseURLs(address, map);
 
                     for (URL url : urls) {
-
+                        //拼接额外参数registry 和 service-discovery-registry或registry
                         url = URLBuilder.from(url)
                                 .addParameter(REGISTRY_KEY, url.getProtocol())
                                 .setProtocol(extractRegistryType(url))
@@ -254,13 +267,31 @@ public class ConfigValidationUtils {
      *
      * @param interfaceClass for provider side, it is the {@link Class} of the service that will be exported; for consumer
      *                       side, it is the {@link Class} of the remote service interface that will be referenced
+     * 1、对mock属性的值进行规范化
+     * 2、如果mock的值以return开始，则截断return
+     * 3、如果mock的值以return开始，则截断 throw
      */
+
     public static void checkMock(Class<?> interfaceClass, AbstractInterfaceConfig config) {
+        //检查当前服务的mock谁能够配置
         String mock = config.getMock();
+        //判断是否配置了mock做降级服务
+        //当服务提供方失败全部挂掉后，客户端不抛出异常，而是通过Mock数据返回授权失败。
+        //mock只在出现非业务异常(比如超时，当消费者发送请求时，等待响应时间超过设置的timeout，就会报超时，网络异常等)时执行。
+        //mock的配置支持两种，一种为boolean值，默认的为false。如果配置为true，则缺省使用mock类名，即类名+Mock后缀；另外一种则是配置”return null”，可以很简单的忽略掉异常。
+        //消费端配置:注意这里配了mock不一定会调用mock快，只有超时等异常时候才会再调这个，如果请求响应正常不会走mock
+        /***
+         *       <dubbo:reference interface="com.mei.oms.service.BarService" mock="com.mei.oms.service.BarServiceMock" id="barService" timeout="10000" />
+         * 		或
+         * 		<dubbo:reference interface="com.mei.oms.service.BarService" mock="true" id="barService" timeout="10000" />
+         * 		或
+         * 		<dubbo:reference id="barService" interface="com.mei.oms.service.BarService"  timeout="10000" check="false" mock="return null"></dubbo:reference>
+         * 	注意这里配置了timeout，表示超时时间，当超时了，就会执行mock做服务降级，也就是直接调用mock,不会抛异常
+         */
         if (ConfigUtils.isEmpty(mock)) {
             return;
         }
-
+        //对mock名称进行规范化
         String normalizedMock = MockInvoker.normalizeMock(mock);
         if (normalizedMock.startsWith(RETURN_PREFIX)) {
             normalizedMock = normalizedMock.substring(RETURN_PREFIX.length()).trim();
@@ -305,10 +336,18 @@ public class ConfigValidationUtils {
         }
     }
 
+    /***
+     * 校验服务属性配置的合法性
+     * @param config
+     */
     public static void validateServiceConfig(ServiceConfig config) {
+        //校验版本号
         checkKey(VERSION_KEY, config.getVersion());
+        //校验group
         checkKey(GROUP_KEY, config.getGroup());
+        //校验token
         checkName(TOKEN_KEY, config.getToken());
+        //校验路径，默认路径为接口名称
         checkPathName(PATH_KEY, config.getPath());
 
         checkMultiExtension(ExporterListener.class, "listener", config.getListener());
@@ -355,7 +394,7 @@ public class ConfigValidationUtils {
             validateConsumerConfig(consumerConfig);
         }
     }
-
+    //检查配置中心配置(默认是注册中心)，检查长度和命名规范
     public static void validateConfigCenterConfig(ConfigCenterConfig config) {
         if (config != null) {
             checkParameterName(config.getParameters());
@@ -483,7 +522,7 @@ public class ConfigValidationUtils {
         checkName(CLIENT_KEY, config.getClient());
         checkParameterName(config.getParameters());
     }
-
+    //<dubbo:method name="addListener" service="org.apache.dubbo.demo.CallbackService" serviceId="org.apache.dubbo.demo.CallbackService" prefix="dubbo.org.apache.dubbo.demo.CallbackService.org.apache.dubbo.demo.CallbackService.addListener" id="addListener" valid="true" />
     public static void validateMethodConfig(MethodConfig config) {
         checkExtension(LoadBalance.class, LOADBALANCE_KEY, config.getLoadbalance());
         checkParameterName(config.getParameters());

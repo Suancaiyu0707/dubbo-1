@@ -30,7 +30,7 @@ class InjvmExporter<T> extends AbstractExporter<T> {
     private final String key;
 
     private final Map<String, Exporter<?>> exporterMap;
-
+    //jvm内部暴露只是暴露到本地内存里
     InjvmExporter(Invoker<T> invoker, String key, Map<String, Exporter<?>> exporterMap) {
         super(invoker);
         this.key = key;

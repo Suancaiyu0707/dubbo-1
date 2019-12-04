@@ -124,7 +124,9 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
      * The method configuration
      */
     private List<MethodConfig> methods;
-
+    /***
+     * 对应 registry 属性定义
+     */
     protected String registryIds;
 
     // connection events
@@ -165,10 +167,18 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
 
     /**
      * Check whether the registry config is exists, and then conversion it to {@link RegistryConfig}
+     * 根据注册中心配置和registry，绑定当前服务需要注册的注册中心registries
+     * 1、如果未通过配置文件配置注册中心(也就是registries为空)，则根据系统属性dubbo.registry.address 初始化注册中心列表registries
+     *    如果通过配置文件配置了注册中心，则忽略系统变量dubbo.registry.address
+     * 2、如果已通过配置文件配置注册中心，则直接返回 registries
+     *
+     * 3、根据配置的registry属性和注册中心配置registries， 整理出当前服务需要注册的注册中心配置
+     *
      */
     public void checkRegistry() {
+        //如果未通过配置文件配置注册中心(也就是registries为空)，则根据系统属性dubbo.registry.address 初始化注册中心列表registries
         loadRegistriesFromBackwardConfig();
-
+        //根据配置的registry属性和注册中心配置registries， 整理出当前服务需要注册的注册中心配置
         convertRegistryIdsToRegistries();
         //遍历注册中心，必须都是有效的
         for (RegistryConfig registryConfig : registries) {
@@ -179,6 +189,14 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
         }
     }
 
+    /**
+     * 维护运行时参数
+     * @param map
+     * 1、dubbo：协议版本号
+     * 2、release：服务版本
+     * 3、timestamp：时间
+     * 4、pid：进程号
+     */
     public static void appendRuntimeParameters(Map<String, String> map) {
         map.put(DUBBO_VERSION_KEY, Version.getProtocolVersion());
         map.put(RELEASE_KEY, Version.getVersion());
@@ -194,6 +212,13 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
      *
      * @param interfaceClass the interface of remote service
      * @param methods        the methods configured
+     */
+    /***
+     *  对Methods绑定接口信息
+     * @param interfaceClass
+     * @param methods
+     * 1、判断interfaceClass是一个接口类型
+     * 2、初始化MethodConfig的接口信息，并为 MethodConfig 设置出始值
      */
     public void checkInterfaceAndMethods(Class<?> interfaceClass, List<MethodConfig> methods) {
         // interface cannot be null
@@ -232,13 +257,32 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
      *
      * @param interfaceClass for provider side, it is the {@link Class} of the service that will be exported; for consumer
      *                       side, it is the {@link Class} of the remote service interface
+     *      // 检查接口是否配置了stub伪装属性或者local本地调用的属性，如果配置了，则检查对应的local/stub的正确性，
+     *          1、localClass 必须实现 interfaceClass 接口
+     *          2、localClass 必须存在一个只有一个参数类型为interfaceClass的构造函数
+     *
      */
+
     public void checkStubAndLocal(Class<?> interfaceClass) {
         if (ConfigUtils.isNotEmpty(local)) {
             Class<?> localClass = ConfigUtils.isDefault(local) ?
                     ReflectUtils.forName(interfaceClass.getName() + "Local") : ReflectUtils.forName(local);
             verify(interfaceClass, localClass);
         }
+        /***
+         *  服务端配置:
+         * 		<dubbo:service interface="com.mei.oms.service.BarService" ref="barService"/>
+         * 	消费端配置:注意，消费端会直接访问这个stub，而不像mock那样要等待超时等异常后
+         * 		<dubbo:reference interface="com.mei.oms.service.BarService" stub="com.mei.oms.service.BarServiceStub" id="barService"/>
+         * 		或
+         * 		<dubbo:reference interface="com.mei.oms.service.BarService" stub="true" id="barService"/>
+         * 	原理:
+         * 		远程服务后，客户端通常只剩下接口，而实现全在服务器端，但提供方有些时候想在客户端也执行部分逻辑，比如：做ThreadLocal 缓存，提前验证参数，
+         * 		调用失败后伪造容错数据等等，此时就需要在 API 中带上 Stub，客户端生成 Proxy实例，会把 Proxy 通过构造函数传给 Stub ，
+         * 		然后把 Stub 暴露给用户，Stub 可以决定要不要去调 Proxy
+         *
+         *
+         */
         if (ConfigUtils.isNotEmpty(stub)) {
             Class<?> localClass = ConfigUtils.isDefault(stub) ?
                     ReflectUtils.forName(interfaceClass.getName() + "Stub") : ReflectUtils.forName(stub);
@@ -246,6 +290,13 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
         }
     }
 
+    /***
+     *
+     * @param interfaceClass
+     * @param localClass
+     * 1、localClass 必须实现 interfaceClass 接口
+     * 2、localClass 必须存在一个只有一个参数类型为interfaceClass的构造函数
+     */
     private void verify(Class<?> interfaceClass, Class<?> localClass) {
         if (!interfaceClass.isAssignableFrom(localClass)) {
             throw new IllegalStateException("The local implementation class " + localClass.getName() +
@@ -261,8 +312,14 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
         }
     }
 
+    /***
+     * 根据registry属性和注册中心配置， 整理出当前服务需要注册的注册中心配置
+     * 1、初始化 config对象的 registryIds，如果 config本身没有配置 registry 属性，则从ApplicationConfig中获取。
+     * 2、如果经过初始化的 registryIds 还是空，则遍历所有的注册中心 registries ，向所有注册中心注册。
+     * 3、如果经过初始化的 registryIds 不是空，则分离出 registryIds ，并跟注册中心 registries 进行交集，并向这些注册中心注册。
+     */
     private void convertRegistryIdsToRegistries() {
-        computeValidRegistryIds();//校验注册中心的id
+        computeValidRegistryIds();//初始化 config对象的 registryIds，如果 config本身没有配置 registry 属性，则从ApplicationConfig中获取
         if (StringUtils.isEmpty(registryIds)) {
             if (CollectionUtils.isEmpty(registries)) {
                 List<RegistryConfig> registryConfigs = ApplicationModel.getConfigManager().getDefaultRegistries();
@@ -301,14 +358,21 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
 
     }
 
+    /****
+     * 初始化 config对象的 registryIds，如果 config本身没有配置 registry 属性，则从ApplicationConfig中获取
+     */
     protected void computeValidRegistryIds() {
-        if (StringUtils.isEmpty(getRegistryIds())) {
+        if (StringUtils.isEmpty(getRegistryIds())) {//如果 config本身没有配置 registry 属性
             if (getApplication() != null && StringUtils.isNotEmpty(getApplication().getRegistryIds())) {
                 setRegistryIds(getApplication().getRegistryIds());
             }
         }
     }
 
+    /***
+     * 如果未通过配置文件配置注册中心，则根据系统属性dubbo.registry.address获取注册中心地址
+     *      可以看出：-Ddubbo.registry.address 优先级最低
+     */
     private void loadRegistriesFromBackwardConfig() {
         // for backward compatibility
         // -Ddubbo.registry.address is now deprecated.

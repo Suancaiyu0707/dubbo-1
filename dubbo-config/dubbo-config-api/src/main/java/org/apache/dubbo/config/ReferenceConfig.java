@@ -385,17 +385,17 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
      * Check each config modules are created properly and override their properties if necessary.
      */
     public void checkAndUpdateSubConfigs() {
-        if (StringUtils.isEmpty(interfaceName)) {
+        if (StringUtils.isEmpty(interfaceName)) {//org.apache.dubbo.demo.DemoService
             throw new IllegalStateException("<dubbo:reference interface=\"\" /> interface not allow null!");
         }
         completeCompoundConfigs();
         // get consumer's global configuration
         checkDefault();
-        this.refresh();
-        if (getGeneric() == null && getConsumer() != null) {
+        this.refresh();//根据当前环境，加载当前服务的各种属性的值。加载属性值的顺序：
+        if (getGeneric() == null && getConsumer() != null) {//如果refrence里没有配置generic，则使用consumer的配置
             setGeneric(getConsumer().getGeneric());
         }
-        if (ProtocolUtils.isGeneric(generic)) {
+        if (ProtocolUtils.isGeneric(generic)) {//如果是个泛型调用
             interfaceClass = GenericService.class;
         } else {
             try {

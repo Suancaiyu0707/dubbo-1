@@ -110,7 +110,7 @@ public abstract class AbstractReferenceConfig extends AbstractInterfaceConfig {
             this.generic = generic.toString();
         }
     }
-
+    //获得generic值
     public String getGeneric() {
         return generic;
     }

@@ -70,11 +70,12 @@ public class ServiceRepository extends LifecycleAdapter implements FrameworkExt 
      * @param path
      * @param interfaceClass
      * @return
+     * 将服务的描述信息保存到内存里
      */
     public ServiceDescriptor registerService(String path, Class<?> interfaceClass) {
         ServiceDescriptor serviceDescriptor = registerService(interfaceClass);
         // if path is different with interface name, add extra path mapping
-        if (!interfaceClass.getName().equals(path)) {
+        if (!interfaceClass.getName().equals(path)) {//如果path不是服务名，则添加额外的映射关系
             services.putIfAbsent(path, serviceDescriptor);
         }
         return serviceDescriptor;

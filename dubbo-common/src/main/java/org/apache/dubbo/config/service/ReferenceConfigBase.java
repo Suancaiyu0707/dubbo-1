@@ -113,7 +113,7 @@ public abstract class ReferenceConfigBase<T> extends AbstractReferenceConfig {
         }
         return shouldInit;
     }
-
+    //
     public void checkDefault() {
         if (consumer != null) {
             return;
@@ -234,7 +234,7 @@ public abstract class ReferenceConfigBase<T> extends AbstractReferenceConfig {
     public void setUrl(String url) {
         this.url = url;
     }
-
+    //获得consumer
     public ConsumerConfig getConsumer() {
         return consumer;
     }

@@ -124,7 +124,7 @@ public class Environment extends LifecycleAdapter implements FrameworkExt {
      * @param id org.apache.dubbo.demo.DemoService
      * @return
      *  根据服务名和服务id分别从多个地方查找当前服务的配置：
-     *      配置中心->环境变量->
+     *      系统配置对象、环境配置等
      */
     public CompositeConfiguration getConfiguration(String prefix, String id) {
         CompositeConfiguration compositeConfiguration = new CompositeConfiguration();
@@ -148,10 +148,10 @@ public class Environment extends LifecycleAdapter implements FrameworkExt {
 
     private static String toKey(String prefix, String id) {
         StringBuilder sb = new StringBuilder();
-        if (StringUtils.isNotEmpty(prefix)) {
+        if (StringUtils.isNotEmpty(prefix)) {//dubbo.service.org.apache.dubbo.demo.DemoService
             sb.append(prefix);
         }
-        if (StringUtils.isNotEmpty(id)) {
+        if (StringUtils.isNotEmpty(id)) {//org.apache.dubbo.demo.DemoService
             sb.append(id);
         }
 

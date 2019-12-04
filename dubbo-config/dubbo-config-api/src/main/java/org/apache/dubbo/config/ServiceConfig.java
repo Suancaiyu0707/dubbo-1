@@ -191,6 +191,10 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
     /**
      * 暴露服务的入口
+     * 1、如果不想暴露服务，则可以直接设置export=false，或者设置provider.export=false
+     * 2、校验并更新服务提供者配置
+     * 3、更新服务元信息对象的相关属性值
+     * 4、判断是否延迟暴露，如果配置了延迟暴露属性，则通过延迟任务来延迟暴露，否则直接暴露服务
      */
     public synchronized void export() {
         if (!shouldExport()) {//检查是否需要暴露服务
@@ -201,7 +205,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             bootstrap = DubboBootstrap.getInstance();
             bootstrap.init();
         }
-
+        //校验更新服务提供者配置
         checkAndUpdateSubConfigs();
 
         //init serviceMetadata
@@ -219,21 +223,40 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         }
     }
 
+    /***
+     * 1、初始化provider、module、registries、protocols、configCenter等配置
+     * 2、如果配置的protocol协议不止injvm注册，则需要是否配置了合法的配置中心
+     * 3、通过各种环境配置设置当前服务对象ServiceConfig的属性值：
+     *      SystemConfiguration -> AppExternalConfiguration-> ExternalConfiguration -> AbstractConfig -> PropertiesConfiguration
+     * 4、如果服务的实现类是一个 GenericService ，则标记下这个服务的类型：
+     *      interfaceClass = GenericService.class
+     *      generic=true
+     * 5、如果服务的实现类不是一个 GenericService，则根据服务接口获得Class对象，并为MethodConfig绑定接口信息
+     * 6、如果服务配置了local或者stub属性，则需要进行校验：
+     *      绑定的local或stub类是否存在。
+     *      绑定的local或stub类必须实现接口interfaceClass，且 必须存在一个只有一个参数类型为interfaceClass的构造函数
+     * 7、将服务提供者参数配置拼接到URL里
+     *
+     */
     private void checkAndUpdateSubConfigs() {
         // Use default configs defined explicitly on global scope
+        //初始化provider、module、registries、protocols、configCenter等配置
         completeCompoundConfigs();
         checkDefault();
         checkProtocol();
         // if protocol is not injvm checkRegistry
+        //配置的protocol协议不止injvm注册
         if (!isOnlyInJvm()) {
+            //检查注册中心
             checkRegistry();
         }
+        //通过各种环境配置设置当前服务对象的属性值
         this.refresh();
-
+        //接口名不能为空
         if (StringUtils.isEmpty(interfaceName)) {
             throw new IllegalStateException("<dubbo:service interface=\"\" /> interface not allow null!");
         }
-
+        //实例类型如果为泛化，则更新interfaceClass 和 generic
         if (ref instanceof GenericService) {
             interfaceClass = GenericService.class;
             if (StringUtils.isEmpty(generic)) {
@@ -241,21 +264,28 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             }
         } else {
             try {
+                //获得接口类型的Class对象
                 interfaceClass = Class.forName(interfaceName, true, Thread.currentThread()
                         .getContextClassLoader());
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException(e.getMessage(), e);
             }
+            //如果配置了子标签dubbo:method，则要检查方法是否属于该暴露接口
             checkInterfaceAndMethods(interfaceClass, getMethods());
-            checkRef();
+            //检查实例对象必须是一个 interfaceClass 类型的对象
+            checkRef();//检查ref属性
             generic = Boolean.FALSE.toString();
         }
+        //通过local属性，设为true，表示使用缺省代理类名，即：接口名 + Local后缀，服务接口客户端本地代理类名，
+        // 用于在客户端执行本地逻辑，如本地缓存等，该本地代理类的构造函数必须允许传入远程代理对象，构造函数如：public XxxServiceLocal(XxxService xxxService)
+        // 我们口语看到这个类必须实现被代理接口，且和接口放在同一个目录下，所以也会被消费者打包到本地，所以访问Local后缀的实现类，对消费者来说是本地访问，只不过该本地对象里持有远程代理对象的引用
         if (local != null) {
             if ("true".equals(local)) {
                 local = interfaceName + "Local";
             }
             Class<?> localClass;
             try {
+                //根据local名称加载指定的类
                 localClass = ClassUtils.forNameWithThreadContextClassLoader(local);
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException(e.getMessage(), e);
@@ -264,6 +294,10 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 throw new IllegalStateException("The local implementation class " + localClass.getName() + " not implement interface " + interfaceName);
             }
         }
+        //org.apache.dubbo.demo.HelloService
+        //org.apache.dubbo.demo.HelloServiceStub
+        //通过配置stub配置本地伪装，stub类也要实现对应的接口。并提供一个包含接口参数的构造方法，用来注入接口代理对象
+        ///客户端如果配置了stub，就会把代理对象注入到这个stub实例中，并调用这个stub实例,再通过这个伪装类来调用被代理对象的方法
         if (stub != null) {
             if ("true".equals(stub)) {
                 stub = interfaceName + "Stub";
@@ -278,18 +312,29 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 throw new IllegalStateException("The stub implementation class " + stubClass.getName() + " not implement interface " + interfaceName);
             }
         }
+        //检查当前服务对应的stub和local的合法性
+        //stub或local必须实现接口interfaceClass，且 必须存在一个只有一个参数类型为interfaceClass的构造函数
         checkStubAndLocal(interfaceClass);
+        //规范并校验mock属性
         ConfigValidationUtils.checkMock(interfaceClass, this);
         ConfigValidationUtils.validateServiceConfig(this);
         appendParameters();
     }
 
-
+    /***
+     * 暴露服务(采用锁来避免并发和重复暴露服务)
+     *  1、判断是否需要暴露服务：
+     *      a、对于直连的话，则不需要暴露服务。
+     *      b、如果一个服务已暴露，则无需重新暴露
+     *  2、初始化serviceConfig对象的path属性，如果没有配置path属性的话，则默认使用接口名
+     *  3、开始暴露服务
+     */
     protected synchronized void doExport() {
+        //判断是否需要暴露服务(开发阶段用直连)
         if (unexported) {
             throw new IllegalStateException("The service " + interfaceClass.getName() + " has already unexported!");
         }
-        if (exported) {
+        if (exported) {//注意exported是一个可见性变量
             return;
         }
         exported = true;
@@ -303,22 +348,35 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         dispatch(new ServiceConfigExportedEvent(this));
     }
 
+    /***
+     * 1、获取或创建一个单例对象 ServiceRepository，并
+     *     a、在ServiceRepository.services维护key-value：
+     *          key：接口全路径名
+     *          value：接口对应的描述对象 ServiceDescriptor
+     *     b、在ServiceRepository.providers 维护key-value：
+     *          key：接口唯一标示(interfaceName+group+version)
+     *          value：ProviderModel 模型
+     * 2、根据服务提供者配置信息创建注册地址url列表
+     * 3、遍历注册协议，针对每个协议都向注册中心列表注册服务
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void doExportUrls() {
+        //获得ServiceRepository对象，这是一个全局变量，所有服务提供者共享一个ServiceRepository
         ServiceRepository repository = ApplicationModel.getServiceRepository();
+        //通过ServiceRepository 维护服务提供者接口接口和接口描述信息
         ServiceDescriptor serviceDescriptor = repository.registerService(getInterfaceClass());
         repository.registerProvider(
-                getUniqueServiceName(),
+                getUniqueServiceName(),//interfaceName+group+version
                 ref,
                 serviceDescriptor,
                 this,
                 serviceMetadata
         );
-
-        List<URL> registryURLs = ConfigValidationUtils.loadRegistries(this, true);
-
+        //
+        List<URL> registryURLs = ConfigValidationUtils.loadRegistries(this, true);//registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=5410&qos.port=22222&registry=zookeeper&timestamp=1575332257645
+        //遍历协议配置 <dubbo:protocol name="dubbo" valid="true" id="dubbo" prefix="dubbo.protocols." />
         for (ProtocolConfig protocolConfig : protocols) {
-            String pathKey = URL.buildKey(getContextPath(protocolConfig)
+            String pathKey = URL.buildKey(getContextPath(protocolConfig)//org.apache.dubbo.demo.DemoService
                     .map(p -> p + "/" + path)
                     .orElse(path), group, version);
             // In case user specified path, register service one more time to map it to path.
@@ -329,15 +387,25 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         }
     }
 
+    /***
+     * 开始暴露服务
+     * @param protocolConfig
+     * @param registryURLs
+     */
     private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
-        String name = protocolConfig.getName();
+        String name = protocolConfig.getName();//协议名称 dubbo
         if (StringUtils.isEmpty(name)) {
-            name = DUBBO;
+            name = DUBBO;//默认协议名称dubbo
         }
 
         Map<String, String> map = new HashMap<String, String>();
+        //side：provider
         map.put(SIDE_KEY, PROVIDER_SIDE);
-
+        //添加服务配置信息
+        /***
+         *
+         *
+         */
         ServiceConfig.appendRuntimeParameters(map);
         AbstractConfig.appendParameters(map, metrics);
         AbstractConfig.appendParameters(map, application);
@@ -347,6 +415,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         AbstractConfig.appendParameters(map, provider);
         AbstractConfig.appendParameters(map, protocolConfig);
         AbstractConfig.appendParameters(map, this);
+        //如果配置了<dubbo:method>标签
         if (CollectionUtils.isNotEmpty(getMethods())) {
             for (MethodConfig method : getMethods()) {
                 AbstractConfig.appendParameters(map, method, method.getName());
@@ -413,7 +482,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             }
             //获取接口所有方法名称列表，不包含来自Object对象的方法。然后用','拼接
             String[] methods = Wrapper.getWrapper(interfaceClass).getMethodNames();
-            if (methods.length == 0) {
+            if (methods.length == 0) {//{"sayHello","sayHelloAsync"}
                 logger.warn("No method found in service interface " + interfaceClass.getName());
                 map.put(METHODS_KEY, ANY_VALUE);
             } else {
@@ -432,7 +501,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         //protocolConfig：<dubbo:protocol name="dubbo" valid="true" id="dubbo" prefix="dubbo.protocols." />
         // registryURLs： registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=78763&qos.port=22222&registry=zookeeper&timestamp=1574988712664
         String host = findConfigedHosts(protocolConfig, registryURLs, map);//获得配置的地址，默认本机地址 192.168.0.103
-        Integer port = findConfigedPorts(protocolConfig, name, map);
+        Integer port = findConfigedPorts(protocolConfig, name, map);//20880
         URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);//dubbo://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
 
         // You can customize Configurator to append extra parameters
@@ -442,13 +511,13 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                     .getExtension(url.getProtocol()).getConfigurator(url).configure(url);
         }
 
-        String scope = url.getParameter(SCOPE_KEY);
+        String scope = url.getParameter(SCOPE_KEY);//null
         // don't export when none is configured
         if (!SCOPE_NONE.equalsIgnoreCase(scope)) {//如果scope=none，则不暴露url配置
 
             // export to local if the config is not remote (export to remote only when config is remote)
             if (!SCOPE_REMOTE.equalsIgnoreCase(scope)) {//如果sopce未配置为remote，则先进行本地暴露(方便本地直连测试)
-                exportLocal(url);
+                exportLocal(url);//dubbo://192.168.0.108:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
             }
             // export to remote if the config is not local (export to local only when config is local)
             if (!SCOPE_LOCAL.equalsIgnoreCase(scope)) {//如果scope未配置为local，则开始远程暴露
@@ -511,12 +580,12 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
      * always export injvm 本地暴露
      */
     private void exportLocal(URL url) {//旧的：url=dubbo://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
-        URL local = URLBuilder.from(url)
+        URL local = URLBuilder.from(url)//injvm://127.0.0.1/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
                 .setProtocol(LOCAL_PROTOCOL)//固定是：injvm协议
                 .setHost(LOCALHOST_VALUE)//host：127.0.0.1
                 .setPort(0)
                 .build();//local：injvm://127.0.0.1/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
-        Exporter<?> exporter = protocol.export(
+        Exporter<?> exporter = protocol.export(//将服务包装成对象，放到本地内存地址里
                 PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, local));
         exporters.add(exporter);//缓存暴露的服务
         logger.info("Export dubbo service " + interfaceClass.getName() + " to local registry url : " + local);
@@ -696,6 +765,9 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         }
     }
 
+    /***
+     * 把服务提供者的配置添加到url里
+     */
     public void appendParameters() {
         URL appendParametersUrl = URL.valueOf("appendParameters://");
         List<AppendParametersComponent> appendParametersComponents = ExtensionLoader.getExtensionLoader(AppendParametersComponent.class).getActivateExtension(appendParametersUrl, (String[]) null);

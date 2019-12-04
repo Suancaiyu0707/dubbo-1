@@ -210,6 +210,7 @@ final public class MockInvoker<T> implements Invoker<T> {
      *
      * @param mock mock string
      * @return normalized mock string
+     * 对mock名称进行规范化
      */
     public static String normalizeMock(String mock) {
         if (mock == null) {
@@ -221,23 +222,23 @@ final public class MockInvoker<T> implements Invoker<T> {
         if (mock.length() == 0) {
             return mock;
         }
-
+        //如果 mock值是return，则更正为return null
         if (RETURN_KEY.equalsIgnoreCase(mock)) {
             return RETURN_PREFIX + "null";
         }
-
+        //如果 mock值是default/true/fail/force,则更正为default
         if (ConfigUtils.isDefault(mock) || "fail".equalsIgnoreCase(mock) || "force".equalsIgnoreCase(mock)) {
             return "default";
         }
-
+        //如果 mock值是fail:开头，则截断掉fail:
         if (mock.startsWith(FAIL_PREFIX)) {
             mock = mock.substring(FAIL_PREFIX.length()).trim();
         }
-
+        //如果 mock值是 force:开头，则截断掉 force:
         if (mock.startsWith(FORCE_PREFIX)) {
             mock = mock.substring(FORCE_PREFIX.length()).trim();
         }
-
+        //如果 mock值是 return 或throw 开头，则替换引号
         if (mock.startsWith(RETURN_PREFIX) || mock.startsWith(THROW_PREFIX)) {
             mock = mock.replace('`', '"');
         }
