@@ -229,12 +229,13 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
             throw new IllegalStateException("The interface class " + interfaceClass + " is not a interface!");
         }
         // check if methods exist in the remote service interface
+        //初始化dubbo:method所属的接口和serviceConfig
         if (CollectionUtils.isNotEmpty(methods)) {
             for (MethodConfig methodBean : methods) {
                 methodBean.setService(interfaceClass.getName());
                 methodBean.setServiceId(this.getId());
-                methodBean.refresh();
-                String methodName = methodBean.getName();
+                methodBean.refresh();//初始化相应属性值
+                String methodName = methodBean.getName();//方法名
                 if (StringUtils.isEmpty(methodName)) {
                     throw new IllegalStateException("<dubbo:method> name attribute is required! Please check: " +
                             "<dubbo:service interface=\"" + interfaceClass.getName() + "\" ... >" +
@@ -377,6 +378,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
         // for backward compatibility
         // -Ddubbo.registry.address is now deprecated.
         if (registries == null || registries.isEmpty()) {
+            //根据系统属性dubbo.registry.address获得注册中心地址，并用逗号分割
             String address = ConfigUtils.getProperty("dubbo.registry.address");
             if (address != null && address.length() > 0) {
                 List<RegistryConfig> tmpRegistries = new ArrayList<RegistryConfig>();

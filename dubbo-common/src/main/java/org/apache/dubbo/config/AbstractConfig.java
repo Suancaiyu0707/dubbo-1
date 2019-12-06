@@ -489,7 +489,7 @@ public abstract class AbstractConfig implements Serializable {
             //初始化一个配置中心适配器
             Configuration config = new ConfigConfigurationAdapter(this);
             //初始化 读取服务配置的优先级
-            if (env.isConfigCenterFirst()) {
+            if (env.isConfigCenterFirst()) {//如果配置了注册中心优先
                 // The sequence would be: SystemConfiguration -> AppExternalConfiguration -> ExternalConfiguration -> AbstractConfig -> PropertiesConfiguration
                 compositeConfiguration.addConfiguration(4, config);
             } else {

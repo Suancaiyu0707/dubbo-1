@@ -934,6 +934,7 @@ public class DubboBootstrap extends GenericEventListener {
             serviceConfig.setBootstrap(this);
 
             if (exportAsync) {
+                //交给线程池去暴露服务
                 ExecutorService executor = executorRepository.getServiceExporterExecutor();
                 Future<?> future = executor.submit(() -> {
                     sc.export();

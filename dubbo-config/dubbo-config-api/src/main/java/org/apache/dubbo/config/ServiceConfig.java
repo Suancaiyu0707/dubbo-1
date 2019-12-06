@@ -197,6 +197,17 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
      * 4、判断是否延迟暴露，如果配置了延迟暴露属性，则通过延迟任务来延迟暴露，否则直接暴露服务
      */
     public synchronized void export() {
+        /***
+         * 服务进行暴露
+         *   0 = {HashMap$Node@2607} "org.apache.dubbo.demo.EventNotifyService" -> "<dubbo:service beanName="org.apache.dubbo.demo.EventNotifyService" exported="false" unexported="false" path="org.apache.dubbo.demo.EventNotifyService" ref="org.apache.dubbo.demo.provider.EventNotifyServiceImpl@363042d7" interface="org.apache.dubbo.demo.EventNotifyService" uniqueServiceName="cn/org.apache.dubbo.demo.EventNotifyService:1.0.0" prefix="dubbo.service.org.apache.dubbo.demo.EventNotifyService" dynamic="true" deprecated="false" group="cn" version="1.0.0" id="org.apache.dubbo.demo.EventNotifyService" valid="true" />"
+         *   1 = {HashMap$Node@2608} "org.apache.dubbo.demo.AsyncService2" -> "<dubbo:service beanName="org.apache.dubbo.demo.AsyncService2" exported="false" unexported="false" path="org.apache.dubbo.demo.AsyncService2" ref="org.apache.dubbo.demo.provider.AsyncServiceImpl2@366ac49b" interface="org.apache.dubbo.demo.AsyncService2" uniqueServiceName="org.apache.dubbo.demo.AsyncService2" prefix="dubbo.service.org.apache.dubbo.demo.AsyncService2" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.AsyncService2" valid="true" />"
+         *   2 = {HashMap$Node@2609} "org.apache.dubbo.demo.CallbackService" -> "<dubbo:service beanName="org.apache.dubbo.demo.CallbackService" exported="false" unexported="false" path="org.apache.dubbo.demo.CallbackService" ref="org.apache.dubbo.demo.provider.CallbackServiceImpl@6ad59d92" interface="org.apache.dubbo.demo.CallbackService" uniqueServiceName="org.apache.dubbo.demo.CallbackService" prefix="dubbo.service.org.apache.dubbo.demo.CallbackService" dynamic="true" deprecated="false" connections="1" callbacks="1000" id="org.apache.dubbo.demo.CallbackService" valid="true" />"
+         *   3 = {HashMap$Node@2610} "org.apache.dubbo.demo.AsyncService" -> "<dubbo:service beanName="org.apache.dubbo.demo.AsyncService" exported="false" unexported="false" path="org.apache.dubbo.demo.AsyncService" ref="org.apache.dubbo.demo.provider.AsyncServiceImpl@56f0cc85" interface="org.apache.dubbo.demo.AsyncService" uniqueServiceName="org.apache.dubbo.demo.AsyncService" prefix="dubbo.service.org.apache.dubbo.demo.AsyncService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.AsyncService" valid="true" />"
+         *   4 = {HashMap$Node@2611} "org.apache.dubbo.demo.StubService" -> "<dubbo:service beanName="org.apache.dubbo.demo.StubService" exported="false" unexported="false" path="org.apache.dubbo.demo.StubService" ref="org.apache.dubbo.demo.provider.StubServiceImpl@62e20a76" interface="org.apache.dubbo.demo.StubService" uniqueServiceName="org.apache.dubbo.demo.StubService" prefix="dubbo.service.org.apache.dubbo.demo.StubService" dynamic="true" deprecated="false" stub="org.apache.dubbo.demo.StubServiceStub" id="org.apache.dubbo.demo.StubService" valid="true" />"
+         *   5 = {HashMap$Node@2612} "org.apache.dubbo.demo.MockService" -> "<dubbo:service beanName="org.apache.dubbo.demo.MockService" exported="false" unexported="false" path="org.apache.dubbo.demo.MockService" ref="org.apache.dubbo.demo.provider.MockServiceImpl@2cc44ad" interface="org.apache.dubbo.demo.MockService" uniqueServiceName="org.apache.dubbo.demo.MockService" prefix="dubbo.service.org.apache.dubbo.demo.MockService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.MockService" valid="true" />"
+         *   6 = {HashMap$Node@2613} "org.apache.dubbo.demo.DemoService" -> "<dubbo:service beanName="org.apache.dubbo.demo.DemoService" exported="false" unexported="false" path="org.apache.dubbo.demo.DemoService" ref="org.apache.dubbo.demo.provider.DemoServiceImpl@44b3606b" interface="org.apache.dubbo.demo.DemoService" uniqueServiceName="org.apache.dubbo.demo.DemoService" prefix="dubbo.service.org.apache.dubbo.demo.DemoService" dynamic="true" deprecated="false" id="org.apache.dubbo.demo.DemoService" valid="true" />"
+         *   7 = {HashMap$Node@2614} "org.apache.dubbo.demo.InjvmService" -> "<dubbo:service beanName="org.apache.dubbo.demo.InjvmService" exported="false" unexported="false" path="org.apache.dubbo.demo.InjvmService" ref="org.apache.dubbo.demo.provider.InjvmServiceImpl@1477089c" interface="org.apache.dubbo.demo.InjvmService" uniqueServiceName="org.apache.dubbo.demo.InjvmService" prefix="dubbo.service.org.apache.dubbo.demo.InjvmService" dynamic="true" deprecated="false" protocolIds="injvm" id="org.apache.dubbo.demo.InjvmService" valid="true" />"
+         */
         if (!shouldExport()) {//检查是否需要暴露服务
             return;
         }
@@ -242,15 +253,22 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         // Use default configs defined explicitly on global scope
         //初始化provider、module、registries、protocols、configCenter等配置
         completeCompoundConfigs();
+        //验证并初始化provider对象
         checkDefault();
+        //验证并初始化protocol对象
         checkProtocol();
         // if protocol is not injvm checkRegistry
         //配置的protocol协议不止injvm注册
         if (!isOnlyInJvm()) {
-            //检查注册中心
+            //检查注册中心，将registryId转换成registers对象
+            //如果配置文件里未配置register信息的话，则根据系统属性dubbo.registry.address获得注册中心地址，并用逗号分割
             checkRegistry();
         }
-        //通过各种环境配置设置当前服务对象的属性值
+        //设置加载service对应属性配置的优先级：
+        //      SystemConfiguration -> AppExternalConfiguration -> ExternalConfiguration -> AbstractConfig -> PropertiesConfiguration
+        //      SystemConfiguration -> AbstractConfig -> AppExternalConfiguration -> ExternalConfiguration -> PropertiesConfiguration
+        //校验ServiceConfig里的属性是否都存在getter/setter方法
+
         this.refresh();
         //接口名不能为空
         if (StringUtils.isEmpty(interfaceName)) {

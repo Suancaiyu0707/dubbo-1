@@ -257,6 +257,9 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
         createProviderIfAbsent();
     }
 
+    /***
+     * 验证并初始化provider对象
+     */
     private void createProviderIfAbsent() {
         if (provider != null) {
             return;
@@ -272,6 +275,9 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
         );
     }
 
+    /***
+     * 验证protocol
+     */
     public void checkProtocol() {
         if (CollectionUtils.isEmpty(protocols) && provider != null) {
             setProtocols(provider.getProtocols());
@@ -280,7 +286,9 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
     }
 
     private void convertProtocolIdsToProtocols() {
+        //校验 protocol，如果service里未配置protocol，则使用provider里的protocol配置
         computeValidProtocolIds();
+        //如果service配置了protocol为空，则采用同个配置文件里的application里的作为默认的protocol
         if (StringUtils.isEmpty(protocolIds)) {
             if (CollectionUtils.isEmpty(protocols)) {
                 List<ProtocolConfig> protocolConfigs = ApplicationModel.getConfigManager().getDefaultProtocols();
@@ -293,6 +301,7 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
                 setProtocols(protocolConfigs);
             }
         } else {
+            //使用逗号对protocolIds进行分离 ，取交集
             String[] arr = COMMA_SPLIT_PATTERN.split(protocolIds);
             List<ProtocolConfig> tmpProtocols = CollectionUtils.isNotEmpty(protocols) ? protocols : new ArrayList<>();
             Arrays.stream(arr).forEach(id -> {
