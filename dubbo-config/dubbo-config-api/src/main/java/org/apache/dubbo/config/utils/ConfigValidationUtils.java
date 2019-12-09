@@ -291,9 +291,9 @@ public class ConfigValidationUtils {
         if (ConfigUtils.isEmpty(mock)) {
             return;
         }
-        //对mock名称进行规范化
+        //检查mock值的规范
         String normalizedMock = MockInvoker.normalizeMock(mock);
-        if (normalizedMock.startsWith(RETURN_PREFIX)) {
+        if (normalizedMock.startsWith(RETURN_PREFIX)) {//return 开头
             normalizedMock = normalizedMock.substring(RETURN_PREFIX.length()).trim();
             try {
                 //Check whether the mock value is legal, if it is illegal, throw exception
@@ -302,7 +302,7 @@ public class ConfigValidationUtils {
                 throw new IllegalStateException("Illegal mock return in <dubbo:service/reference ... " +
                         "mock=\"" + mock + "\" />");
             }
-        } else if (normalizedMock.startsWith(THROW_PREFIX)) {
+        } else if (normalizedMock.startsWith(THROW_PREFIX)) {//throw 开头
             normalizedMock = normalizedMock.substring(THROW_PREFIX.length()).trim();
             if (ConfigUtils.isNotEmpty(normalizedMock)) {
                 try {

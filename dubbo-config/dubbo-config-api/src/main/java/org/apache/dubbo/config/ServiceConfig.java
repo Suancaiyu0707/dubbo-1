@@ -299,11 +299,11 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         // 我们口语看到这个类必须实现被代理接口，且和接口放在同一个目录下，所以也会被消费者打包到本地，所以访问Local后缀的实现类，对消费者来说是本地访问，只不过该本地对象里持有远程代理对象的引用
         if (local != null) {
             if ("true".equals(local)) {
-                local = interfaceName + "Local";
+                local = interfaceName + "Local";//拼接对应的local类名
             }
             Class<?> localClass;
             try {
-                //根据local名称加载指定的类
+                //根据local名称加载指定的Class
                 localClass = ClassUtils.forNameWithThreadContextClassLoader(local);
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException(e.getMessage(), e);
