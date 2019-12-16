@@ -519,11 +519,11 @@ class URL implements Serializable {
         }
         return address.toString();
     }
-
+    //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=10604&qos.port=22222&timestamp=1576476414084
     public List<URL> getBackupUrls() {
         List<URL> urls = new ArrayList<>();
         urls.add(this);
-        String[] backups = getParameter(RemotingConstants.BACKUP_KEY, new String[0]);
+        String[] backups = getParameter(RemotingConstants.BACKUP_KEY, new String[0]);//获得backups的属性值
         if (backups != null && backups.length > 0) {
             for (String backup : backups) {
                 urls.add(this.setAddress(backup));
@@ -1423,7 +1423,7 @@ class URL implements Serializable {
 
     /**
      * The format of return value is '{group}/{interfaceName}:{version}'
-     *
+     *  cn/org.apache.dubbo.demo.EventNotifyService:1.0.0
      * @return
      */
     public String getServiceKey() {

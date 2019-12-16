@@ -29,6 +29,13 @@ public class RegistryFactoryWrapper implements RegistryFactory {
         this.registryFactory = registryFactory;
     }
 
+    /***
+     * 根据注册地址url 返回一个注册中心对象 ListenerRegistryWrapper
+     * @param url Registry address, is not allowed to be empty
+     * @return
+     * 1、根据url向注册中心发起连接，并返回一个注册中心对象Registry
+     * 2、把Registry和RegistryServiceListener包装成一个ListenerRegistryWrapper对象
+     */
     @Override
     public Registry getRegistry(URL url) {
         return new ListenerRegistryWrapper(registryFactory.getRegistry(url),

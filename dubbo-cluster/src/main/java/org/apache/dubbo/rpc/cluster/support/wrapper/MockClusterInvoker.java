@@ -69,20 +69,52 @@ public class MockClusterInvoker<T> implements Invoker<T> {
     }
 
     @Override
-    public Result invoke(Invocation invocation) throws RpcException {
+    public Result invoke(Invocation invocation) throws RpcException {//RpcInvocation [methodName=sayHelloAsync, parameterTypes=[class java.lang.String], arguments=[world], attachments={}]
         Result result = null;
-
-        String value = directory.getUrl().getMethodParameter(invocation.getMethodName(), MOCK_KEY, Boolean.FALSE.toString()).trim();
-        if (value.length() == 0 || "false".equalsIgnoreCase(value)) {
+        /**directory：
+         * serviceKey = "org.apache.dubbo.registry.RegistryService"
+         * serviceType = {Class@2297} "interface org.apache.dubbo.demo.DemoService"
+         * queryMap = {HashMap@3237}  size = 11
+         * directoryUrl = {URL@3238} "zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.DemoService&lazy=false&methods=sayHello,sayHelloAsync&pid=38171&register.ip=220.250.64.225&side=consumer&sticky=false&timestamp=1575883395444"
+         * multiGroup = false
+         * protocol = {Protocol$Adaptive@3156}
+         * registry = {ListenerRegistryWrapper@3239}
+         * forbidden = true
+         * overrideDirectoryUrl = {URL@3238} "zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.DemoService&lazy=false&methods=sayHello,sayHelloAsync&pid=38171&register.ip=220.250.64.225&side=consumer&sticky=false&timestamp=1575883395444"
+         * registeredConsumerUrl = {URL@3240} "consumer://220.250.64.225/org.apache.dubbo.demo.DemoService?category=consumers&check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.DemoService&lazy=false&methods=sayHello,sayHelloAsync&pid=38171&side=consumer&sticky=false&timestamp=1575883395444"
+         * configurators = {ArrayList@3301}  size = 0
+         * urlInvokerMap = null
+         * invokers = null
+         * cachedInvokerUrls = {HashSet@3276}  size = 0
+         * serviceConfigurationListener = {RegistryDirectory$ReferenceConfigurationListener@3268}
+         * url = {URL@3198} "zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=38171&qos.port=33333&refer=check%3Dfalse%26dubbo%3D2.0.2%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26lazy%3Dfalse%26methods%3DsayHello%2CsayHelloAsync%26pid%3D38171%26register.ip%3D220.250.64.225%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1575883395444&timestamp=1575883395479"
+         * destroyed = false
+         * consumerUrl = {URL@3235} "consumer://220.250.64.225/org.apache.dubbo.demo.DemoService?category=providers,configurators,routers&check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.DemoService&lazy=false&methods=sayHello,sayHelloAsync&pid=38171&side=consumer&sticky=false&timestamp=1575883395444"
+         * routerChain = {RouterChain@3241}
+         */
+        /**
+         * 1、从url中获得mock属性值
+         * 2、
+         *      如果mock为空，或者mock=false,则不走本地伪装，直接调用invoker代理对象
+         *      如果mock值以force开头，则强制调用mock实例，实现本地伪装
+         *      如果mock不为空，也不是以force开头，则正常调用代理实例，如果代理实例调用失败，则会调用本地伪装mock，返回一个伪装的值
+         */
+        String value = directory.getUrl().getMethodParameter(
+                                invocation.getMethodName(), //方法名
+                                MOCK_KEY, //mock
+                                Boolean.FALSE.toString()//默认是false
+                                ).trim();//获取mock属性，没有的话默认为false
+        if (value.length() == 0
+                || "false".equalsIgnoreCase(value)) {//是否未采用本地伪装？mock=false，或者未设置mock
             //no mock
             result = this.invoker.invoke(invocation);
-        } else if (value.startsWith("force")) {
+        } else if (value.startsWith("force")) {//如果mock属性值以force开头，强制调用本地伪装
             if (logger.isWarnEnabled()) {
                 logger.warn("force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + directory.getUrl());
             }
             //force:direct mock
             result = doMockInvoke(invocation, null);
-        } else {
+        } else {//如果mock不为空，且mock值不是以force开头，也就是不是强制走本地伪装，则正常调用报异常后再走本地伪装
             //fail-mock
             try {
                 result = this.invoker.invoke(invocation);
@@ -111,6 +143,12 @@ public class MockClusterInvoker<T> implements Invoker<T> {
         return result;
     }
 
+    /***
+     * 强制调用mock的代理类
+     * @param invocation：RpcInvocation [methodName=sayHelloAsync, parameterTypes=[class java.lang.String], arguments=[world], attachments={}]
+     * @param e
+     * @return
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Result doMockInvoke(Invocation invocation, RpcException e) {
         Result result = null;
@@ -150,7 +188,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
      * directory.list() will return a list of normal invokers if Constants.INVOCATION_NEED_MOCK is present in invocation, otherwise, a list of mock invokers will return.
      * if directory.list() returns more than one mock invoker, only one of them will be used.
      *
-     * @param invocation
+     * @param invocation  RpcInvocation [methodName=sayHelloAsync, parameterTypes=[class java.lang.String], arguments=[world], attachments={}]
      * @return
      */
     private List<Invoker<T>> selectMockInvoker(Invocation invocation) {
@@ -158,6 +196,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
         //TODO generic invoker？
         if (invocation instanceof RpcInvocation) {
             //Note the implicit contract (although the description is added to the interface declaration, but extensibility is a problem. The practice placed in the attachment needs to be improved)
+            //设置 mock=true
             ((RpcInvocation) invocation).setAttachment(INVOCATION_NEED_MOCK, Boolean.TRUE.toString());
             //directory will return a list of normal invokers if Constants.INVOCATION_NEED_MOCK is present in invocation, otherwise, a list of mock invokers will return.
             try {

@@ -399,7 +399,7 @@ public class HashedWheelTimer implements Timer {
         if (unit == null) {
             throw new NullPointerException("unit");
         }
-
+        //等待超时的任务的个数
         long pendingTimeoutsCount = pendingTimeouts.incrementAndGet();
 
         if (maxPendingTimeouts > 0 && pendingTimeoutsCount > maxPendingTimeouts) {
@@ -408,7 +408,7 @@ public class HashedWheelTimer implements Timer {
                     + pendingTimeoutsCount + ") is greater than or equal to maximum allowed pending "
                     + "timeouts (" + maxPendingTimeouts + ")");
         }
-
+        //启动任务
         start();
 
         // Add the timeout to the timeout queue which will be processed on the next tick.

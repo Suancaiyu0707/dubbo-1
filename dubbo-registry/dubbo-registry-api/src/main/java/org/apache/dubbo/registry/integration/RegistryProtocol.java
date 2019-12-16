@@ -171,10 +171,18 @@ public class RegistryProtocol implements Protocol {
         return overrideListeners;
     }
 
+    /***
+     * 将 registeredProviderUrl注册到注册中心registryUrl上
+     * @param registryUrl
+     * @param registeredProviderUrl
+     * 1、根据 registryUrl 获得注册中心
+     * 2、将 registeredProviderUrl 注册到注册中心registryUrl上
+     * 3、将注册信息维护到ApplicationModel内存中
+     */
     public void register(URL registryUrl, URL registeredProviderUrl) {
-        Registry registry = registryFactory.getRegistry(registryUrl);
-        registry.register(registeredProviderUrl);
-
+        Registry registry = registryFactory.getRegistry(registryUrl);//获得注册中心
+        registry.register(registeredProviderUrl);//向注册中心注册这个服务
+        //serviceKey:cn/org.apache.dubbo.demo.EventNotifyService:1.0.0
         ProviderModel model = ApplicationModel.getProviderModel(registeredProviderUrl.getServiceKey());
         model.addStatedUrl(new ProviderModel.RegisterStatedURL(
                 registeredProviderUrl,
@@ -182,35 +190,64 @@ public class RegistryProtocol implements Protocol {
                 true
         ));
     }
-
+    /***
+     *  将invoker包装成一个exporter，exporter包含了注册的地址和监听的configurators地址
+     *      这里会进行服务在注册中心上的注册和订阅configurators地址
+     *  invoker = {JavassistProxyFactory$1@4074} "interface org.apache.dubbo.demo.EventNotifyService -> registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F220.250.64.225%3A20880%2Forg.apache.dubbo.demo.EventNotifyService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.EventNotifyService%26bind.ip%3D220.250.64.225%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26group%3Dcn%26interface%3Dorg.apache.dubbo.demo.EventNotifyService%26methods%3Dget%26pid%3D34339%26release%3D%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1575881105857%26version%3D1.0.0&pid=34339&qos.port=22222&registry=zookeeper&timestamp=1575881026931"
+     *  metadata = {ServiceBean@3049} "<dubbo:service beanName="org.apache.dubbo.demo.EventNotifyService" exported="true" unexported="false" path="org.apache.dubbo.demo.EventNotifyService" ref="org.apache.dubbo.demo.provider.EventNotifyServiceImpl@7807ac2c" interface="org.apache.dubbo.demo.EventNotifyService" uniqueServiceName="cn/org.apache.dubbo.demo.EventNotifyService:1.0.0" generic="false" prefix="dubbo.service.org.apache.dubbo.demo.EventNotifyService" group="cn" deprecated="false" dynamic="true" version="1.0.0" id="org.apache.dubbo.demo.EventNotifyService" valid="true" />"
+     *  1、获得zookeeper注册地址:
+     *      registryUrl=zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider
+     *      &dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.44.56%3A20880%2Forg.apache.dubbo.demo.AsyncService2%3F
+     *      anyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.AsyncService2%26bind.ip%3D192.168.44.56%26bind.port%3D20880
+     *      %26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse
+     *      %26interface%3Dorg.apache.dubbo.demo.AsyncService2%26methods%3DsayHello%26pid%3D22219%26release%3D%26side%3Dprovider
+     *      %26timestamp%3D1576066567127&pid=22219&qos.port=22222&timestamp=1576066538747
+     *  2、从registryUrl获得export属性值，也就是服务提供者的地址：
+     *      providerUrl=dubbo://192.168.44.56:20880/org.apache.dubbo.demo.AsyncService2?
+     *      anyhost=true&bean.name=org.apache.dubbo.demo.AsyncService2&bind.ip=192.168.44.56&bind.port=20880
+     *      &deprecated=false&dubbo=2.0.2&dynamic=true&generic=false
+     *      &interface=org.apache.dubbo.demo.AsyncService2&methods=sayHello&pid=22219&release=&side=provider
+     *      &timestamp=1576066567127
+     *  3、根据providerUrl获得订阅地址，且paramaters添加了category=configurators和check=false：
+     *      overrideSubscribeUrl=provider://192.168.44.56:20880/org.apache.dubbo.demo.AsyncService2?
+     *      anyhost=true&bean.name=org.apache.dubbo.demo.AsyncService2&bind.ip=192.168.44.56&bind.port=20880
+     *      &category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false
+     *      &interface=org.apache.dubbo.demo.AsyncService2&methods=sayHello&pid=22219&release=&side=provider
+     *      &timestamp=1576066567127
+     *  4、为对应的服务provider绑定一个监听器OverrideListener，用于监听对应的服务provider的地址变化
+     *  5、将configurators里对应的providerUrl的配置参数合并到当前的providerUrl里，并监听configurators下对该服务的地址的配置的变化
+     *  6、将originInvoker包装成一个ExporterChangeableWrapper。同时为创建一个NettyServer，用于接收客户端的地址
+     *  7、将当前服务originInvoker注册到注册中心上，同时订阅监听configurators路径
+     *
+     */
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
-        URL registryUrl = getRegistryUrl(originInvoker);//获得注册地址：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.0.103%3A20880%2Forg.apache.dubbo.demo.HelloService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.DemoService%26bind.ip%3D192.168.0.103%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%2CsayHelloAsync%26pid%3D78763%26release%3D%26side%3Dprovider%26timestamp%3D1574988715703&pid=78763&qos.port=22222&timestamp=1574988712664
-        // url to export locally dubbo://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.HelloService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
-        URL providerUrl = getProviderUrl(originInvoker);
-
-        // Subscribe the override data
-        // FIXME When the provider subscribes, it will affect the scene : a certain JVM exposes the service and call
+        URL registryUrl = getRegistryUrl(originInvoker);//获得注册地址： zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.44.56%3A20880%2Forg.apache.dubbo.demo.AsyncService2%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.AsyncService2%26bind.ip%3D192.168.44.56%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.AsyncService2%26methods%3DsayHello%26pid%3D22219%26release%3D%26side%3Dprovider%26timestamp%3D1576066567127&pid=22219&qos.port=22222&timestamp=1576066538747
+        // 获得服务提供者的地址 dubbo://192.168.44.56:20880/org.apache.dubbo.demo.AsyncService2?anyhost=true&bean.name=org.apache.dubbo.demo.AsyncService2&bind.ip=192.168.44.56&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.AsyncService2&methods=sayHello&pid=22219&release=&side=provider&timestamp=1576066567127
+        URL providerUrl = getProviderUrl(originInvoker);//dubbo://220.250.64.225:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34339&release=&revision=1.0.0&side=provider&timestamp=1575881105857&version=1.0.0
+        //获得订阅地址，因为服务提供者也要监听对应configurators目录的变化
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);//provider://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.HelloService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
-        overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
-
+        overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);//为订阅地址绑定对应的监听器
+        //获得服务提供者地址
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
-        //export invoker
+        //export invoker 将originInvoker包装成一个ExporterChangeableWrapper。同时为创建一个NettyServer，用于接收客户端的地址
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
-        // url to registry
-        final Registry registry = getRegistry(originInvoker);
-        final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);
+        //获得注册中心的地址
+        final Registry registry = getRegistry(originInvoker);//zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
+        final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);//dubbo://192.168.44.56:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=22219&release=&revision=1.0.0&side=provider&timestamp=1576065463228&version=1.0.0
         //to judge if we need to delay publish
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
-        if (register) {
+        if (register) {//服务提供者注册服务,会在zk上创建一个路径
+            //将当前服务originInvoker注册到注册中心上
             register(registryUrl, registeredProviderUrl);
         }
-
+        //
         // Deprecated! Subscribe to override rules in 2.6.x or before.
+        //订阅监听configurators路径
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
 
         exporter.setRegisterUrl(registeredProviderUrl);
@@ -219,6 +256,14 @@ public class RegistryProtocol implements Protocol {
         return new DestroyableExporter<>(exporter);
     }
 
+    /***
+     *
+     * @param providerUrl
+     * @param listener
+     * @return
+     * 1、将configurators里对应的providerUrl的配置参数合并到当前的providerUrl里
+     * 2、为合并后的providerUrl创建一个监听器，用于监听当前服务地址配置的变化
+     */
     private URL overrideUrlWithConfig(URL providerUrl, OverrideListener listener) {
         providerUrl = providerConfigurationListener.overrideUrl(providerUrl);
         ServiceConfigurationListener serviceConfigurationListener = new ServiceConfigurationListener(providerUrl, listener);
@@ -231,7 +276,7 @@ public class RegistryProtocol implements Protocol {
         String key = getCacheKey(originInvoker);
 
         return (ExporterChangeableWrapper<T>) bounds.computeIfAbsent(key, s -> {
-            Invoker<?> invokerDelegate = new InvokerDelegate<>(originInvoker, providerUrl);
+            Invoker<?> invokerDelegate = new InvokerDelegate<>(originInvoker, providerUrl);//创建一个InvokerDelegate
             return new ExporterChangeableWrapper<>((Exporter<T>) protocol.export(invokerDelegate), originInvoker);
         });
     }
@@ -304,10 +349,10 @@ public class RegistryProtocol implements Protocol {
     }
 
     protected URL getRegistryUrl(Invoker<?> originInvoker) {
-        URL registryUrl = originInvoker.getUrl();
-        if (REGISTRY_PROTOCOL.equals(registryUrl.getProtocol())) {
-            String protocol = registryUrl.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY);
-            registryUrl = registryUrl.setProtocol(protocol).removeParameter(REGISTRY_KEY);
+        URL registryUrl = originInvoker.getUrl();//registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.44.56%3A20880%2Forg.apache.dubbo.demo.EventNotifyService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.EventNotifyService%26bind.ip%3D192.168.44.56%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26group%3Dcn%26interface%3Dorg.apache.dubbo.demo.EventNotifyService%26methods%3Dget%26pid%3D34250%26release%3D%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1576073028433%26version%3D1.0.0&pid=34250&qos.port=22222&registry=zookeeper&timestamp=1576073019384
+        if (REGISTRY_PROTOCOL.equals(registryUrl.getProtocol())) {//registry
+            String protocol = registryUrl.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY);//获取注册协议，默认是dubbo
+            registryUrl = registryUrl.setProtocol(protocol).removeParameter(REGISTRY_KEY);//设置registryUrl的协议，并移除registry的key
         }
         return registryUrl;
     }
@@ -350,14 +395,19 @@ public class RegistryProtocol implements Protocol {
 
     }
 
+    /***
+     *
+     * @param registeredProviderUrl
+     * @return
+     */
     private URL getSubscribedOverrideUrl(URL registeredProviderUrl) {
         return registeredProviderUrl.setProtocol(PROVIDER_PROTOCOL)
                 .addParameters(CATEGORY_KEY, CONFIGURATORS_CATEGORY, CHECK_KEY, String.valueOf(false));
     }
 
-    /**
-     * Get the address of the providerUrl through the url of the invoker
-     *
+    /**originInvoker:
+     *      invoker = {JavassistProxyFactory$1@3698} "interface org.apache.dubbo.demo.EventNotifyService -> registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.44.56%3A20880%2Forg.apache.dubbo.demo.EventNotifyService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.EventNotifyService%26bind.ip%3D192.168.44.56%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26group%3Dcn%26interface%3Dorg.apache.dubbo.demo.EventNotifyService%26methods%3Dget%26pid%3D34250%26release%3D%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1576073028433%26version%3D1.0.0&pid=34250&qos.port=22222&registry=zookeeper&timestamp=1576073019384"
+     *      metadata = {ServiceBean@3046} "<dubbo:service beanName="org.apache.dubbo.demo.EventNotifyService" exported="true" unexported="false" path="org.apache.dubbo.demo.EventNotifyService" ref="org.apache.dubbo.demo.provider.EventNotifyServiceImpl@740abb5" generic="false" interface="org.apache.dubbo.demo.EventNotifyService" uniqueServiceName="cn/org.apache.dubbo.demo.EventNotifyService:1.0.0" prefix="dubbo.service.org.apache.dubbo.demo.EventNotifyService" deprecated="false" group="cn" dynamic="true" version="1.0.0" id="org.apache.dubbo.demo.EventNotifyService" valid="true" />"
      * @param originInvoker
      * @return
      */
@@ -376,9 +426,9 @@ public class RegistryProtocol implements Protocol {
      * @return
      */
     private String getCacheKey(final Invoker<?> originInvoker) {
-        URL providerUrl = getProviderUrl(originInvoker);
+        URL providerUrl = getProviderUrl(originInvoker);//dubbo://192.168.44.56:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=192.168.44.56&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34250&release=&revision=1.0.0&side=provider&timestamp=1576073028433&version=1.0.0
         String key = providerUrl.removeParameters("dynamic", "enabled").toFullString();
-        return key;
+        return key;//dubbo://192.168.44.56:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=192.168.44.56&bind.port=20880&deprecated=false&dubbo=2.0.2&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34250&release=&revision=1.0.0&side=provider&timestamp=1576073028433&version=1.0.0
     }
 
     @Override
@@ -461,6 +511,15 @@ public class RegistryProtocol implements Protocol {
     }
 
     //Merge the urls of configurators
+
+    /***
+     *
+     * @param configurators
+     * @param url
+     * @return
+     * 1、遍历configurators列表
+     * 2、根据每个configurator合并url中的属性
+     */
     private static URL getConfigedInvokerUrl(List<Configurator> configurators, URL url) {
         if (configurators != null && configurators.size() > 0) {
             for (Configurator configurator : configurators) {
@@ -533,10 +592,10 @@ public class RegistryProtocol implements Protocol {
          *             return value of {@link org.apache.dubbo.registry.RegistryService#lookup(URL)}.
          */
         @Override
-        public synchronized void notify(List<URL> urls) {
+        public synchronized void notify(List<URL> urls) {//empty://220.250.64.225:20880/org.apache.dubbo.demo.MockService?anyhost=true&bean.name=org.apache.dubbo.demo.MockService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.MockService&methods=sayHello&pid=14340&release=&side=provider&timestamp=1576479462282
             logger.debug("original override urls: " + urls);
-
-            List<URL> matchedUrls = getMatchedUrls(urls, subscribeUrl.addParameter(CATEGORY_KEY,
+            //empty://192.168.0.105:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=192.168.0.105&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=82030&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576457680054
+           List<URL> matchedUrls = getMatchedUrls(urls, subscribeUrl.addParameter(CATEGORY_KEY,
                     CONFIGURATORS_CATEGORY));
             logger.debug("subscribe url: " + subscribeUrl + ", override urls: " + matchedUrls);
 
@@ -567,12 +626,12 @@ public class RegistryProtocol implements Protocol {
                 return;
             }
             //The current, may have been merged many times
-            URL currentUrl = exporter.getInvoker().getUrl();
+            URL currentUrl = exporter.getInvoker().getUrl();//dubbo://220.250.64.225:20880/org.apache.dubbo.demo.MockService?anyhost=true&bean.name=org.apache.dubbo.demo.MockService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.MockService&methods=sayHello&pid=14340&release=&side=provider&timestamp=1576479462282
             //Merged with this configuration
             URL newUrl = getConfigedInvokerUrl(configurators, originUrl);
             newUrl = getConfigedInvokerUrl(providerConfigurationListener.getConfigurators(), newUrl);
             newUrl = getConfigedInvokerUrl(serviceConfigurationListeners.get(originUrl.getServiceKey())
-                    .getConfigurators(), newUrl);
+                    .getConfigurators(), newUrl);//dubbo://220.250.64.225:20880/org.apache.dubbo.demo.MockService?anyhost=true&bean.name=org.apache.dubbo.demo.MockService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.MockService&methods=sayHello&pid=14340&release=&side=provider&timestamp=1576479462282
             if (!currentUrl.equals(newUrl)) {
                 RegistryProtocol.this.reExport(originInvoker, newUrl);
                 logger.info("exported provider url changed, origin url: " + originUrl +
@@ -630,6 +689,7 @@ public class RegistryProtocol implements Protocol {
          * @param providerUrl
          * @param <T>
          * @return
+         * 根据configurators里的规则，重写providerUrl对应的属性
          */
         private <T> URL overrideUrl(URL providerUrl) {
             return RegistryProtocol.getConfigedInvokerUrl(configurators, providerUrl);

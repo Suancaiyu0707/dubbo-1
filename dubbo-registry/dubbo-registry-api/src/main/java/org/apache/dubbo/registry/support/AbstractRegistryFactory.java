@@ -87,14 +87,24 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
         }
     }
 
+    /***
+     *
+     * @param url Registry address, is not allowed to be empty
+     *            zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService
+     * @return
+     * 1、根据注册中心地址构建一个Url，增加了interface=RegistryService，移除export属性
+     * 2、检查内存里是否存在对应注册中心对象，有的话直接返回
+     * 3、根据注册中心地址维护一个注册中心对象，和注册中心进行连接，并把注册中心对象存放到内存REGISTRIES里
+     */
     @Override
     public Registry getRegistry(URL url) {
+        //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=29060&qos.port=22222&timestamp=1576488075902
         url = URLBuilder.from(url)
                 .setPath(RegistryService.class.getName())
                 .addParameter(INTERFACE_KEY, RegistryService.class.getName())
                 .removeParameters(EXPORT_KEY, REFER_KEY)
                 .build();
-        String key = url.toServiceStringWithoutResolving();
+        String key = url.toServiceStringWithoutResolving();// /zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService
         // Lock the registry access process to ensure a single instance of the registry
         LOCK.lock();
         try {
@@ -103,7 +113,7 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
                 return registry;
             }
             //create registry by spi/ioc
-            registry = createRegistry(url);
+            registry = createRegistry(url);//zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
             if (registry == null) {
                 throw new IllegalStateException("Can not create registry " + url);
             }

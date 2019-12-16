@@ -81,6 +81,15 @@ public class ServiceRepository extends LifecycleAdapter implements FrameworkExt 
         return serviceDescriptor;
     }
 
+    /***
+     * 更新本地缓存consumers
+     * @param serviceKey
+     * @param attributes
+     * @param serviceModel
+     * @param rc
+     * @param proxy
+     * @param serviceMetadata
+     */
     public void registerConsumer(String serviceKey,
                                  Map<String, Object> attributes,
                                  ServiceDescriptor serviceModel,
@@ -90,7 +99,7 @@ public class ServiceRepository extends LifecycleAdapter implements FrameworkExt 
         consumers.computeIfAbsent(
                 serviceKey,
                 _k -> new ConsumerModel(
-                        serviceMetadata.getServiceKey(),
+                        serviceMetadata.getServiceKey(),//org.apache.dubbo.demo.DemoService
                         proxy,
                         serviceModel,
                         rc,
@@ -100,11 +109,30 @@ public class ServiceRepository extends LifecycleAdapter implements FrameworkExt 
         );
     }
 
+    /***
+     * 维护全局变量providers
+     * @param serviceKey 服务的key interfaceName+group+version
+     * @param serviceInstance
+     * @param serviceModel
+     * @param serviceConfig
+     * @param serviceMetadata
+     */
     public void registerProvider(String serviceKey,
                                  Object serviceInstance,
                                  ServiceDescriptor serviceModel,
                                  ServiceConfigBase<?> serviceConfig,
                                  ServiceMetadata serviceMetadata) {
+        /***
+         * key = "cn/org.apache.dubbo.demo.EventNotifyService:1.0.0"
+         * value = {ProviderModel@3643}
+         *  serviceKey = "cn/org.apache.dubbo.demo.EventNotifyService:1.0.0"
+         *  serviceInstance = {EventNotifyServiceImpl@3220}
+         *  serviceModel = {ServiceDescriptor@3570}
+         *  serviceConfig = {ServiceBean@3207} "<dubbo:service beanName="org.apache.dubbo.demo.EventNotifyService" exported="true" unexported="false" path="org.apache.dubbo.demo.EventNotifyService" ref="org.apache.dubbo.demo.provider.EventNotifyServiceImpl@1b822fcc" generic="false" interface="org.apache.dubbo.demo.EventNotifyService" uniqueServiceName="cn/org.apache.dubbo.demo.EventNotifyService:1.0.0" prefix="dubbo.service.org.apache.dubbo.demo.EventNotifyService" group="cn" dynamic="true" deprecated="false" version="1.0.0" id="org.apache.dubbo.demo.EventNotifyService" valid="true" />"
+         *  urls = {ArrayList@3644}  size = 0
+         *  serviceMetadata = {ServiceMetadata@3221}
+         *  methods = {HashMap@3645}  size = 1
+         */
         providers.computeIfAbsent(
                 serviceKey,
                 _k -> new ProviderModel(

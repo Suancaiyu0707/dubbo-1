@@ -175,6 +175,7 @@ public class ConfigValidationUtils {
         // check && override if necessary
         List<URL> registryList = new ArrayList<URL>();
         ApplicationConfig application = interfaceConfig.getApplication();//获得ApplicationConfig
+        //获得服务需要注册的注册配置
         List<RegistryConfig> registries = interfaceConfig.getRegistries();//获得注册配置列表
         if (CollectionUtils.isNotEmpty(registries)) {
             for (RegistryConfig config : registries) {//遍历注册列表
@@ -183,10 +184,10 @@ public class ConfigValidationUtils {
                 if (StringUtils.isEmpty(address)) {//如果注册地址为空
                     address = ANYHOST_VALUE;//0.0.0.0
                 }
-                //注册地址不是：N/A
+                //注册地址不是：N/A，也就是说会跳过N/A
                 if (!RegistryConfig.NO_AVAILABLE.equalsIgnoreCase(address)) {
                     Map<String, String> map = new HashMap<String, String>();
-                    //把应用的配置参数添加到map里
+                    //把应用application的配置参数添加到map里
                     AbstractConfig.appendParameters(map, application);
                     //把RegistryConfig的配置参数添加到map里
                     AbstractConfig.appendParameters(map, config);
@@ -198,7 +199,7 @@ public class ConfigValidationUtils {
                     if (!map.containsKey(PROTOCOL_KEY)) {
                         map.put(PROTOCOL_KEY, DUBBO_PROTOCOL);
                     }
-                    //将配置参数和address地址拼接成 URL对象
+                    //将配置参数和address地址拼接成 URL对象，在address里，如果有多个地址的话，用;号分割
                     List<URL> urls = UrlUtils.parseURLs(address, map);
 
                     for (URL url : urls) {
@@ -349,25 +350,25 @@ public class ConfigValidationUtils {
         checkName(TOKEN_KEY, config.getToken());
         //校验路径，默认路径为接口名称
         checkPathName(PATH_KEY, config.getPath());
-
+        //检查listener属性配置的合法性
         checkMultiExtension(ExporterListener.class, "listener", config.getListener());
 
         validateAbstractInterfaceConfig(config);
-
+        //检验 register的配置
         List<RegistryConfig> registries = config.getRegistries();
         if (registries != null) {
             for (RegistryConfig registry : registries) {
                 validateRegistryConfig(registry);
             }
         }
-
+        //检验 protocol 的配置
         List<ProtocolConfig> protocols = config.getProtocols();
         if (protocols != null) {
             for (ProtocolConfig protocol : protocols) {
                 validateProtocolConfig(protocol);
             }
         }
-
+        //检验 provider 的配置
         ProviderConfig providerConfig = config.getProvider();
         if (providerConfig != null) {
             validateProviderConfig(providerConfig);
@@ -551,12 +552,12 @@ public class ConfigValidationUtils {
     }
 
     /**
-     * Check whether there is a <code>Extension</code> who's name (property) is <code>value</code> (special treatment is
-     * required)
      *
-     * @param type     The Extension type
-     * @param property The extension key
-     * @param value    The Extension name
+     * @param type
+     * @param property
+     * @param value
+     * 1、把value用逗号分割
+     * 2、检查每个值是否存在对应的spi拓展实现类，如果没有，则抛出异常
      */
     public static void checkMultiExtension(Class<?> type, String property, String value) {
         checkMultiName(property, value);

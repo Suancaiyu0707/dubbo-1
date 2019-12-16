@@ -764,7 +764,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     @Override
     public URL getUrl() {
-        return this.overrideDirectoryUrl;
+        return this.overrideDirectoryUrl;//zookeeper://localhost:2181/org.apache.dubbo.registry.RegistryService?anyhost=true&bean.name=org.apache.dubbo.demo.MockService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.MockService&lazy=false&methods=sayHello&mock=force%3Aorg.apache.dubbo.demo.consumer.MockServiceMock&pid=73942&register.ip=192.168.0.104&release=&remote.application=&side=consumer&sticky=false&timestamp=1575937873293
     }
 
     public URL getRegisteredConsumerUrl() {
@@ -828,8 +828,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     }
     //重写 DirectoryUrl
     private void overrideDirectoryUrl() {
-        // merge override parameters
-        this.overrideDirectoryUrl = directoryUrl;
+        // merge override parameters 旧的overrideDirectoryUrl：zookeeper://localhost:2181/org.apache.dubbo.registry.RegistryService?check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.DemoService&lazy=false&methods=sayHello,sayHelloAsync&pid=68831&register.ip=192.168.0.104&side=consumer&sticky=false&timestamp=1575935066048
+        this.overrideDirectoryUrl = directoryUrl;//directoryUrl：zookeeper://localhost:2181/org.apache.dubbo.registry.RegistryService?check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.DemoService&lazy=false&methods=sayHello,sayHelloAsync&pid=68831&register.ip=192.168.0.104&side=consumer&sticky=false&timestamp=1575935066048
         List<Configurator> localConfigurators = this.configurators; // local reference
         doOverrideUrl(localConfigurators);
         List<Configurator> localAppDynamicConfigurators = CONSUMER_CONFIGURATION_LISTENER.getConfigurators(); // local reference

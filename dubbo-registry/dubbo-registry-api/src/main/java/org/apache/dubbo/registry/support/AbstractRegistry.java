@@ -86,18 +86,55 @@ public abstract class AbstractRegistry implements Registry {
     private final AtomicLong lastCacheChanged = new AtomicLong();
     private final AtomicInteger savePropertiesRetryTimes = new AtomicInteger();
     private final Set<URL> registered = new ConcurrentHashSet<>();
+    //维护监听该url的监听器列表，可能多个监听器监听同一个url路径
+    /***
+     *
+     *
+     *
+     *
+     */
     private final ConcurrentMap<URL, Set<NotifyListener>> subscribed = new ConcurrentHashMap<>();
-    private final ConcurrentMap<URL, Map<String, List<URL>>> notified = new ConcurrentHashMap<>();
-    private URL registryUrl;
-    // Local disk cache file
-    private File file;
+    /**
+     * 0 = {ConcurrentHashMap$MapEntry@4548} "provider://220.250.64.225:20880/org.apache.dubbo.demo.MockService?anyhost=true&bean.name=org.apache.dubbo.demo.MockService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.MockService&methods=sayHello&pid=14340&release=&side=provider&timestamp=1576479462282" -> " size = 1"
+     *  key = {URL@4367} "provider://220.250.64.225:20880/org.apache.dubbo.demo.MockService?anyhost=true&bean.name=org.apache.dubbo.demo.MockService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.MockService&methods=sayHello&pid=14340&release=&side=provider&timestamp=1576479462282"
+     *  value = {ConcurrentHashMap@4529}  size = 1
+     *   0 = {ConcurrentHashMap$MapEntry@4552} "configurators" -> " size = 1"
+     *    key = "configurators"
+     *    value = {ArrayList@4513}  size = 1
+     * 1 = {ConcurrentHashMap$MapEntry@4549} "provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=14340&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576478833784" -> " size = 1"
+     *  key = {URL@3847} "provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=14340&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576478833784"
+     *  value = {ConcurrentHashMap@4021}  size = 1
+     *   0 = {ConcurrentHashMap$MapEntry@4556} "configurators" -> " size = 1"
+     *    key = "configurators"
+     *    value = {ArrayList@4558}  size = 1
+     *
+     */
+    private final ConcurrentMap<URL, Map<String, List<URL>>> notified = new ConcurrentHashMap<>();//内存中的服务缓存对象
+    private URL registryUrl;//zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
+    // Local disk cache file //本地磁盘文件服务缓存对象
+    private File file;// /Users/hb/.dubbo/dubbo-registry-demo-provider-127.0.0.1-2181.cache
 
+    /***
+     *
+     * @param url
+     * 1、 设置配置中心的地址
+     *      zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
+     * 2、 检查配置中心的URL中是否配置了同步保存文件属性，通过save.file设置，默认为false。
+     * 3、获得配置信息本地缓存的文件：
+     *      /Users/hb/.dubbo/dubbo-registry-demo-provider-127.0.0.1-2181.cache
+     *      /Users/hb/.dubbo/dubbo-registry-demo-consumer-127.0.0.1-2181.cache
+     * 4、如果本地已经缓存了指定的配置文件，则进行加载
+     * 5、
+     *
+     */
     public AbstractRegistry(URL url) {
-        setUrl(url);
-        // Start file save timer
+        //1. 设置配置中心的地址
+        setUrl(url);//zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
+        // 2. 配置中心的URL中是否配置了同步保存文件属性，否则默认为false
         syncSaveFile = url.getParameter(REGISTRY_FILESAVE_SYNC_KEY, false);
-        String defaultFilename = System.getProperty("user.home") + "/.dubbo/dubbo-registry-" + url.getParameter(APPLICATION_KEY) + "-" + url.getAddress().replaceAll(":", "-") + ".cache";
-        String filename = url.getParameter(FILE_KEY, defaultFilename);
+        //配置信息本地缓存的文件名
+        String defaultFilename = System.getProperty("user.home") + "/.dubbo/dubbo-registry-" + url.getParameter(APPLICATION_KEY) + "-" + url.getAddress().replaceAll(":", "-") + ".cache";//
+        String filename = url.getParameter(FILE_KEY, defaultFilename);///Users/hb/.dubbo/dubbo-registry-demo-provider-127.0.0.1-2181.cache
         File file = null;
         if (ConfigUtils.isNotEmpty(filename)) {
             file = new File(filename);
@@ -110,10 +147,22 @@ public abstract class AbstractRegistry implements Registry {
         this.file = file;
         // When starting the subscription center,
         // we need to read the local cache file for future Registry fault tolerance processing.
+        //如果现有配置缓存，则从缓存文件中加载属性
         loadProperties();
         notify(url.getBackupUrls());
     }
 
+    /***
+     *
+     * @param url
+     *      provider:
+     *      consumer:
+     * @param urls
+     * @return
+     * 如果urls是空的话，则把url的协议改成empty并返回。
+     * 如果urls非空的话，则直接返回urls
+     *
+     */
     protected static List<URL> filterEmpty(URL url, List<URL> urls) {
         if (CollectionUtils.isEmpty(urls)) {
             List<URL> result = new ArrayList<>(1);
@@ -159,6 +208,10 @@ public abstract class AbstractRegistry implements Registry {
         return lastCacheChanged;
     }
 
+    /***
+     * 保存properties
+     * @param version
+     */
     public void doSaveProperties(long version) {
         if (version < lastCacheChanged.get()) {
             return;
@@ -168,6 +221,7 @@ public abstract class AbstractRegistry implements Registry {
         }
         // Save
         try {
+            //
             File lockfile = new File(file.getAbsolutePath() + ".lock");
             if (!lockfile.exists()) {
                 lockfile.createNewFile();
@@ -206,12 +260,14 @@ public abstract class AbstractRegistry implements Registry {
             logger.warn("Failed to save registry cache file, will retry, cause: " + e.getMessage(), e);
         }
     }
-
+    //在服务初始化时，会调用该方法，注册中心会从本地磁盘中把持久化的注册数据注册到Properties对象里，并加载到内存缓存中。从/Users/hb/.dubbo/dubbo-registry-demo-provider-127.0.0.1-2181.cache 读取配置信息
     private void loadProperties() {
+        //当本地存在配置缓存文件时
         if (file != null && file.exists()) {
             InputStream in = null;
             try {
                 in = new FileInputStream(file);
+                //读取配置文件的内容，并加载为properties的键值对存储
                 properties.load(in);
                 if (logger.isInfoEnabled()) {
                     logger.info("Load registry cache file " + file + ", data: " + properties);
@@ -230,10 +286,17 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    /***
+     *
+     * @param url
+     *      provider:
+     *      consumer:
+     * @return
+     */
     public List<URL> getCacheUrls(URL url) {
         for (Map.Entry<Object, Object> entry : properties.entrySet()) {
-            String key = (String) entry.getKey();
-            String value = (String) entry.getValue();
+            String key = (String) entry.getKey();//key是服务提供者URL#servicekey()
+            String value = (String) entry.getValue();//值可能是提供者的列表、路由规则的列表、配置规则等，这多个值用空格隔开
             if (key != null && key.length() > 0 && key.equals(url.getServiceKey())
                     && (Character.isLetter(key.charAt(0)) || key.charAt(0) == '_')
                     && value != null && value.length() > 0) {
@@ -247,7 +310,13 @@ public abstract class AbstractRegistry implements Registry {
         }
         return null;
     }
-
+    /***
+     *
+     * @param url
+     *      provider:
+     *      consumer:
+     * @return
+     */
     @Override
     public List<URL> lookup(URL url) {
         List<URL> result = new ArrayList<>();
@@ -276,6 +345,12 @@ public abstract class AbstractRegistry implements Registry {
         return result;
     }
 
+    /**
+     * 本地内存记录已注册的服务
+     * @param url  Registration information , is not allowed to be empty, e.g: dubbo://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
+     *      provider: dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=30672&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576489098974
+     *      consumer:
+     */
     @Override
     public void register(URL url) {
         if (url == null) {
@@ -287,6 +362,12 @@ public abstract class AbstractRegistry implements Registry {
         registered.add(url);
     }
 
+    /**
+     * 取消注册的服务
+     * @param url Registration information , is not allowed to be empty, e.g: dubbo://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
+     *      provider:
+     *      consumer:
+     */
     @Override
     public void unregister(URL url) {
         if (url == null) {
@@ -298,6 +379,13 @@ public abstract class AbstractRegistry implements Registry {
         registered.remove(url);
     }
 
+    /***
+     * 分别存储订阅的URL和其对应的监听器列表。可能多个监听器监听同一个地址
+     * @param url      Subscription condition, not allowed to be empty, e.g. consumer://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
+     * @param listener A listener of the change event, not allowed to be empty
+     *      provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=19528&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576482019237
+     *      consumer:
+     */
     @Override
     public void subscribe(URL url, NotifyListener listener) {
         if (url == null) {
@@ -308,11 +396,18 @@ public abstract class AbstractRegistry implements Registry {
         }
         if (logger.isInfoEnabled()) {
             logger.info("Subscribe: " + url);
-        }
+        }//维护订阅信息：url<->Set<NotifyListener> 的映射关系
         Set<NotifyListener> listeners = subscribed.computeIfAbsent(url, n -> new ConcurrentHashSet<>());
         listeners.add(listener);
     }
 
+    /**
+     * 取消订阅
+     * @param url      Subscription condition, not allowed to be empty, e.g. consumer://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
+     * @param listener A listener of the change event, not allowed to be empty
+     *      provider:
+     *      consumer:
+     */
     @Override
     public void unsubscribe(URL url, NotifyListener listener) {
         if (url == null) {
@@ -330,6 +425,11 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    /***
+     * 服务恢复
+     * 服务的恢复包括注册服务的恢复和订阅服务的恢复。因为内存中保留了注册的服务和订阅的服务。因此在恢复的时候会重新拉取这些数据，分别调用发布和订阅的方法来重新将其录入到注册中心上。
+     * @throws Exception
+     */
     protected void recover() throws Exception {
         // register
         Set<URL> recoverRegistered = new HashSet<>(getRegistered());
@@ -357,21 +457,29 @@ public abstract class AbstractRegistry implements Registry {
     }
 
     /***
+     * notify是指将一组URL推送给订阅了该URL的订阅端。在推送的时候，会将url根据cateogry分组，之后再分别推送不同的分组。
      * 通知
-     * @param urls
+     * @param urls zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
+     * 1、遍历所有的订阅信息subscribed，其中key是订阅的url路径，value是监听这个url变化的NotifyListener列表
+     * 2、检查遍历的订阅信息，看是否有url是当前被通知的urls列表里，如果有的话，调用所有监听当前url的   NotifyListener.notify方法
+     *
      */
     protected void notify(List<URL> urls) {
         if (CollectionUtils.isEmpty(urls)) {
             return;
         }
-
+        /***
+         * 遍历所有的订阅信息
+         */
         for (Map.Entry<URL, Set<NotifyListener>> entry : getSubscribed().entrySet()) {
-            URL url = entry.getKey();
-
+            URL url = entry.getKey();//或者订阅的url
+            //如果通知的url不包含订阅的url，则检查下一个订阅的ulr
             if (!UrlUtils.isMatch(url, urls.get(0))) {
                 continue;
             }
-
+            /***
+             * 如果通知的url包含订阅的url，则遍历所有的监听当前url的NotifyListener，并调用对应的notify方法
+             */
             Set<NotifyListener> listeners = entry.getValue();
             if (listeners != null) {
                 for (NotifyListener listener : listeners) {
@@ -389,8 +497,11 @@ public abstract class AbstractRegistry implements Registry {
      * Notify changes from the Provider side.
      *
      * @param url      consumer side url
-     * @param listener listener
-     * @param urls     provider latest urls
+     *                 provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=14340&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576478833784
+     *                 consumer:
+     * @param listener listener：
+     * @param urls     provider latest urls：empty://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=14340&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576478833784
+     *
      */
     protected void notify(URL url, NotifyListener listener, List<URL> urls) {
         if (url == null) {
@@ -411,6 +522,7 @@ public abstract class AbstractRegistry implements Registry {
         Map<String, List<URL>> result = new HashMap<>();
         for (URL u : urls) {
             if (UrlUtils.isMatch(url, u)) {
+                //获得category属性值。provider: configurators
                 String category = u.getParameter(CATEGORY_KEY, DEFAULT_CATEGORY);
                 List<URL> categoryList = result.computeIfAbsent(category, k -> new ArrayList<>());
                 categoryList.add(u);
@@ -421,8 +533,8 @@ public abstract class AbstractRegistry implements Registry {
         }
         Map<String, List<URL>> categoryNotified = notified.computeIfAbsent(url, u -> new ConcurrentHashMap<>());
         for (Map.Entry<String, List<URL>> entry : result.entrySet()) {
-            String category = entry.getKey();
-            List<URL> categoryList = entry.getValue();
+            String category = entry.getKey();//configurators
+            List<URL> categoryList = entry.getValue();//{empty://192.168.0.105:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=192.168.0.105&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=82030&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576457680054}
             categoryNotified.put(category, categoryList);
             listener.notify(categoryList);
             // We will update our cache file after each notification.
@@ -451,9 +563,9 @@ public abstract class AbstractRegistry implements Registry {
             }
             properties.setProperty(url.getServiceKey(), buf.toString());
             long version = lastCacheChanged.incrementAndGet();
-            if (syncSaveFile) {
+            if (syncSaveFile) {//同步保存缓存
                 doSaveProperties(version);
-            } else {
+            } else {//异步保存，放入线程池中，，会传入一个版本号，保证数据是最新的
                 registryCacheExecutor.execute(new SaveProperties(version));
             }
         } catch (Throwable t) {
@@ -498,9 +610,17 @@ public abstract class AbstractRegistry implements Registry {
             }
         }
     }
+    //
 
+    /***
+     * 检查这个注册中心是否接收注册 查看accepts属性
+     * @param urlToRegistry
+     * @return
+     * 1、如果注册中心地址的accepts为空，则接受服务注册
+     * 2、如果注册中心地址的accepts不为空，则检查协议是否匹配了accepts设置的规则
+     */
     protected boolean acceptable(URL urlToRegistry) {
-        String pattern = registryUrl.getParameter(ACCEPTS_KEY);
+        String pattern = registryUrl.getParameter(ACCEPTS_KEY);//判断注册中心是否接受注册，通过获得accepts属性
         if (StringUtils.isEmpty(pattern)) {
             return true;
         }

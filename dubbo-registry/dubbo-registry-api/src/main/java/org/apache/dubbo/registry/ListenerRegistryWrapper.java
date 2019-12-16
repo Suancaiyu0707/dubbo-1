@@ -51,11 +51,17 @@ public class ListenerRegistryWrapper implements Registry {
         registry.destroy();
     }
 
+    /***
+     * 向当前注册中心注册指定的 服务提供者
+     * @param url  Registration information , is not allowed to be empty, e.g: dubbo://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
+     *        url：是服务提供者的地址
+     */
     @Override
     public void register(URL url) {
         try {
             registry.register(url);
         } finally {
+            //如果当前注册中心绑定了监听器
             if (CollectionUtils.isNotEmpty(listeners)) {
                 RuntimeException exception = null;
                 for (RegistryServiceListener listener : listeners) {

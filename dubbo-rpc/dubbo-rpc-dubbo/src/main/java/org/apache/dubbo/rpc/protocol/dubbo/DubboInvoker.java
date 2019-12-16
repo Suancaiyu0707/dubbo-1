@@ -76,20 +76,20 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
 
     @Override
     protected Result doInvoke(final Invocation invocation) throws Throwable {
-        RpcInvocation inv = (RpcInvocation) invocation;
-        final String methodName = RpcUtils.getMethodName(invocation);
+        RpcInvocation inv = (RpcInvocation) invocation;//RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[xuzf], attachments={path=org.apache.dubbo.demo.MockService, interface=org.apache.dubbo.demo.MockService, version=0.0.0}]
+        final String methodName = RpcUtils.getMethodName(invocation);//sayHello
         inv.setAttachment(PATH_KEY, getUrl().getPath());
         inv.setAttachment(VERSION_KEY, version);
 
         ExchangeClient currentClient;
         if (clients.length == 1) {
-            currentClient = clients[0];
+            currentClient = clients[0];//org.apache.dubbo.remoting.transport.netty4.NettyClient [/192.168.0.104:61515 -> /192.168.0.104:20880]
         } else {
             currentClient = clients[index.getAndIncrement() % clients.length];
         }
         try {
             //判断是否是isOneway，默认是
-            boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);
+            boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);//false
             int timeout = getUrl().getMethodPositiveParameter(methodName, TIMEOUT_KEY, DEFAULT_TIMEOUT);
             if (isOneway) {
                 boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);

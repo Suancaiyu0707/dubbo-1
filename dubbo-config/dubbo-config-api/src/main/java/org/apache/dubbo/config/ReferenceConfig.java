@@ -202,7 +202,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         serviceMetadata.setServiceType(getActualInterface());
         serviceMetadata.setServiceInterfaceName(interfaceName);
         // TODO, uncomment this line once service key is unified
-        serviceMetadata.setServiceKey(URL.buildKey(interfaceName, group, version));
+        serviceMetadata.setServiceKey(URL.buildKey(interfaceName, group, version));//org.apache.dubbo.demo.DemoService
 
         checkStubAndLocal(interfaceClass);
         ConfigValidationUtils.checkMock(interfaceClass, this);
@@ -217,7 +217,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 map.put(REVISION_KEY, revision);
             }
 
-            String[] methods = Wrapper.getWrapper(interfaceClass).getMethodNames();
+            String[] methods = Wrapper.getWrapper(interfaceClass).getMethodNames();//{sayHello,sayHelloAsyn}
             if (methods.length == 0) {
                 logger.warn("No method found in service interface " + interfaceClass.getName());
                 map.put(METHODS_KEY, ANY_VALUE);
@@ -266,14 +266,14 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         ServiceRepository repository = ApplicationModel.getServiceRepository();
         ServiceDescriptor serviceDescriptor = repository.registerService(interfaceClass);
         repository.registerConsumer(
-                serviceMetadata.getServiceKey(),
+                serviceMetadata.getServiceKey(),//org.apache.dubbo.demo.DemoService
                 attributes,
                 serviceDescriptor,
                 this,
                 null,
                 serviceMetadata);
 
-        ref = createProxy(map);
+        ref = createProxy(map);//创建代理对象
 
         serviceMetadata.setTarget(ref);
         serviceMetadata.addAttribute(PROXY_CLASS_REF, ref);
@@ -286,7 +286,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
 
     @SuppressWarnings({"unchecked", "rawtypes", "deprecation"})
     private T createProxy(Map<String, String> map) {
-        if (shouldJvmRefer(map)) {
+        if (shouldJvmRefer(map)) {//判断是否injvm协议注册，是否内部访问
             URL url = new URL(LOCAL_PROTOCOL, LOCALHOST_VALUE, 0, interfaceClass.getName()).addParameters(map);
             invoker = REF_PROTOCOL.refer(interfaceClass, url);
             if (logger.isInfoEnabled()) {
@@ -311,9 +311,9 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 }
             } else { // assemble URL from register center's configuration
                 // if protocols not injvm checkRegistry
-                if (!LOCAL_PROTOCOL.equalsIgnoreCase(getProtocol())) {
-                    checkRegistry();
-                    List<URL> us = ConfigValidationUtils.loadRegistries(this, false);
+                if (!LOCAL_PROTOCOL.equalsIgnoreCase(getProtocol())) {//如果不是local本地协议的话
+                    checkRegistry();//检查注册中心
+                    List<URL> us = ConfigValidationUtils.loadRegistries(this, false);//registry://localhost:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=68831&qos.port=33333&registry=zookeeper&timestamp=1575935377133
                     if (CollectionUtils.isNotEmpty(us)) {
                         for (URL u : us) {
                             URL monitorUrl = ConfigValidationUtils.loadMonitor(this, u);
@@ -323,13 +323,13 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                             urls.add(u.addParameterAndEncoded(REFER_KEY, StringUtils.toQueryString(map)));
                         }
                     }
-                    if (urls.isEmpty()) {
+                    if (urls.isEmpty()) {//registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=68831&qos.port=33333&refer=check%3Dfalse%26dubbo%3D2.0.2%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26lazy%3Dfalse%26methods%3DsayHello%2CsayHelloAsync%26pid%3D68831%26register.ip%3D192.168.0.104%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1575935066048&registry=zookeeper&timestamp=1575935377133
                         throw new IllegalStateException("No such any registry to reference " + interfaceName + " on the consumer " + NetUtils.getLocalHost() + " use dubbo version " + Version.getVersion() + ", please config <dubbo:registry address=\"...\" /> to your spring config.");
                     }
                 }
             }
 
-            if (urls.size() == 1) {
+            if (urls.size() == 1) {//创建消费者的代理对象
                 invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));
             } else {
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
@@ -423,7 +423,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
     protected boolean shouldJvmRefer(Map<String, String> map) {
         URL tmpUrl = new URL("temp", "localhost", 0, map);
         boolean isJvmRefer;
-        if (isInjvm() == null) {
+        if (isInjvm() == null) {//判断是 injvm 本地内部访问
             // if a url is specified, don't do local reference
             if (url != null && url.length() > 0) {
                 isJvmRefer = false;

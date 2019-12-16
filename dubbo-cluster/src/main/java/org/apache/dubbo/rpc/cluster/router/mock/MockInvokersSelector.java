@@ -75,7 +75,7 @@ public class MockInvokersSelector extends AbstractRouter {
      * @return
      */
     private <T> List<Invoker<T>> getMockedInvokers(final List<Invoker<T>> invokers) {
-        if (!hasMockProviders(invokers)) {
+        if (!hasMockProviders(invokers)) {//interface org.apache.dubbo.demo.MockService -> dubbo://192.168.0.104:20880/org.apache.dubbo.demo.MockService?anyhost=true&bean.name=org.apache.dubbo.demo.MockService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.MockService&lazy=false&methods=sayHello&mock=force%3Aorg.apache.dubbo.demo.consumer.MockServiceMock&pid=73942&register.ip=192.168.0.104&release=&remote.application=&side=consumer&sticky=false&timestamp=1575936295944
             return null;
         }
         List<Invoker<T>> sInvokers = new ArrayList<Invoker<T>>(1);

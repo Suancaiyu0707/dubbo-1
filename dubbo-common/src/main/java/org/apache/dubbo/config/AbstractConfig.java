@@ -133,14 +133,17 @@ public abstract class AbstractConfig implements Serializable {
         if (config == null) {
             return;
         }
+        //获得配置对象的所有方法
         Method[] methods = config.getClass().getMethods();//获取类所有的方法
         for (Method method : methods) {//遍历类方法
             try {
                 String name = method.getName();//获取方法名
+                //只检查get方法
                 if (MethodUtils.isGetter(method)) {//检查get方法是否合法
                     //如果方法上有 Parameter注解且配置了属性excelued=true，则跳过该参数
                     Parameter parameter = method.getAnnotation(Parameter.class);
-                    if (method.getReturnType() == Object.class || (parameter != null && parameter.excluded())) {
+                    if (method.getReturnType() == Object.class//如果方法的返回类型是Object
+                            || (parameter != null && parameter.excluded())) {//或者指定了@Parameter(exclude=true)
                         continue;
                     }
                     String key;
@@ -148,19 +151,21 @@ public abstract class AbstractConfig implements Serializable {
                     if (parameter != null && parameter.key().length() > 0) {
                         key = parameter.key();
                     } else {
+                        //从getter方法中获得属性名，移除前面的get关键字 获得属性名
                         key = calculatePropertyFromGetter(name);
                     }
-                    //获取对象config上的对应的属性值
+                    //获取对象config上的对应的属性key的值
                     Object value = method.invoke(config);
                     String str = String.valueOf(value).trim();
                     //如果通过parameter注解指定了该方法的escaped=true，则要对值进行编码。
                     //如果通过parameter注解指定了该方法的append=true，也就是允许为同一个属性设置多个值，则用逗号分割拼接
-                    if (value != null && str.length() > 0) {
+                    if (value != null && str.length() > 0) {//如果为对应的key配置了值的话
+                        //如果配置了parameter注解，且为parameter属性指定了escaped属性，则对属性值进行编码
                         if (parameter != null && parameter.escaped()) {
                             str = URL.encode(str);
                         }
                         if (parameter != null && parameter.append()) {
-                            String pre = parameters.get(key);
+                            String pre = parameters.get(key);//根据key从map里获取其它的对应的key的配置
                             if (pre != null && pre.length() > 0) {
                                 str = pre + "," + str;
                             }

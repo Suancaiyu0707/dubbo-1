@@ -35,6 +35,14 @@ public class JavassistProxyFactory extends AbstractProxyFactory {
         return (T) Proxy.getProxy(interfaces).newInstance(new InvokerInvocationHandler(invoker));
     }
 
+    /***
+     *
+     * @param proxy 被代理的对象(也就是代理对象指向的具体实例)
+     * @param type 服务接口类型(用于生成代理对象)
+     * @param url 指定代理对象对应的注册服务信息
+     * @param <T>
+     * @return
+     */
     @Override
     public <T> Invoker<T> getInvoker(T proxy, Class<T> type, URL url) {
         // TODO Wrapper cannot handle this scenario correctly: the classname contains '$'

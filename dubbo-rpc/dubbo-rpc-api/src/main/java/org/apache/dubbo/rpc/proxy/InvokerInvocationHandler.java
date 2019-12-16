@@ -37,9 +37,9 @@ public class InvokerInvocationHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        String methodName = method.getName();
-        Class<?>[] parameterTypes = method.getParameterTypes();
-        if (method.getDeclaringClass() == Object.class) {
+        String methodName = method.getName();//获得调用的方法名
+        Class<?>[] parameterTypes = method.getParameterTypes();//获得方法参数类型
+        if (method.getDeclaringClass() == Object.class) {//获得方法的类
             return method.invoke(invoker, args);
         }
         if ("toString".equals(methodName) && parameterTypes.length == 0) {
@@ -54,10 +54,10 @@ public class InvokerInvocationHandler implements InvocationHandler {
         if ("$destroy".equals(methodName) && parameterTypes.length == 0) {
             invoker.destroy();
         }
-
+        //RpcInvocation [methodName=sayHelloAsync, parameterTypes=[class java.lang.String], arguments=[world], attachments={}]
         RpcInvocation rpcInvocation = new RpcInvocation(method, invoker.getInterface().getName(), args);
         rpcInvocation.setTargetServiceUniqueName(invoker.getUrl().getServiceKey());
-
+        //RpcInvocation [methodName=sayHelloAsync, parameterTypes=[class java.lang.String], arguments=[world], attachments={}]
         return invoker.invoke(rpcInvocation).recreate();
     }
 }

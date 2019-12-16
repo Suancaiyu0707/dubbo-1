@@ -77,7 +77,7 @@ public interface Configurator extends Comparable<Configurator> {
      * 处理变化的 Configurator
      */
     static Optional<List<Configurator>> toConfigurators(List<URL> urls) {
-        if (CollectionUtils.isEmpty(urls)) {
+        if (CollectionUtils.isEmpty(urls)) {//empty://192.168.44.56:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=192.168.44.56&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=22219&release=&revision=1.0.0&side=provider&timestamp=1576065463228&version=1.0.0
             return Optional.empty();
         }
 

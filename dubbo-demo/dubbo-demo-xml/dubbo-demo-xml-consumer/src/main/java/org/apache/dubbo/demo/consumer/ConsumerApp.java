@@ -22,7 +22,7 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import java.util.concurrent.CompletableFuture;
 
-public class Application {
+public class ConsumerApp {
     /**
      * In order to make sure multicast registry works, need to specify '-Djava.net.preferIPv4Stack=true' before
      * launch the application
@@ -30,34 +30,38 @@ public class Application {
     public static void main(String[] args) throws Exception {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-consumer.xml");
         context.start();
-        DemoService demoService = context.getBean("demoService", DemoService.class);
-        CompletableFuture<String> hello = demoService.sayHelloAsync("world");
-        System.out.println("result: " + hello.get());
-        InjvmService injvmService = context.getBean("injvmService", InjvmService.class);
-        System.out.println(injvmService.sayHello_Injvm());
-        //参数回调
-        CallbackService callbackService = (CallbackService) context.getBean("callbackService");
 
-        callbackService.addListener("xuzf.callbcak", new CallbackListener(){
-            public void changed(String msg) {
-                System.out.println("xuzf.callbcak:" + msg);
-            }
-        });
 
-        //事件通知
-        EventNotifyService eventNotifyService = (EventNotifyService) context.getBean("eventNotifyService");
-        NotifyImpl notify = (NotifyImpl) context.getBean("eventNotifyCallback");
-        int requestId = 2;
-        String ret = eventNotifyService.get(requestId);
-
-        //for Test：只是用来说明callback正常被调用，业务具体实现自行决定.
-        for (int i = 0; i < 10; i++) {
-            if (!notify.ret.containsKey(requestId)) {
-                Thread.sleep(200);
-            } else {
-                break;
-            }
-        }
+//        MockService mockService = context.getBean( MockService.class);
+//        mockService.sayHello("xuzf");
+//        DemoService demoService = context.getBean("demoService", DemoService.class);
+//        CompletableFuture<String> hello = demoService.sayHelloAsync("world");
+//        System.out.println("result: " + hello.get());
+//        InjvmService injvmService = context.getBean("injvmService", InjvmService.class);
+//        System.out.println(injvmService.sayHello_Injvm());
+//        //参数回调
+//        CallbackService callbackService = (CallbackService) context.getBean("callbackService");
+//
+//        callbackService.addListener("xuzf.callbcak", new CallbackListener(){
+//            public void changed(String msg) {
+//                System.out.println("xuzf.callbcak:" + msg);
+//            }
+//        });
+//
+//        //事件通知
+//        EventNotifyService eventNotifyService = (EventNotifyService) context.getBean("eventNotifyService");
+//        NotifyImpl notify = (NotifyImpl) context.getBean("eventNotifyCallback");
+//        int requestId = 2;
+//        String ret = eventNotifyService.get(requestId);
+//
+//        //for Test：只是用来说明callback正常被调用，业务具体实现自行决定.
+//        for (int i = 0; i < 10; i++) {
+//            if (!notify.ret.containsKey(requestId)) {
+//                Thread.sleep(200);
+//            } else {
+//                break;
+//            }
+//        }
         //本地存根
 
         StubService stubService = (StubService) context.getBean("stubService");

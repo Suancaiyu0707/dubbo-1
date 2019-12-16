@@ -59,14 +59,20 @@ final public class MockInvoker<T> implements Invoker<T> {
         this.type = type;
     }
 
+    /***
+     * 格式化mock的值
+     * @param mock
+     * @return
+     * @throws Exception
+     */
     public static Object parseMockValue(String mock) throws Exception {
         return parseMockValue(mock, null);
     }
 
     /***
-     * 格式化mock的值
-     * @param mock
-     * @param returnTypes
+     * 根据方法的返回类型进行格式化mock的值
+     * @param mock mock的值
+     * @param returnTypes 返回类型
      * @return
      * @throws Exception
      */
@@ -100,44 +106,61 @@ final public class MockInvoker<T> implements Invoker<T> {
         return value;
     }
 
+    /***
+     *
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、通过url里获取mock的值，如果为空，则抛异常
+     * 2、解码mock值
+     * 3、校验mock值
+     *      a、如果mock的值以 return 开头，则将return后面的值直接转换成相应的返回类型对象，并封装一个返回结果对象AsyncRpcResult进行返回
+     *      b、如果mock的值以 throw 开头，则将throw后面的值直接转换成相应的Throwable对象并抛出这个异常对象
+     *      c、其它情况下，则直接调用mock对象相应的方法
+     */
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
+        //检查 invocation 是一个 RpcInvocation
         if (invocation instanceof RpcInvocation) {
             ((RpcInvocation) invocation).setInvoker(this);
         }
         String mock = null;
+        //判断url里是否有当前请求方法名
         if (getUrl().hasMethodParameter(invocation.getMethodName())) {
+            //从url里获取methodName.mock
             mock = getUrl().getParameter(invocation.getMethodName() + "." + MOCK_KEY);
         }
+        //如果没有mock值，则尝试从url里获取 mock属性值
         if (StringUtils.isBlank(mock)) {
             mock = getUrl().getParameter(MOCK_KEY);
         }
-
+        //如果未设置mock，则抛出异常
         if (StringUtils.isBlank(mock)) {
             throw new RpcException(new IllegalAccessException("mock can not be null. url :" + url));
         }
-        mock = normalizeMock(URL.decode(mock));
-        if (mock.startsWith(RETURN_PREFIX)) {
-            mock = mock.substring(RETURN_PREFIX.length()).trim();
+        //解码mock值
+        mock = normalizeMock(URL.decode(mock));//org.apache.dubbo.demo.consumer.MockServiceMock
+        if (mock.startsWith(RETURN_PREFIX)) {//如果是以return开头
+            mock = mock.substring(RETURN_PREFIX.length()).trim();//从return里提取出返回值
             try {
-                Type[] returnTypes = RpcUtils.getReturnTypes(invocation);
-                Object value = parseMockValue(mock, returnTypes);
-                return AsyncRpcResult.newDefaultAsyncResult(value, invocation);
+                Type[] returnTypes = RpcUtils.getReturnTypes(invocation);//获得方法的返回类型
+                Object value = parseMockValue(mock, returnTypes);//根据返回类型转换返回值
+                return AsyncRpcResult.newDefaultAsyncResult(value, invocation);//构建一个默认的返回结果
             } catch (Exception ew) {
                 throw new RpcException("mock return invoke error. method :" + invocation.getMethodName()
                         + ", mock:" + mock + ", url: " + url, ew);
             }
-        } else if (mock.startsWith(THROW_PREFIX)) {
-            mock = mock.substring(THROW_PREFIX.length()).trim();
+        } else if (mock.startsWith(THROW_PREFIX)) {//如果是以throw开头
+            mock = mock.substring(THROW_PREFIX.length()).trim();//从throw里提取出返回值
             if (StringUtils.isBlank(mock)) {
                 throw new RpcException("mocked exception for service degradation.");
             } else { // user customized class
-                Throwable t = getThrowable(mock);
+                Throwable t = getThrowable(mock);//将返回值转换成一个throwable
                 throw new RpcException(RpcException.BIZ_EXCEPTION, t);
             }
-        } else { //impl mock
+        } else { //直接调用mock对象相应的方法
             try {
-                Invoker<T> invoker = getInvoker(mock);
+                Invoker<T> invoker = getInvoker(mock);//调用mock方法
                 return invoker.invoke(invocation);
             } catch (Throwable t) {
                 throw new RpcException("Failed to create mock implementation class " + mock, t);
@@ -166,6 +189,11 @@ final public class MockInvoker<T> implements Invoker<T> {
         }
     }
 
+    /***
+     * 根据mockService名称从本地内存MOCK_MAP获得缓存的对应的invoker对象，有的话直接返回，没有的话创建一个
+     * @param mockService
+     * @return
+     */
     @SuppressWarnings("unchecked")
     private Invoker<T> getInvoker(String mockService) {
         Invoker<T> invoker = (Invoker<T>) MOCK_MAP.get(mockService);
@@ -182,6 +210,12 @@ final public class MockInvoker<T> implements Invoker<T> {
         return invoker;
     }
 
+    /***
+     * 根据mockService名称和接口类型创建一个对应的Mock实例
+     * @param mockService
+     * @param serviceType
+     * @return
+     */
     @SuppressWarnings("unchecked")
     public static Object getMockObject(String mockService, Class serviceType) {
         if (ConfigUtils.isDefault(mockService)) {

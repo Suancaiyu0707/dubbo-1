@@ -162,10 +162,19 @@ public class ProtocolFilterWrapper implements Protocol {
     public int getDefaultPort() {
         return protocol.getDefaultPort();
     }
-    //暴露服务
+
+    /***
+     * 暴露服务
+     * @param invoker Service invoker
+     * @param <T>
+     * @return
+     * @throws RpcException
+     * 1、判断是registry或者service-discovery-registry的url，如果是的话，则表示一注册服务，则开始直接暴露这个invoker，并注册到注册中心上去
+     * 2、如果不是registry或者service-discovery-registry的url，则为
+     */
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
-        if (UrlUtils.isRegistry(invoker.getUrl())) {
+        if (UrlUtils.isRegistry(invoker.getUrl())) {//如果是registry或者service的url，则走到这个分支
             return protocol.export(invoker);
         }
         return protocol.export(buildInvokerChain(invoker, SERVICE_FILTER_KEY, CommonConstants.PROVIDER));
@@ -173,7 +182,7 @@ public class ProtocolFilterWrapper implements Protocol {
 
     @Override
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
-        if (UrlUtils.isRegistry(url)) {
+        if (UrlUtils.isRegistry(url)) {//registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=68831&qos.port=33333&refer=check%3Dfalse%26dubbo%3D2.0.2%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26lazy%3Dfalse%26methods%3DsayHello%2CsayHelloAsync%26pid%3D68831%26register.ip%3D192.168.0.104%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1575935066048&registry=zookeeper&timestamp=1575935377133
             return protocol.refer(type, url);
         }
         return buildInvokerChain(protocol.refer(type, url), REFERENCE_FILTER_KEY, CommonConstants.CONSUMER);

@@ -69,7 +69,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
 
     public FailbackRegistry(URL url) {
         super(url);
-        this.retryPeriod = url.getParameter(REGISTRY_RETRY_PERIOD_KEY, DEFAULT_REGISTRY_RETRY_PERIOD);
+        this.retryPeriod = url.getParameter(REGISTRY_RETRY_PERIOD_KEY, DEFAULT_REGISTRY_RETRY_PERIOD);//5000
 
         // since the retry task will not be very much. 128 ticks is enough.
         retryTimer = new HashedWheelTimer(new NamedThreadFactory("DubboRegistryRetryTimer", true), retryPeriod, TimeUnit.MILLISECONDS, 128);
@@ -226,18 +226,28 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         return failedNotified;
     }
 
+    /***
+     *
+     * @param url  Registration information , is not allowed to be empty, e.g: dubbo://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
+     *      provider: dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=30672&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576489098974
+     * 1、判断注册中心是否接受注册
+     * 2、更新内存，缓存已注册的服务提供者地址
+     * 3、移除注册失败的服务地址
+     * 4、移除取消注册失败的任务
+     * 5、根据url在zk上创建相应的路径
+     */
     @Override
     public void register(URL url) {
-        if (!acceptable(url)) {
+        if (!acceptable(url)) {//判断注册中心是否接受注册
             logger.info("URL " + url + " will not be registered to Registry. Registry " + url + " does not accept service of this protocol type.");
             return;
         }
-        super.register(url);
-        removeFailedRegistered(url);
-        removeFailedUnregistered(url);
+        super.register(url);//内存里缓存已注册的服务地址
+        removeFailedRegistered(url);//执行注册失败的任务，移除注册失败的服务地址
+        removeFailedUnregistered(url);//执行取消注册失败的任务
         try {
             // Sending a registration request to the server side
-            doRegister(url);
+            doRegister(url);//根据url在zk上创建相应的路径
         } catch (Exception e) {
             Throwable t = e;
 
@@ -289,11 +299,11 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             addFailedUnregistered(url);
         }
     }
-
+    // provider：provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=10604&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576476419518
     @Override
     public void subscribe(URL url, NotifyListener listener) {
         super.subscribe(url, listener);
-        removeFailedSubscribed(url, listener);
+        removeFailedSubscribed(url, listener);//先移除订阅失败的
         try {
             // Sending a subscription request to the server side
             doSubscribe(url, listener);
@@ -351,7 +361,10 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             addFailedUnsubscribed(url, listener);
         }
     }
-
+    /**
+     *     provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=10604&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576476419518
+     *     consumer:
+     */
     @Override
     protected void notify(URL url, NotifyListener listener, List<URL> urls) {
         if (url == null) {

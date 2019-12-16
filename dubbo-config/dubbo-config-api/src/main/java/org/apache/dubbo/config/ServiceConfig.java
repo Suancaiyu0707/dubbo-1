@@ -226,10 +226,11 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         serviceMetadata.setServiceType(getInterfaceClass());
         serviceMetadata.setServiceInterfaceName(getInterface());
         serviceMetadata.setTarget(getRef());
-
+        //是否延迟暴露服务
         if (shouldDelay()) {
             DELAY_EXPORT_EXECUTOR.schedule(this::doExport, getDelay(), TimeUnit.MILLISECONDS);
         } else {
+            //延迟暴露服务
             doExport();
         }
     }
@@ -356,7 +357,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             return;
         }
         exported = true;
-
+        //如果没有指定path的话，默认是服务名
         if (StringUtils.isEmpty(path)) {
             path = interfaceName;
         }
@@ -380,9 +381,24 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void doExportUrls() {
         //获得ServiceRepository对象，这是一个全局变量，所有服务提供者共享一个ServiceRepository
+        /**
+         *前：repository
+         * 0 = {ConcurrentHashMap$MapEntry@3554} "org.apache.dubbo.rpc.service.EchoService" ->
+         * 1 = {ConcurrentHashMap$MapEntry@3555} "org.apache.dubbo.rpc.service.GenericService" ->
+         * 2 = {ConcurrentHashMap$MapEntry@3556} "org.apache.dubbo.monitor.MetricsService" ->
+         * 3 = {ConcurrentHashMap$MapEntry@3557} "org.apache.dubbo.monitor.MonitorService" ->
+         */
         ServiceRepository repository = ApplicationModel.getServiceRepository();
         //通过ServiceRepository 维护服务提供者接口接口和接口描述信息
         ServiceDescriptor serviceDescriptor = repository.registerService(getInterfaceClass());
+        /**
+         * 后：repository
+         * 0 = {ConcurrentHashMap$MapEntry@3585} "org.apache.dubbo.demo.EventNotifyService" ->
+         * 1 = {ConcurrentHashMap$MapEntry@3586} "org.apache.dubbo.rpc.service.EchoService" ->
+         * 2 = {ConcurrentHashMap$MapEntry@3587} "org.apache.dubbo.rpc.service.GenericService" ->
+         * 3 = {ConcurrentHashMap$MapEntry@3588} "org.apache.dubbo.monitor.MetricsService" ->
+         * 4 = {ConcurrentHashMap$MapEntry@3589} "org.apache.dubbo.monitor.MonitorService" ->
+         */
         repository.registerProvider(
                 getUniqueServiceName(),//interfaceName+group+version
                 ref,
@@ -390,17 +406,21 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 this,
                 serviceMetadata
         );
-        //
-        List<URL> registryURLs = ConfigValidationUtils.loadRegistries(this, true);//registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=5410&qos.port=22222&registry=zookeeper&timestamp=1575332257645
+        //registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=5410
+        // &qos.port=22222&registry=zookeeper&timestamp=1575332257645
+        List<URL> registryURLs = ConfigValidationUtils.loadRegistries(this, true);
         //遍历协议配置 <dubbo:protocol name="dubbo" valid="true" id="dubbo" prefix="dubbo.protocols." />
+        //按照配置的协议，每种协议都会暴露当前服务
         for (ProtocolConfig protocolConfig : protocols) {
             String pathKey = URL.buildKey(getContextPath(protocolConfig)//org.apache.dubbo.demo.DemoService
                     .map(p -> p + "/" + path)
                     .orElse(path), group, version);
             // In case user specified path, register service one more time to map it to path.
+            //记录暴露的服务：保证一个服务路径只会暴露一次
             repository.registerService(pathKey, interfaceClass);
             // TODO, uncomment this line once service key is unified
             serviceMetadata.setServiceKey(pathKey);
+            //根据某种协议暴露服务
             doExportUrlsFor1Protocol(protocolConfig, registryURLs);
         }
     }
@@ -421,17 +441,34 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         map.put(SIDE_KEY, PROVIDER_SIDE);
         //添加服务配置信息
         /***
-         *
-         *
-         */
+         * 1、dubbo：协议版本号
+         * 2、release：服务版本
+         * 3、timestamp：时间
+         * 4、pid：进程号
+         **/
         ServiceConfig.appendRuntimeParameters(map);
+        /***
+         * 添加MetricsConfig的配置
+         */
         AbstractConfig.appendParameters(map, metrics);
+        /***
+         * 添加application的配置
+         */
         AbstractConfig.appendParameters(map, application);
+        /***
+         * 添加module的配置
+         */
         AbstractConfig.appendParameters(map, module);
         // remove 'default.' prefix for configs from ProviderConfig
         // appendParameters(map, provider, Constants.DEFAULT_KEY);
+        /***
+         * 添加provider的配置
+         */
         AbstractConfig.appendParameters(map, provider);
         AbstractConfig.appendParameters(map, protocolConfig);
+        /***
+         * 添加protocol配置
+         */
         AbstractConfig.appendParameters(map, this);
         //如果配置了<dubbo:method>标签
         if (CollectionUtils.isNotEmpty(getMethods())) {
@@ -489,7 +526,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 }
             } // end of methods for
         }
-        //判断是否是泛化类型的服务，是否指定了 'generic' 属性
+        //判断是否是泛化类型的服务，是否指定了 'generic' 属性，如果指定了generic，则针对所有方法，都走的泛型
         if (ProtocolUtils.isGeneric(generic)) {
             map.put(GENERIC_KEY, generic);
             map.put(METHODS_KEY, ANY_VALUE);
@@ -520,14 +557,26 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         // registryURLs： registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=78763&qos.port=22222&registry=zookeeper&timestamp=1574988712664
         String host = findConfigedHosts(protocolConfig, registryURLs, map);//获得配置的地址，默认本机地址 192.168.0.103
         Integer port = findConfigedPorts(protocolConfig, name, map);//20880
-        URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);//dubbo://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
-
+        //dubbo://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103
+        // &bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync
+        // &pid=78763&release=&side=provider&timestamp=1574988715703
+        URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);
         // You can customize Configurator to append extra parameters
         if (ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
                 .hasExtension(url.getProtocol())) {
             url = ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
                     .getExtension(url.getProtocol()).getConfigurator(url).configure(url);
         }
+        /***
+         * 获得scope配置属性(可以在providere/service里配置)
+         * 1、如果scope=none，则不需要暴露服务(不管是jvm内部还是注册中心)
+         * 2、如果scope=remote，则不会在jvm内部暴露这个服务,但是会通过注册中心注册服务。
+         *      如果scope!=remote,则会在jvm内部暴露这个服务
+         * 3、如果scope=local，那么就不会通过注册中心暴露服务，但是会在jvm内部暴露这个服务。
+         * 4、如果scope没设置，或者是默认的，则会在jvm内部暴露这个服务,也会通过注册中心注册服务。
+         * 5、将invoker包装成一个exporter，并注册到相应的注册中心，同时会监听对应的路径：/dubbo/org.apache.dubbo.demo.DemoService/configurators
+         *
+         */
 
         String scope = url.getParameter(SCOPE_KEY);//null
         // don't export when none is configured
@@ -538,16 +587,22 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 exportLocal(url);//dubbo://192.168.0.108:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
             }
             // export to remote if the config is not local (export to local only when config is local)
-            if (!SCOPE_LOCAL.equalsIgnoreCase(scope)) {//如果scope未配置为local，则开始远程暴露
-                if (CollectionUtils.isNotEmpty(registryURLs)) {//如果注册中心不为空
+            //如果scope未配置为local，则开始通过注册中心注册服务并暴露
+            if (!SCOPE_LOCAL.equalsIgnoreCase(scope)) {
+                if (CollectionUtils.isNotEmpty(registryURLs)) {//如果注册地址不为空
+                    /***
+                     * 遍历注册中心进行服务注册
+                     * 1、如果注册的协议是local协议，则不进行注册中心注册了。
+                     */
                     for (URL registryURL : registryURLs) {//遍历注册中心
                         //if protocol is only injvm ,not register
-                        if (LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {//如果注册中心的协议是dubbo，则不远程暴露
+                        if (LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {//如果注册中心的协议是injvm，则不远程暴露
                             continue;
-                        }//根据注册中心的dynamic为url添加dynamic配置
-                        url = url.addParameterIfAbsent(DYNAMIC_KEY, registryURL.getParameter(DYNAMIC_KEY));
+                        }
+                        //如果url地址未设置dynamic属性，但是注册中心配置设置了，则使用注册中心配置来作为url的dynamic属性
+                        url = url.addParameterIfAbsent(DYNAMIC_KEY, registryURL.getParameter(DYNAMIC_KEY));//dubbo://220.250.64.225:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34339&release=&revision=1.0.0&side=provider&timestamp=1575881105857&version=1.0.0
                         URL monitorUrl = ConfigValidationUtils.loadMonitor(this, registryURL);//获得监控中心地址
-                        if (monitorUrl != null) {
+                        if (monitorUrl != null) {//判断监控地址
                             url = url.addParameterAndEncoded(MONITOR_KEY, monitorUrl.toFullString());
                         }
                         if (logger.isInfoEnabled()) {
@@ -558,16 +613,24 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                             }
                         }
 
-                        // For providers, this is used to enable custom proxy to generate invoker
-                        String proxy = url.getParameter(PROXY_KEY);//从url中获取 proxy 属性
-                        if (StringUtils.isNotEmpty(proxy)) {
+                        //检查是否配置了用于生成代理对象的代理方式，通过proxy来设置代理方式
+                        String proxy = url.getParameter(PROXY_KEY);//从url中获取 proxy 属性，默认是javassist
+                        if (StringUtils.isNotEmpty(proxy)) {//如果provider或service里设置了proxy值
                             registryURL = registryURL.addParameter(PROXY_KEY, proxy);
                         }
-                        //代理对象工厂会根据接口服务和url创建一个Invoker对象
+                        /***
+                         * 1、根据以下三个参数创建并缓存Invoker代理对象，该invoker代理对象指向真正的对象ref。代理方式通过 proxy属性指定，默认是javassist
+                         *      ref：被代理的实例
+                         *      interfaceClass：服务接口类型
+                         *      registryURL：注册地址信息对象
+                         * 2、把代理对象包装成一个DelegateProviderMetaDataInvoker
+                         *
+                         */
                         Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
                         //利用 protocol 将服务暴露注册到注册中心上，这里默认的是：RegistryProtocol
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
+                        //维护已暴露的服务
                         exporters.add(exporter);
                     }
                 } else {
@@ -597,12 +660,14 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     /**
      * always export injvm 本地暴露
      */
-    private void exportLocal(URL url) {//旧的：url=dubbo://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
-        URL local = URLBuilder.from(url)//injvm://127.0.0.1/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
+    private void exportLocal(URL url) {
+        //旧的：url=dubbo://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
+        //新的：url=injvm://127.0.0.1          /org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
+        URL local = URLBuilder.from(url)
                 .setProtocol(LOCAL_PROTOCOL)//固定是：injvm协议
                 .setHost(LOCALHOST_VALUE)//host：127.0.0.1
                 .setPort(0)
-                .build();//local：injvm://127.0.0.1/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
+                .build();
         Exporter<?> exporter = protocol.export(//将服务包装成对象，放到本地内存地址里
                 PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, local));
         exporters.add(exporter);//缓存暴露的服务

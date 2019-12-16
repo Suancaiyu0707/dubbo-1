@@ -971,7 +971,7 @@ public class DubboBootstrap extends GenericEventListener {
             // TODO, compatible with  ReferenceConfig.refer()
             ReferenceConfig referenceConfig = (ReferenceConfig) rc;
             referenceConfig.setBootstrap(this);
-
+            //是否初始化(非延迟加载，可通过设置init属性)
             if (rc.shouldInit()) {
                 if (referAsync) {
                     CompletableFuture<Object> future = ScheduledCompletableFuture.submit(

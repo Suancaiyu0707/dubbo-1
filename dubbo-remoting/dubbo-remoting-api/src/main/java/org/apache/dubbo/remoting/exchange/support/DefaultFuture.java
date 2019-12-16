@@ -105,10 +105,10 @@ public class DefaultFuture extends CompletableFuture<Object> {
      * @return a new DefaultFuture
      */
     public static DefaultFuture newFuture(Channel channel, Request request, int timeout, ExecutorService executor) {
-        final DefaultFuture future = new DefaultFuture(channel, request, timeout);
-        future.setExecutor(executor);
+        final DefaultFuture future = new DefaultFuture(channel, request, timeout);//初始化一个本地调用的DefaultFuture
+        future.setExecutor(executor);//设置当前DefaultFuture对应的线程池
         // timeout check
-        timeoutCheck(future);
+        timeoutCheck(future);//创建一个针对DefaultFuture超时的任务检查
         return future;
     }
 

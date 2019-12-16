@@ -36,6 +36,11 @@ public class ListenerExporterWrapper<T> implements Exporter<T> {
 
     private final List<ExporterListener> listeners;
 
+    /***
+     * 将exporter和listeners 包装成一个 ListenerExporterWrapper
+     * @param exporter
+     * @param listeners
+     */
     public ListenerExporterWrapper(Exporter<T> exporter, List<ExporterListener> listeners) {
         if (exporter == null) {
             throw new IllegalArgumentException("exporter == null");

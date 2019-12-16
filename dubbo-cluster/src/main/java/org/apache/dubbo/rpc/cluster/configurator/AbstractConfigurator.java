@@ -60,10 +60,24 @@ public abstract class AbstractConfigurator implements Configurator {
         return configuratorUrl;
     }
 
+    /***
+     *
+     * @param url - old provider url.
+     * @return
+     * 1、如果configuratorUrl的enabled=false或者configuratorUrl的host是空的，又或者url是空的，则跳过直接返回
+     * 2、获得 configuratorUrl 对应的版本号 configVersion
+     *      a、如果configVersion不为空。判断当前要被修改的url是服务提供者还是消费者
+     *          检查要被修改的url和当前configurator作用的角色是否一致(consumer或provider)
+     *      b、将configurators里的对应的url的配置参数合并到当前url里
+     *
+     */
     @Override
     public URL configure(URL url) {
         // If override url is not enabled or is invalid, just return.
-        if (!configuratorUrl.getParameter(ENABLED_KEY, true) || configuratorUrl.getHost() == null || url == null || url.getHost() == null) {
+        if (!configuratorUrl.getParameter(ENABLED_KEY, true) //如果enabled=false
+                || configuratorUrl.getHost() == null //或者host==null
+                || url == null //或者url=null
+                || url.getHost() == null) {
             return url;
         }
         /**
@@ -107,11 +121,27 @@ public abstract class AbstractConfigurator implements Configurator {
         return url;
     }
 
+    /***
+     *
+     * @param host
+     * @param url 待处理的url
+     * @return
+     * 1、如果 configurator 作用的ip是所有的*，或者和目标url里的host一致，则表示当前configurator是为当前url配置的
+     * 2、检查当前configurator与待处理的url的地址是否匹配
+     *      从configurator中获取application名
+     *      从url中获取application名
+     *      如果configurator的application名为空，或者configurator中的application的名字是*，又或者configurator的application名和url中application名相同，则合并url和configurator的参数
+     *      conditionKeys是用来指定在合并参数时要忽略的参数
+     *
+     */
     private URL configureIfMatch(String host, URL url) {
         if (ANYHOST_VALUE.equals(configuratorUrl.getHost()) || host.equals(configuratorUrl.getHost())) {
             // TODO, to support wildcards
-            String providers = configuratorUrl.getParameter(OVERRIDE_PROVIDERS_KEY);
-            if (StringUtils.isEmpty(providers) || providers.contains(url.getAddress()) || providers.contains(ANYHOST_VALUE)) {
+            //获得 providerAddresses 属性值
+            String providers = configuratorUrl.getParameter(OVERRIDE_PROVIDERS_KEY);//从configuratorUrl获取providerAddresses属性值
+            if (StringUtils.isEmpty(providers) //providerAddresses为空
+                    || providers.contains(url.getAddress()) //或者providerAddresses包含url的地址
+                    || providers.contains(ANYHOST_VALUE)) {//或者providerAddresses是*
                 String configApplication = configuratorUrl.getParameter(APPLICATION_KEY,
                         configuratorUrl.getUsername());
                 String currentApplication = url.getParameter(APPLICATION_KEY, url.getUsername());
@@ -128,12 +158,18 @@ public abstract class AbstractConfigurator implements Configurator {
                     conditionKeys.add(SIDE_KEY);
                     conditionKeys.add(CONFIG_VERSION_KEY);
                     conditionKeys.add(COMPATIBLE_CONFIG_KEY);
+                    //遍历 configuratorUrl的Parameters
                     for (Map.Entry<String, String> entry : configuratorUrl.getParameters().entrySet()) {
                         String key = entry.getKey();
                         String value = entry.getValue();
-                        if (key.startsWith("~") || APPLICATION_KEY.equals(key) || SIDE_KEY.equals(key)) {
+                        //
+                        if (key.startsWith("~")//如果以～开头
+                                || APPLICATION_KEY.equals(key)//如果是application
+                                || SIDE_KEY.equals(key)//如果是side
+                                ) {
                             conditionKeys.add(key);
-                            if (value != null && !ANY_VALUE.equals(value)
+                            if (value != null
+                                    && !ANY_VALUE.equals(value)
                                     && !value.equals(url.getParameter(key.startsWith("~") ? key.substring(1) : key))) {
                                 return url;
                             }

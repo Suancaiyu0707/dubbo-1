@@ -60,7 +60,7 @@ public class ProtocolListenerWrapper implements Protocol {
             return protocol.export(invoker);
         }
         return new ListenerExporterWrapper<T>(protocol.export(invoker),
-                Collections.unmodifiableList(ExtensionLoader.getExtensionLoader(ExporterListener.class)
+                Collections.unmodifiableList(ExtensionLoader.getExtensionLoader(ExporterListener.class)//interface org.apache.dubbo.rpc.ExporterListener
                         .getActivateExtension(invoker.getUrl(), EXPORTER_LISTENER_KEY)));
     }
 

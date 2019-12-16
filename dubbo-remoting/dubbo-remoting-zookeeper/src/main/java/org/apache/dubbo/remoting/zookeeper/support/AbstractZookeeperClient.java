@@ -67,7 +67,7 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
         deletePath(path);
     }
 
-
+    //path：provider: /dubbo/org.apache.dubbo.demo.EventNotifyService/providers/dubbo%3A%2F%2F192.168.0.105%3A20880%2Forg.apache.dubbo.demo.EventNotifyService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.EventNotifyService%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26group%3Dcn%26interface%3Dorg.apache.dubbo.demo.EventNotifyService%26methods%3Dget%26pid%3D79756%26release%3D%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1576456269728%26version%3D1.0.0
     @Override
     public void create(String path, boolean ephemeral) {
         if (!ephemeral) {
@@ -80,7 +80,7 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
             }
         }
         int i = path.lastIndexOf('/');
-        if (i > 0) {
+        if (i > 0) {// provider: /dubbo/org.apache.dubbo.demo.StubService/providers
             create(path.substring(0, i), false);
         }
         if (ephemeral) {
