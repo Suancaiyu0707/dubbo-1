@@ -46,33 +46,48 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
     // Log output
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRegistryFactory.class);
 
-    // The lock for the acquisition process of the registry
+    // 用于在针对注册中心地址进行创建或摧毁注册中心对象的时候进行加锁，避免并发
     private static final ReentrantLock LOCK = new ReentrantLock();
 
-    // Registry Collection Map<RegistryAddress, Registry>
+    /**
+     * 这个主要是维护了注册中心url跟注册中心对象的映射关系，可以避免重复多次创建注册中心对
+     * key ：注册中心的地址
+     *      例如：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService
+     * value：注册中心地址对应的对象
+     */
     private static final Map<String, Registry> REGISTRIES = new HashMap<>();
 
     /**
      * Get all registries
      *
      * @return all registries
+     * 返回本地缓存的已创建的注册中心对象列表
      */
     public static Collection<Registry> getRegistries() {
         return Collections.unmodifiableCollection(REGISTRIES.values());
     }
 
+    /***
+     * 返回指定的注册中心地址映射的注册中心对象
+     * @param key 注册中心地址
+     *             zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService
+     * @return
+     */
     public static Registry getRegistry(String key) {
         return REGISTRIES.get(key);
     }
 
     /**
      * Close all created registries
+     * 销毁所有 Registry 对象
+     * 1、遍历本地缓存里所有的Registry对象，一个个的进行销毁
+     * 2、清流本地缓存
      */
     public static void destroyAll() {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Close all registries " + getRegistries());
         }
-        // Lock up the registry shutdown process
+        // 避免多个线程同时清理，registry.destroy会有并发问题
         LOCK.lock();
         try {
             for (Registry registry : getRegistries()) {

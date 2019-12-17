@@ -71,28 +71,42 @@ import static org.apache.dubbo.registry.Constants.REGISTRY_FILESAVE_SYNC_KEY;
  */
 public abstract class AbstractRegistry implements Registry {
 
-    // URL address separator, used in file cache, service provider URL separation
+    //  URL地址分隔符，用于文件缓存中，服务提供者URL分隔
     private static final char URL_SEPARATOR = ' ';
     // URL address separated regular expression for parsing the service provider URL list in the file cache
+    //URL地址分隔正则表达式，用于解析文件缓存中服务提供者URL列表
     private static final String URL_SPLIT = "\\s+";
-    // Max times to retry to save properties to local cache file
+    //保存本地缓存文件失败时，最大的重试次数
     private static final int MAX_RETRY_TIMES_SAVE_PROPERTIES = 3;
     // Log output
     protected final Logger logger = LoggerFactory.getLogger(getClass());
-    // Local disk cache, where the special key value.registries records the list of registry centers, and the others are the list of notified service providers
     //properties保存了所有服务提供者的URL，使用URL#serviceKey作为key，提供者列表、路由规则列表、配置规则列表等作为value
+    /**
+     * 本地磁盘缓存。
+     *  其中特殊的 key 值 .registies，它值是记录注册中心列表
+     *  其它均为 notified 服务提供者列表
+     */
     private final Properties properties = new Properties();
-    // File cache timing writing
+    /**
+     * 注册中心缓存写入执行器。
+     */
     private final ExecutorService registryCacheExecutor = Executors.newFixedThreadPool(1, new NamedThreadFactory("DubboSaveRegistryCache", true));
-    // Is it synchronized to save the file
+    /**
+     * 是否同步保存文件，可根据save.file进行配置
+     */
     private final boolean syncSaveFile;
     private final AtomicLong lastCacheChanged = new AtomicLong();
     private final AtomicInteger savePropertiesRetryTimes = new AtomicInteger();
+    /***
+     * 已注册 URL 集合
+     * 这里，注册的 URL 不仅仅可以是服务提供者的，也可以是服务消费者的
+     */
     private final Set<URL> registered = new ConcurrentHashSet<>();
     //维护监听该url的监听器列表，可能多个监听器监听同一个url路径
     /***
-     *
-     *
+     *订阅 URL 的监听器集合
+     *  key：订阅者的 URL ，例如消费者的 URL
+     *  value：是订阅消费者监听器
      *
      *
      */
@@ -113,14 +127,39 @@ public abstract class AbstractRegistry implements Registry {
      *    value = {ArrayList@4558}  size = 1
      *
      * notified是ConcurrentMap类型里面又嵌套了一个Map,
-     *          外层map的key是消费者的URL，
+     *          外层map的key是消费者的URL，和 {@link #subscribed} 的键一致
      *              内层的Map的key是分类的，包含provider、consumers、routers、configurators。
      *              内层的value则是对应的服务列表，对于没有服务提供者提供服务的URL，它会以特殊的empty://前缀开头
      */
     private final ConcurrentMap<URL, Map<String, List<URL>>> notified = new ConcurrentHashMap<>();//内存中的服务缓存对象
-    private URL registryUrl;//zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
-    // Local disk cache file //本地磁盘文件服务缓存对象
-    private File file;// /Users/hb/.dubbo/dubbo-registry-demo-provider-127.0.0.1-2181.cache
+    /**
+     * 注册中心 URL
+     *      //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
+     *
+     */
+    private URL registryUrl;
+    /**
+     * 本地磁盘文件服务缓存对象
+     *      /Users/hb/.dubbo/dubbo-registry-demo-provider-127.0.0.1-2181.cache,内容如下
+     *      #Dubbo Registry Cache
+     *      #Mon Dec 16 19:32:36 CST 2019
+     *      org.apache.dubbo.demo.MockService=empty\://220.250.64.225\:20880/org.apache.dubbo.demo.MockService?anyhost\=true&bean.name\=org.apache.dubbo.demo.MockService&bind.ip\=220.250.64.225&bind.port\=20880&category\=configurators&check\=false&deprecated\=false&dubbo\=2.0.2&dynamic\=true&generic\=false&interface\=org.apache.dubbo.demo.MockService&methods\=sayHello&pid\=30672&release\=&side\=provider&timestamp\=1576489707917
+     *      org.apache.dubbo.demo.CallbackService=empty\://192.168.0.105\:20880/org.apache.dubbo.demo.CallbackService?anyhost\=true&bean.name\=org.apache.dubbo.demo.CallbackService&bind.ip\=192.168.0.105&bind.port\=20880&callbacks\=1000&category\=configurators&check\=false&connections\=1&deprecated\=false&dubbo\=2.0.2&dynamic\=true&generic\=false&interface\=org.apache.dubbo.demo.CallbackService&methods\=addListener&pid\=80463&release\=&side\=provider&timestamp\=1576456696572
+     *      org.apache.dubbo.demo.AsyncService=empty\://192.168.0.105\:20880/org.apache.dubbo.demo.AsyncService?anyhost\=true&bean.name\=org.apache.dubbo.demo.AsyncService&bind.ip\=192.168.0.105&bind.port\=20880&category\=configurators&check\=false&deprecated\=false&dubbo\=2.0.2&dynamic\=true&generic\=false&interface\=org.apache.dubbo.demo.AsyncService&methods\=sayHello&pid\=80463&release\=&side\=provider&timestamp\=1576456696783
+     *      org.apache.dubbo.demo.StubService=empty\://172.17.208.173\:20880/org.apache.dubbo.demo.StubService?anyhost\=true&bean.name\=org.apache.dubbo.demo.StubService&bind.ip\=172.17.208.173&bind.port\=20880&category\=configurators&check\=false&deprecated\=false&dubbo\=2.0.2&dynamic\=true&generic\=false&interface\=org.apache.dubbo.demo.StubService&methods\=sayHello&pid\=38508&release\=&side\=provider&stub\=org.apache.dubbo.demo.StubServiceStub&timestamp\=1576494020229
+     *      org.apache.dubbo.demo.AsyncService2=empty\://192.168.0.105\:20880/org.apache.dubbo.demo.AsyncService2?anyhost\=true&bean.name\=org.apache.dubbo.demo.AsyncService2&bind.ip\=192.168.0.105&bind.port\=20880&category\=configurators&check\=false&deprecated\=false&dubbo\=2.0.2&dynamic\=true&generic\=false&interface\=org.apache.dubbo.demo.AsyncService2&methods\=sayHello&pid\=80463&release\=&side\=provider&timestamp\=1576456696499
+     *      org.apache.dubbo.demo.InjvmService=empty\://192.168.0.105\:20880/org.apache.dubbo.demo.InjvmService?anyhost\=true&bean.name\=org.apache.dubbo.demo.InjvmService&bind.ip\=192.168.0.105&bind.port\=20880&category\=configurators&check\=false&deprecated\=false&dubbo\=2.0.2&dynamic\=true&generic\=false&interface\=org.apache.dubbo.demo.InjvmService&methods\=sayHello_Injvm&pid\=80463&release\=&side\=provider&timestamp\=1576456697469
+     *      cn/org.apache.dubbo.demo.EventNotifyService\:1.0.0=empty\://192.168.0.105\:20880/org.apache.dubbo.demo.EventNotifyService?anyhost\=true&bean.name\=org.apache.dubbo.demo.EventNotifyService&bind.ip\=192.168.0.105&bind.port\=20880&category\=configurators&check\=false&deprecated\=false&dubbo\=2.0.2&dynamic\=true&generic\=false&group\=cn&interface\=org.apache.dubbo.demo.EventNotifyService&methods\=get&pid\=80463&release\=&revision\=1.0.0&side\=provider&timestamp\=1576456692288&version\=1.0.0
+     *      org.apache.dubbo.demo.DemoService=empty\://192.168.0.105\:20880/org.apache.dubbo.demo.DemoService?anyhost\=true&bean.name\=org.apache.dubbo.demo.DemoService&bind.ip\=192.168.0.105&bind.port\=20880&category\=configurators&check\=false&deprecated\=false&dubbo\=2.0.2&dynamic\=true&generic\=false&interface\=org.apache.dubbo.demo.DemoService&methods\=sayHello,sayHelloAsync&pid\=80463&release\=&side\=provider&timestamp\=1576456697299
+     *
+     *      dubbo-registry-demo-consumer-127.0.0.1-2181.cache,内容如下
+     *      #Dubbo Registry Cache
+     *      #Mon Dec 16 08:48:17 CST 2019
+     *      org.apache.dubbo.demo.MockService=empty\://220.250.64.225/org.apache.dubbo.demo.MockService?category\=routers&dubbo\=2.0.2&init\=false&interface\=org.apache.dubbo.demo.MockService&lazy\=false&methods\=sayHello&mock\=force%3Aorg.apache.dubbo.demo.consumer.MockServiceMock&pid\=1562&side\=consumer&sticky\=false&timestamp\=1575959908116 empty\://220.250.64.225/org.apache.dubbo.demo.MockService?category\=configurators&dubbo\=2.0.2&init\=false&interface\=org.apache.dubbo.demo.MockService&lazy\=false&methods\=sayHello&mock\=force%3Aorg.apache.dubbo.demo.consumer.MockServiceMock&pid\=1562&side\=consumer&sticky\=false&timestamp\=1575959908116 empty\://220.250.64.225/org.apache.dubbo.demo.MockService?category\=providers&dubbo\=2.0.2&init\=false&interface\=org.apache.dubbo.demo.MockService&lazy\=false&methods\=sayHello&mock\=force%3Aorg.apache.dubbo.demo.consumer.MockServiceMock&pid\=1562&side\=consumer&sticky\=false&timestamp\=1575959908116
+     *      org.apache.dubbo.demo.StubService=empty\://192.168.0.105/org.apache.dubbo.demo.StubService?category\=routers&dubbo\=2.0.2&init\=false&interface\=org.apache.dubbo.demo.StubService&lazy\=false&methods\=sayHello&pid\=80530&side\=consumer&sticky\=false&timestamp\=1576456745232 empty\://192.168.0.105/org.apache.dubbo.demo.StubService?category\=configurators&dubbo\=2.0.2&init\=false&interface\=org.apache.dubbo.demo.StubService&lazy\=false&methods\=sayHello&pid\=80530&side\=consumer&sticky\=false&timestamp\=1576456745232 dubbo\://192.168.0.105\:20880/org.apache.dubbo.demo.StubService?anyhost\=true&bean.name\=org.apache.dubbo.demo.StubService&deprecated\=false&dubbo\=2.0.2&dynamic\=true&generic\=false&interface\=org.apache.dubbo.demo.StubService&methods\=sayHello&pid\=80463&release\=&side\=provider&stub\=org.apache.dubbo.demo.StubServiceStub&timestamp\=1576456697003
+     *      org.apache.dubbo.demo.DemoService=empty\://220.250.64.225/org.apache.dubbo.demo.DemoService?category\=routers&check\=false&dubbo\=2.0.2&init\=false&interface\=org.apache.dubbo.demo.DemoService&lazy\=false&methods\=sayHello,sayHelloAsync&pid\=38171&side\=consumer&sticky\=false&timestamp\=1575883395444 empty\://220.250.64.225/org.apache.dubbo.demo.DemoService?category\=configurators&check\=false&dubbo\=2.0.2&init\=false&interface\=org.apache.dubbo.demo.DemoService&lazy\=false&methods\=sayHello,sayHelloAsync&pid\=38171&side\=consumer&sticky\=false&timestamp\=1575883395444 empty\://220.250.64.225/org.apache.dubbo.demo.DemoService?category\=providers&check\=false&dubbo\=2.0.2&init\=false&interface\=org.apache.dubbo.demo.DemoService&lazy\=false&methods\=sayHello,sayHelloAsync&pid\=38171&side\=consumer&sticky\=false&timestamp\=1575883395444
+     */
+    private File file;
 
     /***
      *
