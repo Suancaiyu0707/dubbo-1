@@ -217,6 +217,7 @@ public class RegistryProtocol implements Protocol {
      *  4、为对应的服务provider绑定一个监听器OverrideListener，用于监听对应的服务provider的地址变化
      *  5、将configurators里对应的providerUrl的配置参数合并到当前的providerUrl里，并监听configurators下对该服务的地址的配置的变化
      *  6、将originInvoker包装成一个ExporterChangeableWrapper。同时为创建一个NettyServer，用于接收客户端的地址
+     *  7、连接注册中心，并返回一个注册中心对象。2
      *  7、将当前服务originInvoker注册到注册中心上，同时订阅监听configurators路径
      *
      */
@@ -339,7 +340,7 @@ public class RegistryProtocol implements Protocol {
 
     /**
      * Get an instance of registry based on the address of invoker
-     *
+     *  根据 originInvoker 地址获得注册中心实例
      * @param originInvoker
      * @return
      */

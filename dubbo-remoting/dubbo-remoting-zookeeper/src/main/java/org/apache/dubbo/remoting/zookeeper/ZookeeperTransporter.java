@@ -23,7 +23,12 @@ import org.apache.dubbo.remoting.Constants;
 
 @SPI("curator")
 public interface ZookeeperTransporter {
-
+    /***
+     * 根据返回值我们有发现，它是用于创建zk客户端对象
+     * 会根据url中的client来确定创建哪个客户端，默认是curator
+     * @param url
+     * @return
+     */
     @Adaptive({Constants.CLIENT_KEY, Constants.TRANSPORTER_KEY})
     ZookeeperClient connect(URL url);
 

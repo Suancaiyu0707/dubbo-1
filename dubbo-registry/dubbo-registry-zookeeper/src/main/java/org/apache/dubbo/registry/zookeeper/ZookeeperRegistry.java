@@ -223,6 +223,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
                     listeners.putIfAbsent(listener, (parentPath, currentChilds) -> {
                         for (String child : currentChilds) {
                             child = URL.decode(child);
+                            //如果anyServices 不包含child，则表示是新的节点，则订阅
                             if (!anyServices.contains(child)) {
                                 //订阅所有的服务，并监听服务节点的变化
                                 anyServices.add(child);
@@ -244,9 +245,9 @@ public class ZookeeperRegistry extends FailbackRegistry {
                                 Constants.CHECK_KEY, String.valueOf(false)), listener);
                     }
                 }
-            } else {//普通消费者的订阅逻辑
+            } else {//普通消费者的订阅逻辑， 如果 category=*，则订阅providers/consumers/configurators/routers
                 List<URL> urls = new ArrayList<>();
-                //根据url路径获取需要订阅的路径：
+                //根据url路径类别获取需要订阅的路径：
                 //  如果 category=*，则订阅providers/consumers/configurators/routers
                 //  如果 根据category的值进行订阅指定的路径，默认是 /providers
                 for (String path : toCategoriesPath(url)) {

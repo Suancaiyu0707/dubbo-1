@@ -38,6 +38,8 @@ import static org.apache.dubbo.rpc.cluster.Constants.REFER_KEY;
  * AbstractRegistryFactory. (SPI, Singleton, ThreadSafe)
  *
  * @see org.apache.dubbo.registry.RegistryFactory
+ * 实现了 RegistryFactory 接口的 getRegistry(URL url)方法，这是通用的实现，主要完成了加锁以及调用抽象模版方法createRegistry(URL url)
+ * 创建具体实现等操作，抽象模版方法由子类继承并实现
  */
 public abstract class AbstractRegistryFactory implements RegistryFactory {
 
@@ -104,15 +106,17 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
                 .addParameter(INTERFACE_KEY, RegistryService.class.getName())
                 .removeParameters(EXPORT_KEY, REFER_KEY)
                 .build();
-        String key = url.toServiceStringWithoutResolving();// /zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService
+        // /zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService
+        String key = url.toServiceStringWithoutResolving();
         // Lock the registry access process to ensure a single instance of the registry
         LOCK.lock();
         try {
+            //先检查缓存里是否存在
             Registry registry = REGISTRIES.get(key);
             if (registry != null) {
                 return registry;
             }
-            //create registry by spi/ioc
+            //如果注册中心还没创建，则调用抽象方法来创建，这个抽象方法由子类来创建的
             registry = createRegistry(url);//zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
             if (registry == null) {
                 throw new IllegalStateException("Can not create registry " + url);
