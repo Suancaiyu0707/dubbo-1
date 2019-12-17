@@ -44,7 +44,7 @@ import static org.apache.dubbo.registry.Constants.REGISTRY_RETRY_PERIOD_KEY;
 
 /**
  * FailbackRegistry. (SPI, Prototype, ThreadSafe)
- * 在AbstractRegistry基础上增加了重试的机制
+ * FailbackRegistry 在 AbstractRegistry 的基础上，实现了和注册中心实际的操作，并且支持失败重试的特性。
  */
 public abstract class FailbackRegistry extends AbstractRegistry {
 
@@ -72,7 +72,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         super(url);
         this.retryPeriod = url.getParameter(REGISTRY_RETRY_PERIOD_KEY, DEFAULT_REGISTRY_RETRY_PERIOD);//5000
 
-        // since the retry task will not be very much. 128 ticks is enough.
+
         retryTimer = new HashedWheelTimer(new NamedThreadFactory("DubboRegistryRetryTimer", true), retryPeriod, TimeUnit.MILLISECONDS, 128);
     }
 
@@ -98,7 +98,10 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         Holder h = new Holder(url, listener);
         failedNotified.remove(h);
     }
-
+    /***
+     * 添加一个注册重试的任务
+     * @param url
+     */
     private void addFailedRegistered(URL url) {
         FailedRegisteredTask oldOne = failedRegistered.get(url);
         if (oldOne != null) {
@@ -119,6 +122,10 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         }
     }
 
+    /***
+     * 添加一个取消注册重试的任务
+     * @param url
+     */
     private void addFailedUnregistered(URL url) {
         FailedUnregisteredTask oldOne = failedUnregistered.get(url);
         if (oldOne != null) {
@@ -139,6 +146,11 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         }
     }
 
+    /***
+     * 添加一个订阅失败重试的任务
+     * @param url
+     * @param listener
+     */
     protected void addFailedSubscribed(URL url, NotifyListener listener) {
         Holder h = new Holder(url, listener);
         FailedSubscribedTask oldOne = failedSubscribed.get(h);
@@ -153,6 +165,13 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         }
     }
 
+    /**
+     * 移除订阅失败的url
+     * @param url 订阅的url
+     * @param listener
+     * 1、执行对应的订阅失败的任务FailedUnsubscribedTask，移除 url和listener对应 failedUnsubscribed 订阅任务
+     * 2、执行对应的通知失败的任务FailedNotifiedTask
+     */
     private void removeFailedSubscribed(URL url, NotifyListener listener) {
         Holder h = new Holder(url, listener);
         FailedSubscribedTask f = failedSubscribed.remove(h);
@@ -163,6 +182,11 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         removeFailedNotified(url, listener);
     }
 
+    /***
+     * 添加一个取消订阅失败重试的任务
+     * @param url
+     * @param listener
+     */
     private void addFailedUnsubscribed(URL url, NotifyListener listener) {
         Holder h = new Holder(url, listener);
         FailedUnsubscribedTask oldOne = failedUnsubscribed.get(h);
@@ -184,7 +208,11 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             f.cancel();
         }
     }
-
+    /***
+     * 添加一个通知监听节点变更失败重试的任务
+     * @param url
+     * @param listener
+     */
     private void addFailedNotified(URL url, NotifyListener listener, List<URL> urls) {
         Holder h = new Holder(url, listener);
         FailedNotifiedTask newTask = new FailedNotifiedTask(url, listener);
@@ -301,22 +329,37 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         }
     }
     // provider：provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=10604&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576476419518
+
+    /***
+     *
+     * @param url   Subscription condition, not allowed to be empty, e.g. consumer://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
+     *
+     * @param listener A listener of the change event, not allowed to be empty
+     *      provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880
+     *                 &category=configurators
+     *                 &check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=19528&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576482019237
+     *      consumer:
+     * 1、本地的订阅信息缓存记录订阅关系
+     * 2、移除先前订阅失败的关系，包括 `failedSubscribed` `failedUnsubscribed` `failedNotified`
+     * 3、向注册中心发起订阅请求
+     */
     @Override
     public void subscribe(URL url, NotifyListener listener) {
         super.subscribe(url, listener);
         removeFailedSubscribed(url, listener);//先移除订阅失败的
         try {
-            // Sending a subscription request to the server side
+            // 向注册中心发送订阅请求
             doSubscribe(url, listener);
         } catch (Exception e) {
             Throwable t = e;
-
+            // 如果有缓存的 URL 集合，进行通知。后续订阅成功后，会使用最新的 URL 集合，进行通知。
             List<URL> urls = getCacheUrls(url);
             if (CollectionUtils.isNotEmpty(urls)) {
                 notify(url, listener, urls);
                 logger.error("Failed to subscribe " + url + ", Using cached list: " + urls + " from cache file: " + getUrl().getParameter(FILE_KEY, System.getProperty("user.home") + "/dubbo-registry-" + url.getHost() + ".cache") + ", cause: " + t.getMessage(), t);
             } else {
                 // If the startup detection is opened, the Exception is thrown directly.
+                // 如果开启了启动时检测，则直接抛出异常
                 boolean check = getUrl().getParameter(Constants.CHECK_KEY, true)
                         && url.getParameter(Constants.CHECK_KEY, true);
                 boolean skipFailback = t instanceof SkipFailbackWrapperException;
@@ -331,6 +374,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             }
 
             // Record a failed registration request to a failed list, retry regularly
+            // 将失败的订阅请求记录到 `failedSubscribed`，定时重试
             addFailedSubscribed(url, listener);
         }
     }
@@ -364,7 +408,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
     }
 
     /**
-     *
+     *   通知监听器
      * @param url 订阅者 URL
      *     provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=10604&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576476419518
      *         会订阅configurators 目录
@@ -403,9 +447,13 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         super.notify(url, listener, urls);
     }
 
+    /***
+     * 恢复重新订阅和注册，失败会重试
+     * @throws Exception
+     */
     @Override
     protected void recover() throws Exception {
-        // register
+        // register 恢复注册，添加到 `failedRegistered` ，定时重试
         Set<URL> recoverRegistered = new HashSet<URL>(getRegistered());
         if (!recoverRegistered.isEmpty()) {
             if (logger.isInfoEnabled()) {
@@ -415,7 +463,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
                 addFailedRegistered(url);
             }
         }
-        // subscribe
+        // subscribe 恢复订阅，添加到 `failedSubscribed` ，定时重试
         Map<URL, Set<NotifyListener>> recoverSubscribed = new HashMap<URL, Set<NotifyListener>>(getSubscribed());
         if (!recoverSubscribed.isEmpty()) {
             if (logger.isInfoEnabled()) {

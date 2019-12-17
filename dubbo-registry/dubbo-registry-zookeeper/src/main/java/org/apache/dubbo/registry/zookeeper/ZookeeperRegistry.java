@@ -61,13 +61,18 @@ import static org.apache.dubbo.common.constants.RegistryConstants.ROUTERS_CATEGO
 public class ZookeeperRegistry extends FailbackRegistry {
 
     private final static Logger logger = LoggerFactory.getLogger(ZookeeperRegistry.class);
-
+    /**
+     * 默认根路径 dubbo
+     */
     private final static String DEFAULT_ROOT = "dubbo";
-
+    /**
+     *  Zookeeper 根节点，默认是 /dubbo
+     */
     private final String root;
-
+    /**
+     * 已注册的服务Service全名集合
+     */
     private final Set<String> anyServices = new ConcurrentHashSet<>();
-    //维护URL和监听器的映射关系，可能会有多个监听器监听同一个地址
     /***
      * 0 = {ConcurrentHashMap$MapEntry@4446} "provider://220.250.64.225:20880/org.apache.dubbo.demo.MockService?anyhost=true&bean.name=org.apache.dubbo.demo.MockService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.MockService&methods=sayHello&pid=14340&release=&side=provider&timestamp=1576479462282" -> " size = 1"
      *  key = {URL@4367} "provider://220.250.64.225:20880/org.apache.dubbo.demo.MockService?anyhost=true&bean.name=org.apache.dubbo.demo.MockService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.MockService&methods=sayHello&pid=14340&release=&side=provider&timestamp=1576479462282"
@@ -75,15 +80,19 @@ public class ZookeeperRegistry extends FailbackRegistry {
      * 1 = {ConcurrentHashMap$MapEntry@4447} "provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=14340&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576478833784" -> " size = 1"
      *  key = {URL@3847} "provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=14340&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576478833784"
      *  value = {ConcurrentHashMap@4379}  size = 1
+     *
+     *  维护URL和监听器的映射关系，可能会有多个监听器监听同一个地址
      */
     private final ConcurrentMap<URL, ConcurrentMap<NotifyListener, ChildListener>> zkListeners = new ConcurrentHashMap<>();
-
+    /***
+     * 对应的zk客户端
+     */
     private final ZookeeperClient zkClient;
     //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
 
     /**
      *
-     * @param url
+     * @param url 设置注册中心的 URL
      * @param zookeeperTransporter
      * 1、检查url的地址不是0.0.0.0或者anyhost不是true
      * 2、获得注册中心的根路径，默认是/dubbo
@@ -101,6 +110,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
         this.root = group;//设置zk的根路径
         //获得跟zk连接的client
         zkClient = zookeeperTransporter.connect(url);//默认是curator客户端
+        // 添加 StateListener 对象。该监听器，在重连时，调用恢复方法。
         zkClient.addStateListener((state) -> {
             if (state == StateListener.RECONNECTED) {
                 logger.warn("Trying to fetch the latest urls, in case there're provider changes during connection loss.\n" +
@@ -125,11 +135,18 @@ public class ZookeeperRegistry extends FailbackRegistry {
         });
     }
 
+    /***
+     * 判断zk客户端是否可用
+     * @return
+     */
     @Override
     public boolean isAvailable() {
         return zkClient.isConnected();
     }
 
+    /**
+     * 摧毁该zk客户端，关闭连接
+     */
     @Override
     public void destroy() {
         super.destroy();
@@ -142,11 +159,16 @@ public class ZookeeperRegistry extends FailbackRegistry {
     /***
      * 注册地址，就是创建一个zk的目录
      * @param url
+     * 1、获得URL路径：Root + ServiceName + CategoryType + URL
+     * 2、创建zk路径
      */
     @Override
     public void doRegister(URL url) {
         try {//provider :/dubbo/org.apache.dubbo.demo.StubService/providers/dubbo%3A%2F%2F220.250.64.225%3A20880%2Forg.apache.dubbo.demo.StubService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.StubService%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.StubService%26methods%3DsayHello%26pid%3D10604%26release%3D%26side%3Dprovider%26stub%3Dorg.apache.dubbo.demo.StubServiceStub%26timestamp%3D1576476419518
-            zkClient.create(toUrlPath(url), url.getParameter(DYNAMIC_KEY, true));
+            zkClient.create(
+                    toUrlPath(url),//获得 URL 的路径。
+                    url.getParameter(DYNAMIC_KEY, true)//是否动态数据。若为 false ，该数据为持久数据，当注册方退出时，数据依然保存在注册中心。
+            );
         } catch (Throwable e) {
             throw new RpcException("Failed to register " + url + " to zookeeper " + getUrl() + ", cause: " + e.getMessage(), e);
         }
@@ -155,6 +177,8 @@ public class ZookeeperRegistry extends FailbackRegistry {
     /**
      * 取消注册，删除这个zk的目录
      * @param url
+     * 1、获得URL路径：Root + ServiceName + CategoryType + URL
+     * 2、删除ZK路径
      */
     @Override
     public void doUnregister(URL url) {
@@ -234,9 +258,11 @@ public class ZookeeperRegistry extends FailbackRegistry {
                     });
                     zkListener = listeners.get(listener);
                 }
-                zkClient.create(root, false);//创建非持久化节点
-                List<String> services = zkClient.addChildListener(root, zkListener);//增加当前节点的订阅，并且会返回该节点所有子节点列表
-                //订阅获得所有的服务提供者
+                // 创建 Service 节点。该节点为持久节点。
+                zkClient.create(root, false);
+                // 向 Zookeeper的Service 节点发起订阅，获得订阅信息，会返回该节点所有子节点列表
+                List<String> services = zkClient.addChildListener(root, zkListener);
+                // 首次全量数据获取完成时，循环 Service 接口全名数组，发起该 Service 层的订阅
                 if (CollectionUtils.isNotEmpty(services)) {
                     for (String service : services) {
                         service = URL.decode(service);
@@ -286,7 +312,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
     }
 
     /**
-     *
+     * 取消订阅URL
      * @param url
      *        consumer:
      *        provider:
@@ -300,9 +326,11 @@ public class ZookeeperRegistry extends FailbackRegistry {
             if (zkListener != null) {
                 if (ANY_VALUE.equals(url.getServiceInterface())) {
                     String root = toRootPath();
+                    // 向 Zookeeper ，移除订阅
                     zkClient.removeChildListener(root, zkListener);
                 } else {
                     for (String path : toCategoriesPath(url)) {
+                        // 向 Zookeeper ，移除订阅
                         zkClient.removeChildListener(path, zkListener);
                     }
                 }
@@ -346,7 +374,14 @@ public class ZookeeperRegistry extends FailbackRegistry {
     private String toRootPath() {
         return root;
     }
-    // provider: dubbo://192.168.0.105:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=79756&release=&revision=1.0.0&side=provider&timestamp=1576456269728&version=1.0.0
+
+
+    /**
+     * 获得Root+ServiceName 路径
+     * @param url 注册地址
+     *       provider: dubbo://192.168.0.105:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=79756&release=&revision=1.0.0&side=provider&timestamp=1576456269728&version=1.0.0
+     * @return
+     */
     private String toServicePath(URL url) {//consumer: consumer://192.168.0.105/org.apache.dubbo.demo.StubService?category=providers,configurators,routers&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=80530&side=consumer&sticky=false&timestamp=1576456745232
         String name = url.getServiceInterface();//org.apache.dubbo.demo.EventNotifyService或org.apache.dubbo.demo.StubService
         if (ANY_VALUE.equals(name)) {
@@ -355,7 +390,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
         return toRootDir() + URL.encode(name);
     }
     /***
-     *
+     *  获得 Root + ServiceName + Type 路径，一个url里可能订阅多个category，所以这边会返回数组
      * @param url :
      *            consumer://192.168.0.105/org.apache.dubbo.demo.StubService?category=providers,configurators,routers&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=80530&side=consumer&sticky=false&timestamp=1576456745232
      *            provider://192.168.0.105:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=192.168.0.105&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=82030&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576457680054
@@ -380,6 +415,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
 
     /**
      *
+     *  获得 Root + ServiceName + CategoryType
      * @param url
      *      provider:
      *      consumer:
@@ -389,13 +425,12 @@ public class ZookeeperRegistry extends FailbackRegistry {
     private String toCategoryPath(URL url) {
         return toServicePath(url) + PATH_SEPARATOR + url.getParameter(CATEGORY_KEY, DEFAULT_CATEGORY);
     }
-    //url：dubbo://192.168.0.105:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=79756&release=&revision=1.0.0&side=provider&timestamp=1576456269728&version=1.0.0
     /**
-     *
+     *获得url路径：
+     *      Root + ServiceName + CategoryType + URL
      * @param url
      *      provider:
      *      consumer:
-     *
      * @return
      */
     private String toUrlPath(URL url) {
@@ -412,7 +447,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
      *              provider: 会订阅 configurators
      * @return
      * 1、循环 订阅者订阅的url ，判断url是否包含'://'
-     * 2、检查consumer url和订阅的url是否匹配
+     * 2、检查consumer url和订阅的url是否匹配，若匹配的话，返回
      */
     private List<URL> toUrlsWithoutEmpty(URL consumer, List<String> providers) {
         List<URL> urls = new ArrayList<>();
@@ -439,7 +474,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
      *              consumer：会订阅 providers/configurators/routers
      *              provider: 会订阅 configurators
      * @return
-     * 1、过滤掉providers协议是empty的url，保留剩下非empty协议的url
+     * 1、过滤掉providers协议是empty的url，保留剩下非empty协议的url。
      * 2、经过过滤empty剩下的url列表不为空，则表示有服务提供者发生变化，则直接返回。
      * 3、如果是configurators发生变化，则返回consumer url对应的empty协议的url。（这个时候可能是configurators发生变化）
      */

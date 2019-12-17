@@ -129,9 +129,9 @@ public abstract class AbstractRegistry implements Registry {
      *    value = {ArrayList@4558}  size = 1
      *
      * notified是ConcurrentMap类型里面又嵌套了一个Map,
-     *          外层map的key是消费者的URL，和 {@link #subscribed} 的键一致
-     *              内层的Map的key是分类的，包含provider、consumers、routers、configurators。
-     *              内层的value则是对应的服务列表，对于没有服务提供者提供服务的URL，它会以特殊的empty://前缀开头
+ *          外层map的key是订阅者的URL，和 {@link #subscribed} 的键一致
+     *         内层的Map的key是分类的，包含provider、consumers、routers、configurators。
+     *         内层的value则是对应的服务列表，对于没有服务提供者提供服务的URL，它会以特殊的empty://前缀开头
      */
     private final ConcurrentMap<URL, Map<String, List<URL>>> notified = new ConcurrentHashMap<>();//内存中的服务缓存对象
     /**
@@ -483,9 +483,13 @@ public abstract class AbstractRegistry implements Registry {
     }
 
     /***
-     * 服务恢复
+     * 服务恢复,在注册中心断开，重连成功，调用 #recover() 方法，进行恢复注册和订阅。
      * 服务的恢复包括注册服务的恢复和订阅服务的恢复。因为内存中保留了注册的服务和订阅的服务。因此在恢复的时候会重新拉取这些数据，分别调用发布和订阅的方法来重新将其录入到注册中心上。
      * @throws Exception
+     * 1、获取本地缓存里已注册的服务
+     * 2、遍历缓存的已注册服务，一个个的重新注册
+     * 3、获取本地缓存的已订阅的信息
+     * 4、遍历本地缓存的已订阅的信息，一个个重新订阅
      */
     protected void recover() throws Exception {
         // register
@@ -560,10 +564,16 @@ public abstract class AbstractRegistry implements Registry {
      *     consumer：
      *        会订阅configurators/providers/routers 目录
      * @param listener 监听子路径变化的监听器 listener
-     * @param urls 通知的 URL 变化结果（全量数据）
+     * @param urls 通知的 URL 变化结果（全量数据，这里的全量是某个服务下面的某一种分类的全量）
      *  1、对参数的校验
      *  2、notified维护针对url的通知的映射关系
      *     {serviceUrl:{configurators:url}}
+     *  3、将订阅者url和订阅变化的urls进行处理
+     *     a、检查订阅变化的urls是否符合url订阅
+     *     b、维护覆盖notified中订阅者url最新的通知变化
+     *     c、根据变化的url的类别category更新notified中对应类型的变化信息
+     *     d、调用对应的监听器进行处理响应。
+     *     e、把最新的变更信息通知保存到本地缓存文件
      */
     protected void notify(URL url, NotifyListener listener, List<URL> urls) {
         if (url == null) {
@@ -581,10 +591,12 @@ public abstract class AbstractRegistry implements Registry {
             logger.info("Notify urls for subscribe url " + url + ", urls: " + urls);
         }
         // keep every provider's category.
+        // 遍历所有的urls
         Map<String, List<URL>> result = new HashMap<>();
         for (URL u : urls) {
+            //检查变化的u是否符合url订阅的
             if (UrlUtils.isMatch(url, u)) {
-                //获得category属性值。provider: configurators
+                //获得category属性值。默认是providers
                 String category = u.getParameter(CATEGORY_KEY, DEFAULT_CATEGORY);
                 List<URL> categoryList = result.computeIfAbsent(category, k -> new ArrayList<>());
                 categoryList.add(u);
@@ -593,11 +605,20 @@ public abstract class AbstractRegistry implements Registry {
         if (result.size() == 0) {
             return;
         }
+        //notified 维护了订阅信息发生变化的url
+        //      key :订阅者的url
+        //      value：
+        //          key2：是订阅的类型，包含provider、consumers、routers、configurators
+        //          value2：对应类型通知的 URL 变化结果（全量数据）
         Map<String, List<URL>> categoryNotified = notified.computeIfAbsent(url, u -> new ConcurrentHashMap<>());
+        // 按照分类，循环处理通知的 URL 变化结果（全量数据）。
         for (Map.Entry<String, List<URL>> entry : result.entrySet()) {
             String category = entry.getKey();//configurators
             List<URL> categoryList = entry.getValue();//{empty://192.168.0.105:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=192.168.0.105&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=82030&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576457680054}
+            // 覆盖到 `notified`
+            // 当某个分类的数据为空时，会依然有 urls 。其中 `urls[0].protocol = empty` ，通过这样的方式，处理所有服务提供者为空的情况。
             categoryNotified.put(category, categoryList);
+            // 保存到文件
             listener.notify(categoryList);
             // We will update our cache file after each notification.
             // When our Registry has a subscribe failure due to network jitter, we can return at least the existing cache URL.
@@ -605,6 +626,11 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    /***
+     * 根据url获取 notified 记录的最新的变更信息进行更新properties中相应的信息。
+     * 异步/同步将订阅信息的变更保存到缓存文件里
+     * @param url
+     */
     private void saveProperties(URL url) {
         if (file == null) {
             return;
@@ -623,8 +649,10 @@ public abstract class AbstractRegistry implements Registry {
                     }
                 }
             }
+            //根据url获取 notified 记录的最新的变更信息进行更新properties中相应的信息。
             properties.setProperty(url.getServiceKey(), buf.toString());
             long version = lastCacheChanged.incrementAndGet();
+            //异步/同步将订阅信息的变更保存到缓存文件里
             if (syncSaveFile) {//同步保存缓存
                 doSaveProperties(version);
             } else {//异步保存，放入线程池中，，会传入一个版本号，保证数据是最新的
