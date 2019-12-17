@@ -520,6 +520,11 @@ class URL implements Serializable {
         return address.toString();
     }
     //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=10604&qos.port=22222&timestamp=1576476414084
+
+    /**
+     * 从url上解析出backup属性值
+     * @return
+     */
     public List<URL> getBackupUrls() {
         List<URL> urls = new ArrayList<>();
         urls.add(this);

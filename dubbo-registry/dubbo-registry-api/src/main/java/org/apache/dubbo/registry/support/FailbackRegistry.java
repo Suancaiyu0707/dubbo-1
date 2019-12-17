@@ -362,9 +362,16 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             addFailedUnsubscribed(url, listener);
         }
     }
+
     /**
+     *
+     * @param url 订阅者 URL
      *     provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=10604&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576476419518
-     *     consumer:
+     *         会订阅configurators 目录
+     *     consumer：
+     *        会订阅configurators/providers/routers 目录
+     * @param listener 监听子路径变化的监听器 listener
+     * @param urls 通知的 URL 变化结果（全量数据）
      */
     @Override
     protected void notify(URL url, NotifyListener listener, List<URL> urls) {
@@ -382,7 +389,16 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             logger.error("Failed to notify for subscribe " + url + ", waiting for retry, cause: " + t.getMessage(), t);
         }
     }
-
+    /**
+     *
+     * @param url 订阅者 URL
+     *     provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=10604&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576476419518
+     *         会订阅configurators 目录
+     *     consumer：
+     *        会订阅configurators/providers/routers 目录
+     * @param listener 监听子路径变化的监听器 listener
+     * @param urls 通知的 URL 变化结果（全量数据）
+     */
     protected void doNotify(URL url, NotifyListener listener, List<URL> urls) {
         super.notify(url, listener, urls);
     }

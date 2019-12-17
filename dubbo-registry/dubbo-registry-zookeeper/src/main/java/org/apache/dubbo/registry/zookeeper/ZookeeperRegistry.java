@@ -262,7 +262,11 @@ public class ZookeeperRegistry extends FailbackRegistry {
                     if (zkListener == null) {
                         //初始化一个 ChildListener，这个ChildListener订阅了url节点下所有路径的变化
                         //当节点或者子节点的信息发送变化，则会调用FallbackRegistry的notify方法
-                        listeners.putIfAbsent(listener, (parentPath, currentChilds) -> ZookeeperRegistry.this.notify(url, listener, toUrlsWithEmpty(url, parentPath, currentChilds)));
+                        listeners.putIfAbsent(listener, (parentPath, currentChilds) ->
+                                ZookeeperRegistry.this.notify(url, listener,
+                                        //订阅者url根据变化的子路径currentChilds，通知监听的监听器，如果是configurators发生变化，则这个currentChilds应该是以empty协议开头
+                                        toUrlsWithEmpty(url, parentPath, currentChilds))
+                                    );
                         zkListener = listeners.get(listener);
                     }
                     //创建临时节点
@@ -397,13 +401,18 @@ public class ZookeeperRegistry extends FailbackRegistry {
     private String toUrlPath(URL url) {
         return toCategoryPath(url) + PATH_SEPARATOR + URL.encode(url.toFullString());
     }
-    /**
+    /***
      *
-     * @param consumer
-     *      provider:
-     *      consumer:
+     * @param consumer 订阅者url，这个consumer也可以是一个服务提供者，因为服务提供者会订阅configurators路径
+     *              consumer：会订阅 providers/configurators/routers
+     *              provider: 会订阅 configurators
      *
+     * @param providers 订阅者订阅的url
+     *              consumer：会订阅 providers/configurators/routers
+     *              provider: 会订阅 configurators
      * @return
+     * 1、循环 订阅者订阅的url ，判断url是否包含'://'
+     * 2、检查consumer url和订阅的url是否匹配
      */
     private List<URL> toUrlsWithoutEmpty(URL consumer, List<String> providers) {
         List<URL> urls = new ArrayList<>();
@@ -420,7 +429,20 @@ public class ZookeeperRegistry extends FailbackRegistry {
         }
         return urls;
     }
-    //provider://192.168.0.105:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=192.168.0.105&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=82030&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576457680054
+    /***
+     *
+     * @param consumer 订阅者url，这个consumer也可以是一个服务提供者，因为服务提供者会订阅configurators路径
+     *              consumer：会订阅 providers/configurators/routers
+     *              provider: 会订阅 configurators
+     * @param path 订阅的路径
+     * @param providers 订阅者订阅的url
+     *              consumer：会订阅 providers/configurators/routers
+     *              provider: 会订阅 configurators
+     * @return
+     * 1、过滤掉providers协议是empty的url，保留剩下非empty协议的url
+     * 2、经过过滤empty剩下的url列表不为空，则表示有服务提供者发生变化，则直接返回。
+     * 3、如果是configurators发生变化，则返回consumer url对应的empty协议的url。（这个时候可能是configurators发生变化）
+     */
     private List<URL> toUrlsWithEmpty(URL consumer, String path, List<String> providers) {
         List<URL> urls = toUrlsWithoutEmpty(consumer, providers);
         if (urls == null || urls.isEmpty()) {
@@ -432,7 +454,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
                     .build();
             urls.add(empty);
         }
-        return urls;//将consumer路径转换成empty://192.168.0.105:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=192.168.0.105&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=82030&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576457680054
+        return urls;
     }
 
     /**

@@ -378,6 +378,12 @@ public class UrlUtils {
                 + (version == null ? "" : "&" + VERSION_KEY + "=" + version));
     }
 
+    /***
+     * 判断 categories 是否包含 category
+     * @param category
+     * @param categories
+     * @return
+     */
     public static boolean isMatchCategory(String category, String categories) {
         if (categories == null || categories.length() == 0) {
             return DEFAULT_CATEGORY.equals(category);
@@ -390,26 +396,40 @@ public class UrlUtils {
         }
     }
 
+    /***
+     *
+     * @param consumerUrl 订阅者的url
+     * @param providerUrl 订阅者订阅的发生变化的url
+     * @return
+     * 1、获得订阅者的接口名称
+     * 2、获得订阅着订阅的接口名称
+     * 3、如果consumerInterface不是 *，且providerInterface不是 *，且consumerInterface和providerInterface不相等，则返回false
+     * 4、如果 consumerUrl 的 category不包含providerUrl的 category，返回false
+     * 5、如果providerUrl.enabled=false或者consumerUrl.enabled=*,则返回false
+     */
     public static boolean isMatch(URL consumerUrl, URL providerUrl) {
         String consumerInterface = consumerUrl.getServiceInterface();
         String providerInterface = providerUrl.getServiceInterface();
         //FIXME accept providerUrl with '*' as interface name, after carefully thought about all possible scenarios I think it's ok to add this condition.
-        if (!(ANY_VALUE.equals(consumerInterface)
-                || ANY_VALUE.equals(providerInterface)
-                || StringUtils.isEquals(consumerInterface, providerInterface))) {
+        if ((!ANY_VALUE.equals(consumerInterface)
+                && !ANY_VALUE.equals(providerInterface)
+                && !StringUtils.isEquals(consumerInterface, providerInterface)
+        )) {
             return false;
         }
-
+        //如果 consumerUrl 的 category不包含providerUrl的 category，返回false
         if (!isMatchCategory(providerUrl.getParameter(CATEGORY_KEY, DEFAULT_CATEGORY),
                 consumerUrl.getParameter(CATEGORY_KEY, DEFAULT_CATEGORY))) {
             return false;
         }
+        //如果providerUrl.enabled=false或者consumerUrl.enabled=*,则返回false
         if (!providerUrl.getParameter(ENABLED_KEY, true)
                 && !ANY_VALUE.equals(consumerUrl.getParameter(ENABLED_KEY))) {
             return false;
         }
-
+        //获得订阅者的group
         String consumerGroup = consumerUrl.getParameter(GROUP_KEY);
+        //获得订阅者的version
         String consumerVersion = consumerUrl.getParameter(VERSION_KEY);
         String consumerClassifier = consumerUrl.getParameter(CLASSIFIER_KEY, ANY_VALUE);
 

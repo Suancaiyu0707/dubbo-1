@@ -85,6 +85,8 @@ public abstract class AbstractRegistry implements Registry {
      * 本地磁盘缓存。
      *  其中特殊的 key 值 .registies，它值是记录注册中心列表
      *  其它均为 notified 服务提供者列表
+     *
+     * 注册中心数据发生变更时，通知到 Registry 后，修改 properties 对应的值，并写入 file
      */
     private final Properties properties = new Properties();
     /**
@@ -92,7 +94,7 @@ public abstract class AbstractRegistry implements Registry {
      */
     private final ExecutorService registryCacheExecutor = Executors.newFixedThreadPool(1, new NamedThreadFactory("DubboSaveRegistryCache", true));
     /**
-     * 是否同步保存文件，可根据save.file进行配置
+     * properties 发生变更时候，是同步还是异步写入 file
      */
     private final boolean syncSaveFile;
     private final AtomicLong lastCacheChanged = new AtomicLong();
@@ -176,8 +178,8 @@ public abstract class AbstractRegistry implements Registry {
      */
     public AbstractRegistry(URL url) {
         //1. 设置配置中心的地址
-        setUrl(url);//zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
-        // 2. 配置中心的URL中是否配置了同步保存文件属性，否则默认为false
+        //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
+        setUrl(url);// 2. 配置中心的URL中是否配置了同步保存文件属性，否则默认为false
         syncSaveFile = url.getParameter(REGISTRY_FILESAVE_SYNC_KEY, false);
         //配置信息本地缓存的文件名
         String defaultFilename = System.getProperty("user.home") + "/.dubbo/dubbo-registry-" + url.getParameter(APPLICATION_KEY) + "-" + url.getAddress().replaceAll(":", "-") + ".cache";//
@@ -196,18 +198,19 @@ public abstract class AbstractRegistry implements Registry {
         // we need to read the local cache file for future Registry fault tolerance processing.
         //如果现有配置缓存，则从缓存文件中加载属性
         loadProperties();
+        //如果url上设置了backup属性值，则参数返回backup设置的url
         notify(url.getBackupUrls());
     }
 
     /***
-     *
+     * 获得协议是empty的url
      * @param url
      *      provider:
      *      consumer:
      * @param urls
      * @return
-     * 如果urls是空的话，则把url的协议改成empty并返回。
-     * 如果urls非空的话，则直接返回urls
+     *      如果urls是空的话，则把url的协议改成empty并返回。
+     *      如果urls非空的话，则直接返回urls
      *
      */
     protected static List<URL> filterEmpty(URL url, List<URL> urls) {
@@ -307,7 +310,8 @@ public abstract class AbstractRegistry implements Registry {
             logger.warn("Failed to save registry cache file, will retry, cause: " + e.getMessage(), e);
         }
     }
-    //在服务初始化时，会调用该方法，注册中心会从本地磁盘中把持久化的注册数据注册到Properties对象里，并加载到内存缓存中。从/Users/hb/.dubbo/dubbo-registry-demo-provider-127.0.0.1-2181.cache 读取配置信息
+    //在服务初始化时，会调用该方法，注册中心会从本地磁盘中把持久化的注册数据注册到Properties对象里，并加载到内存缓存中。
+    // 默认 从/Users/hb/.dubbo/dubbo-registry-demo-provider-127.0.0.1-2181.cache 读取配置信息
     //properties保存了所有服务提供者的URL，使用URL#serviceKey作为key，提供者列表、路由规则列表、配置规则列表等作为value
     private void loadProperties() {
         //当本地存在配置缓存文件时
@@ -397,7 +401,7 @@ public abstract class AbstractRegistry implements Registry {
     }
 
     /**
-     * 本地内存记录已注册的服务
+     * 本地内存记录已注册的服务（这步其实还没有真正的进行注册，仅仅是添加到 registered 中，进行状态的维护）
      * @param url  Registration information , is not allowed to be empty, e.g: dubbo://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
      *      provider: dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=30672&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576489098974
      *      consumer:
@@ -510,11 +514,11 @@ public abstract class AbstractRegistry implements Registry {
     }
 
     /***
-     * notify是指将一组URL推送给订阅了该URL的订阅端。在推送的时候，会将url根据cateogry分组，之后再分别推送不同的分组。
-     * 通知
-     * @param urls zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
-     * 1、遍历所有的订阅信息subscribed，其中key是订阅的url路径，value是监听这个url变化的NotifyListener列表
-     * 2、检查遍历的订阅信息，看是否有url是当前被通知的urls列表里，如果有的话，调用所有监听当前url的   NotifyListener.notify方法
+     *  当监听的的url发生变化的时候，会回调通知所有的订阅该url的监听器NotifyListener
+     *
+     * @param urls 该方法只会被上面的构造方法里调用，所以urls的值是url的backup属性指定的url列表
+     * 1、遍历所有的订阅关系的信息subscribed，其中key是订阅的url路径，value是监听这个url变化的NotifyListener列表
+     * 2、检查遍历的订阅关系，检查urls列表里是否包含了该url，如果有的话。调用所有监听当前url的   NotifyListener.notify方法
      *
      */
     protected void notify(List<URL> urls) {
@@ -522,10 +526,10 @@ public abstract class AbstractRegistry implements Registry {
             return;
         }
         /***
-         * 遍历所有的订阅信息
+         * 遍历所有的订阅关系的信息
          */
         for (Map.Entry<URL, Set<NotifyListener>> entry : getSubscribed().entrySet()) {
-            URL url = entry.getKey();//或者订阅的url
+            URL url = entry.getKey();//或者订阅关系的url
             //如果通知的url不包含订阅的url，则检查下一个订阅的ulr
             if (!UrlUtils.isMatch(url, urls.get(0))) {
                 continue;
@@ -537,7 +541,9 @@ public abstract class AbstractRegistry implements Registry {
             if (listeners != null) {
                 for (NotifyListener listener : listeners) {
                     try {
-                        notify(url, listener, filterEmpty(url, urls));
+                        notify(url, listener,
+                                filterEmpty(url, urls)//获得协议是empty的相应的url列表
+                        );
                     } catch (Throwable t) {
                         logger.error("Failed to notify registry event, urls: " + urls + ", cause: " + t.getMessage(), t);
                     }
@@ -547,14 +553,14 @@ public abstract class AbstractRegistry implements Registry {
     }
 
     /**
-     * 该方法封装了更新内存缓存和更新文件缓存的逻辑。当客户端第一次订阅全量数据，或者后续由于订阅得到新数据时，都会调用该方法阿进行保存
-     * Notify changes from the Provider side.
-     *
-     * @param url      consumer side url
-     *                 provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=14340&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576478833784
-     *                 consumer:
-     * @param listener listener：
-     * @param urls     provider latest urls：empty://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=14340&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576478833784
+     * 通知对应的监听器，URL发生了变化了， 变化结果urls。
+     * @param url 订阅者 URL
+     *     provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=10604&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576476419518
+     *         会订阅configurators 目录
+     *     consumer：
+     *        会订阅configurators/providers/routers 目录
+     * @param listener 监听子路径变化的监听器 listener
+     * @param urls 通知的 URL 变化结果（全量数据）
      *  1、对参数的校验
      *  2、notified维护针对url的通知的映射关系
      *     {serviceUrl:{configurators:url}}
