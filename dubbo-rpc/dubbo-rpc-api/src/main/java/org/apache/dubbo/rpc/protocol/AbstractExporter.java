@@ -23,6 +23,7 @@ import org.apache.dubbo.rpc.Invoker;
 
 /**
  * AbstractExporter.
+ * 是接口Exporter的抽象实现
  */
 public abstract class AbstractExporter<T> implements Exporter<T> {
 

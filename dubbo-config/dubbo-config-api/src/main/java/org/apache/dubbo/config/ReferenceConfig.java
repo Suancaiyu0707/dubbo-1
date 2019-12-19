@@ -192,10 +192,10 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             bootstrap = DubboBootstrap.getInstance();
             bootstrap.init();
         }
-
+        //检查和更新消费端的配置
         checkAndUpdateSubConfigs();
 
-        //init serivceMetadata
+        //初始化调用接口的元信息：版本、分组、接口类型、接口名称
         serviceMetadata.setVersion(version);
         serviceMetadata.setGroup(group);
         serviceMetadata.setDefaultGroup(group);
@@ -203,13 +203,20 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         serviceMetadata.setServiceInterfaceName(interfaceName);
         // TODO, uncomment this line once service key is unified
         serviceMetadata.setServiceKey(URL.buildKey(interfaceName, group, version));//org.apache.dubbo.demo.DemoService
-
+        //检查本地存根和本地调用
         checkStubAndLocal(interfaceClass);
         ConfigValidationUtils.checkMock(interfaceClass, this);
 
         Map<String, String> map = new HashMap<String, String>();
+        //标记这边是一个消费端
         map.put(SIDE_KEY, CONSUMER_SIDE);
-
+        /**
+         * 维护运行时参数
+         * 1、dubbo：协议版本号："dubbo" -> "2.0.2"
+         * 2、release：服务版本："release" -> ''
+         * 3、timestamp：时间。"timestamp" -> "1576737965762"
+         * 4、pid：进程号。"pid" -> "686"
+         */
         ReferenceConfigBase.appendRuntimeParameters(map);
         if (!ProtocolUtils.isGeneric(generic)) {
             String revision = Version.getVersion(interfaceClass, version);
@@ -234,6 +241,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         AbstractConfig.appendParameters(map, consumer);
         AbstractConfig.appendParameters(map, this);
         Map<String, Object> attributes = null;
+        //检查消费者调用的方法
         if (CollectionUtils.isNotEmpty(getMethods())) {
             attributes = new HashMap<>();
             for (MethodConfig methodConfig : getMethods()) {
@@ -272,7 +280,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 this,
                 null,
                 serviceMetadata);
-
+        //为调用服务创建代理对象
         ref = createProxy(map);//创建代理对象
 
         serviceMetadata.setTarget(ref);
@@ -284,15 +292,23 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         dispatch(new ReferenceConfigDestroyedEvent(this));
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes", "deprecation"})
+    /**
+     * 根据消费端引用服务配置创建代理对象
+     * 1、判断是否本地引用，如果是本地引用，则使用injvm、127.0.0.1 创建一个本地引用的url。
+     *      根据url和引用服务，返回一个引用的invoker对象
+     * 2、如果不是本地引用的化，那么就走远程引用
+     * 3、如果配置了check=true,则需要检查提供者服务是否可用(这个是开启 启动时检查)
+     */
     private T createProxy(Map<String, String> map) {
         if (shouldJvmRefer(map)) {//判断是否injvm协议注册，是否内部访问
+            // 创建服务引用 URL 对象
             URL url = new URL(LOCAL_PROTOCOL, LOCALHOST_VALUE, 0, interfaceClass.getName()).addParameters(map);
+            // 引用服务，返回 Invoker 对象
             invoker = REF_PROTOCOL.refer(interfaceClass, url);
             if (logger.isInfoEnabled()) {
                 logger.info("Using injvm service " + interfaceClass.getName());
             }
-        } else {
+        } else {//远程引用
             urls.clear();
             if (url != null && url.length() > 0) { // user specified URL, could be peer-to-peer address, or register center's address.
                 String[] us = SEMICOLON_SPLIT_PATTERN.split(url);
@@ -350,7 +366,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 }
             }
         }
-
+        //如果配置了check=true,则需要检查提供者服务是否可用
         if (shouldCheck() && !invoker.isAvailable()) {
             throw new IllegalStateException("Failed to check the status of the service "
                     + interfaceName
@@ -376,22 +392,29 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             URL consumerURL = new URL(CONSUMER_PROTOCOL, map.remove(REGISTER_IP_KEY), 0, map.get(INTERFACE_KEY), map);
             metadataService.publishServiceDefinition(consumerURL);
         }
-        // create service proxy
+        //  创建 Service 代理对象
         return (T) PROXY_FACTORY.getProxy(invoker);
     }
 
     /**
      * This method should be called right after the creation of this class's instance, before any property in other config modules is used.
      * Check each config modules are created properly and override their properties if necessary.
-     */
+     * 检查或更新订阅配置
+     * 1、引用接口不能为空
+     * 2、整合消费者的其它配置：application、module、monitor、registries
+     * 3、判断是否配置了generic泛化调用
+     * 4、检查接口和引用方法的匹配
+     * 5、
+     * */
     public void checkAndUpdateSubConfigs() {
         if (StringUtils.isEmpty(interfaceName)) {//org.apache.dubbo.demo.DemoService
             throw new IllegalStateException("<dubbo:reference interface=\"\" /> interface not allow null!");
         }
+        //整合消费者的其它配置：application、module、monitor、registries
         completeCompoundConfigs();
         // get consumer's global configuration
         checkDefault();
-        this.refresh();//根据当前环境，加载当前服务的各种属性的值。加载属性值的顺序：
+        this.refresh();//根据当前环境，加载当前服务的各种属性的值。
         if (getGeneric() == null && getConsumer() != null) {//如果refrence里没有配置generic，则使用consumer的配置
             setGeneric(getConsumer().getGeneric());
         }
@@ -419,6 +442,11 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
      * 3. otherwise, check scope parameter
      * 4. if scope is not specified but the target service is provided in the same JVM, then prefer to make the local
      * call, which is the default behavior
+     * 判断是否本地引用
+     * 1、判断是否配置了 injvm 属性，
+     *      如果配置了injvm=true，则表示本地引用，返回true
+     *      如果没有配置injvm属性，如果配置了url，则肯定不是本地引用，直连，所以这里返回true
+     *      如果没有配置injvm属性，且没有配置了url，则根据具体的业务逻辑判断是否是本地引用
      */
     protected boolean shouldJvmRefer(Map<String, String> map) {
         URL tmpUrl = new URL("temp", "localhost", 0, map);

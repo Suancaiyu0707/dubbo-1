@@ -445,14 +445,14 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         }
 
         Map<String, String> map = new HashMap<String, String>();
-        //side：provider
+        //side：provider，后面的过滤器链会根据side来判断是否生效
         map.put(SIDE_KEY, PROVIDER_SIDE);
         //添加服务配置信息
         /***
-         * 1、dubbo：协议版本号
-         * 2、release：服务版本
-         * 3、timestamp：时间
-         * 4、pid：进程号
+         * 1、dubbo：协议版本号："dubbo" -> "2.0.2"
+         * 2、release：服务版本："release" -> ''
+         * 3、timestamp：时间。"timestamp" -> "1576737965762"
+         * 4、pid：进程号。"pid" -> "686"
          **/
         ServiceConfig.appendRuntimeParameters(map);
         /***
@@ -600,26 +600,35 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
          * 5、将invoker包装成一个exporter，并注册到相应的注册中心，同时会监听对应的路径：/dubbo/org.apache.dubbo.demo.DemoService/configurators
          *
          */
+        //url：dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=6134&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576739514406
+        String scope = url.getParameter(SCOPE_KEY);
+        //如果scope=none，则不暴露url配置
+        if (!SCOPE_NONE.equalsIgnoreCase(scope)) {
 
-        String scope = url.getParameter(SCOPE_KEY);//null
-        // don't export when none is configured
-        if (!SCOPE_NONE.equalsIgnoreCase(scope)) {//如果scope=none，则不暴露url配置
-
-            // export to local if the config is not remote (export to remote only when config is remote)
+            // 在本地暴露服务，这个时候协议是dubbo，如果配置了remote配置，则只支持远程注册中心注册，就不需要本地注册。
             if (!SCOPE_REMOTE.equalsIgnoreCase(scope)) {//如果sopce未配置为remote，则先进行本地暴露(方便本地直连测试)
-                exportLocal(url);//dubbo://192.168.0.108:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
+                exportLocal(url);
             }
-            // export to remote if the config is not local (export to local only when config is local)
-            //如果scope未配置为local，则开始通过注册中心注册服务并暴露
+            /***
+             * 遍历注册中心开始进行远程服务注册
+             * 1、如果服务提供者的scope属性是local属性，则无需远程暴露服务了。
+             * 2、服务提供者通过dynamic属性，用于控制服务是否动态注册，如果设为false，注册后将显示后disable状态，需人工启用，并且服务提供者停止时，也不会自动取消册，需人工禁用。
+             * 3、获得服务提供者的代理配置属性proxy，如果未配置了生成代理对象的方式，则默认是javassist。（用户可以在<dubbo:service>里通过proxy属性控制生成代理对象的方式）
+             * 4、根据服务提供者的接口和ref指向的实例，通过代理工厂使用特定的代理方式创建一个代理对象
+             * 5、使用RegistryProtocol，将代理对象注册到注册中心并通过NettyServer暴露给外服务调用，并返回一个暴露的对象Exporter
+             *      RegistryProtocol在将自己服务注册地址注册到注册中心的同时，会调用DubboProtocol将具体服务通过NettyServer暴露出去，方便其它服务调用。
+             *      整个暴露流程如下：
+             *          Protocol$Adaptive => ProtocolFilterWrapper => ProtocolListenerWrapper => RegistryProtocol  //该链路主要是将服务提供者自己的地址注册到注册中心上去，便于消费者发现
+             *          =>
+             *          Protocol$Adaptive => ProtocolFilterWrapper => ProtocolListenerWrapper => DubboProtocol  //真正的将自己通过网络服务暴露出去
+             *
+             */
             if (!SCOPE_LOCAL.equalsIgnoreCase(scope)) {
                 if (CollectionUtils.isNotEmpty(registryURLs)) {//如果注册地址不为空
-                    /***
-                     * 遍历注册中心进行服务注册
-                     * 1、如果注册的协议是local协议，则不进行注册中心注册了。
-                     */
-                    for (URL registryURL : registryURLs) {//遍历注册中心
-                        //if protocol is only injvm ,not register
-                        if (LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {//如果注册中心的协议是injvm，则不远程暴露
+                    //遍历注册中心 registryURL(注意它跟上面的url的区别，上面的url是服务提供者在服务端的地址)：registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=6134&qos.port=22222&registry=zookeeper&timestamp=1576739508116
+                    for (URL registryURL : registryURLs) {
+                        //如果服务提供者的暴露协议是injvm，则表示在虚拟机内部调用，就无需远程暴露
+                        if (LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {
                             continue;
                         }
                         //"dynamic" ：服务是否动态注册，如果设为false，注册后将显示后disable状态，需人工启用，并且服务提供者停止时，也不会自动取消册，需人工禁用。
@@ -635,9 +644,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                                 logger.info("Export dubbo service " + interfaceClass.getName() + " to url " + url);
                             }
                         }
-
-                        //检查是否配置了用于生成代理对象的代理方式，通过proxy来设置代理方式
-                        String proxy = url.getParameter(PROXY_KEY);//从url中获取 proxy 属性，默认是javassist
+                        //url: dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=6134&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576739514406
+                        String proxy = url.getParameter(PROXY_KEY);//从url中获取 proxy 属性，默认是javassist。从这里我们可以知道，可以通过service的proxy来指定生成代理对象
                         if (StringUtils.isNotEmpty(proxy)) {//如果provider或service里设置了proxy值
                             registryURL = registryURL.addParameter(PROXY_KEY, proxy);
                         }
@@ -647,12 +655,15 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                          *      interfaceClass：服务接口类型
                          *      registryURL：注册地址信息对象
                          * 2、把代理对象包装成一个DelegateProviderMetaDataInvoker
-                         *
+                         * 3、通过RegistryProtocol 暴露服务（RegistryProtocol在将自己服务注册地址注册到注册中心的同时，会调用DubboProtocol将具体服务通过NettyServer暴露出去，方便其它服务调用）
+                         *      整个流程如下：
+                         *         Protocol$Adaptive => ProtocolFilterWrapper => ProtocolListenerWrapper => RegistryProtocol
+                         *         =>
+                         *         Protocol$Adaptive => ProtocolFilterWrapper => ProtocolListenerWrapper => DubboProtocol
                          */
                         Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
-                        //利用 protocol 将服务注册到注册中心上并暴露出去，这里顺序是：RegistryProtocol->DubboProtocol
-                        //RegistryProtocol的export方法里会再次调用 Protocol$Adaptive 获取到的是 DubboProtocol 对象，通过netty进行服务暴露。
+
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
                         //维护已暴露的服务
                         exporters.add(exporter);
@@ -684,9 +695,13 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     /**
      * always export injvm 本地暴露
-     * 1、根据服务提供者的url，生成一个协议是injvm,端口是0的本地url对象
+     * 1、根据服务提供者的url，生成一个协议是injvm,端口是0的本地url对象（因为本地注册的话，不要向注册中心发起请求，所以这边协议是injvm）
      * 2、代理工厂会根据接口和被代理对象为本地暴露协议生成一个代理的对象。
-     * 3、将代理对象使用InjvmProtocol协议进行暴露
+     * 3、将代理对象使用InjvmProtocol进行暴露(其实是维护到一块内存里)：
+     *      调用涮需：方法的调用顺序是：Protocol$Adaptive
+     *          => ProtocolFilterWrapper
+     *          => ProtocolListenerWrapper （这一步会根据配置把一个用于监听export或unexport行为的ExportListener和exporter进行绑定）
+     *          => InjvmProtocol 。
      * 4、本地缓存已暴露的对象
      */
     private void exportLocal(URL url) {

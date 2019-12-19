@@ -30,6 +30,14 @@ public class NettyTransporter implements Transporter {
 
     public static final String NAME = "netty";
 
+    /***
+     * 根据 url和监听器创建一个NettyServer
+     * @param url     server url
+     *        dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&channel.readonly.sent=true&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&heartbeat=60000&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=6134&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576739514406
+     * @param listener
+     * @return
+     * @throws RemotingException
+     */
     @Override
     public RemotingServer bind(URL url, ChannelHandler listener) throws RemotingException {
         return new NettyServer(url, listener);

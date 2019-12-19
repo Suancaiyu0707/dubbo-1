@@ -192,10 +192,10 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
     /**
      * 维护运行时参数
      * @param map
-     * 1、dubbo：协议版本号
-     * 2、release：服务版本
-     * 3、timestamp：时间
-     * 4、pid：进程号
+     * 1、dubbo：协议版本号："dubbo" -> "2.0.2"
+     * 2、release：服务版本："release" -> ''
+     * 3、timestamp：时间。"timestamp" -> "1576737965762"
+     * 4、pid：进程号。"pid" -> "686"
      */
     public static void appendRuntimeParameters(Map<String, String> map) {
         map.put(DUBBO_VERSION_KEY, Version.getProtocolVersion());

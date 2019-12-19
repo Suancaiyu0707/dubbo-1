@@ -283,11 +283,12 @@ public class DubboProtocol extends AbstractProtocol {
      * @param <T>
      * @return
      * @throws RpcException
-     * 1、获得服务的key，比如：org.apache.dubbo.demo.DemoService:20880
+     * 1、根据服务提供者地址获得服务的key，比如：org.apache.dubbo.demo.DemoService:20880
      * 2、将invoker包装成一个 DubboExporter
      * 3、获得dubbo.stub.event和is_callback_service属性值
-     * 4、为服务器创建一个 NettyServer，用于接收监听客户端请求
+     * 4、启动服务器 NettyServer，用于接收监听客户端请求
      *      注意，这里是一个服务器host:port创建一个NettyServer
+     * 5、初始化序列化的优化器
      */
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
@@ -313,30 +314,37 @@ public class DubboProtocol extends AbstractProtocol {
                 stubServiceMethodsMap.put(url.getServiceKey(), stubServiceMethods);
             }
         }
-        //根据url地址中的服务器ip创建一个nettyServer
+        //根据url地址中的服务器ip创建一个nettyServer，也就是启动Netty服务器
         openServer(url);//dubbo://220.250.64.225:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34339&release=&revision=1.0.0&side=provider&timestamp=1575881105857&version=1.0.0
-        //TODO
+        // 初始化序列化优化器
         optimizeSerialization(url);
 
         return exporter;
     }
-    //根据服务端地址创建一个 NettyServer,注意这个NettyServer只跟服务提供者ip有关
+
+    /***
+     * 在服务端启动服务器NettyServer，注意这个NettyServer只跟服务提供者ip有关
+     * @param url
+     * 1、根据服务提供者地址获得服务端地址：192.168.0.108:20880
+     * 2、检查缓存 serverMap，避免重复启动服务NettyServer
+     * 3、如果缓存里没有，则开始启动一个NettyServer服务
+     * 4、如果缓存里有，则重置这个NettyServer服务
+     */
     private void openServer(URL url) {//dubbo://192.168.0.108:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
-        // find server.
+        // find server. 查找服务提供者的地址，与服务接口无关
         String key = url.getAddress();//192.168.0.108:20880
         //client can export a service which's only for server to invoke
-        boolean isServer = url.getParameter(IS_SERVER_KEY, true);//true
+        boolean isServer = url.getParameter(IS_SERVER_KEY, true);//true 可以暴露一个仅当前 JVM 可调用的服务。目前该配置项已经不存在
         if (isServer) {
-            ProtocolServer server = serverMap.get(key);//检查本地内存
-            if (server == null) {
+            ProtocolServer server = serverMap.get(key);//检查本地内存，该服务是否已启动，避免重复启动
+            if (server == null) {//通信服务器不存在，调用 #createServer(url) 方法，创建服务器。
                 synchronized (this) {
                     server = serverMap.get(key);
                     if (server == null) {
                         serverMap.put(key, createServer(url));
                     }
                 }
-            } else {
-                // server supports reset, use together with override
+            } else {//通信服务器已存在，调用 Server#reset(url) 方法，重置服务器的属性。
                 server.reset(url);
             }
         }
@@ -344,48 +352,57 @@ public class DubboProtocol extends AbstractProtocol {
 
     /***
      *
-     * @param url dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&channel.readonly.sent=true&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&heartbeat=60000&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=26573&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576486511601
+     * @param url
+     *      dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&channel.readonly.sent=true&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&heartbeat=60000&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=26573&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576486511601
      * @return
+     * 1、根据服务提供者地址维护一个url
+     *      开启 server 关闭时发送 READ_ONLY 事件
+     *      开启 heartbeat
+     *      设置编码协议为dubbo
+     * 2、通过Exchangers启动一个NettyServer，并绑定监听端口
+     * 3、检查client属性值对应的Transporter SPI实现类是否存在，默认是NettyTransporter
      */
     private ProtocolServer createServer(URL url) {//旧的：dubbo://220.250.64.225:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34339&release=&revision=1.0.0&side=provider&timestamp=1575881105857&version=1.0.0
+        //新的：dubbo://220.250.64.225:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=220.250.64.225&bind.port=20880&channel.readonly.sent=true&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&heartbeat=60000&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34339&release=&revision=1.0.0&side=provider&timestamp=1575881105857&version=1.0.0
         url = URLBuilder.from(url)
-                // send readonly event when server closes, it's enabled by default
+                // 开启 server 关闭时发送 READ_ONLY 事件
                 .addParameterIfAbsent(CHANNEL_READONLYEVENT_SENT_KEY, Boolean.TRUE.toString())
-                // enable heartbeat by default
+                // 默认开启 heartbeat
                 .addParameterIfAbsent(HEARTBEAT_KEY, String.valueOf(DEFAULT_HEARTBEAT))
+                //设置编码协议为dubbo
                 .addParameter(CODEC_KEY, DubboCodec.NAME)
-                .build();//新的：dubbo://220.250.64.225:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=220.250.64.225&bind.port=20880&channel.readonly.sent=true&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&heartbeat=60000&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34339&release=&revision=1.0.0&side=provider&timestamp=1575881105857&version=1.0.0
-        String str = url.getParameter(SERVER_KEY, DEFAULT_REMOTING_SERVER);//网络服务：默认是netty
-
+                .build();String str = url.getParameter(SERVER_KEY, DEFAULT_REMOTING_SERVER);//网络服务：默认是netty
+        // 检查 Server 的 Dubbo SPI 拓展是否存在
         if (str != null && str.length() > 0 && !ExtensionLoader.getExtensionLoader(Transporter.class).hasExtension(str)) {
             throw new RpcException("Unsupported server type: " + str + ", url: " + url);
         }
-
+        // 启动服务器
         ExchangeServer server;
         try {
             server = Exchangers.bind(url, requestHandler);//dubbo://220.250.64.225:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=220.250.64.225&bind.port=20880&channel.readonly.sent=true&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&heartbeat=60000&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34339&release=&revision=1.0.0&side=provider&timestamp=1575881105857&version=1.0.0
         } catch (RemotingException e) {
             throw new RpcException("Fail to start server(url: " + url + ") " + e.getMessage(), e);
         }
-
-        str = url.getParameter(CLIENT_KEY);
+        // 校验 Client 的 Dubbo SPI 拓展是否存在
+        str = url.getParameter(CLIENT_KEY);//client属性值默认是netty
         if (str != null && str.length() > 0) {
             Set<String> supportedTypes = ExtensionLoader.getExtensionLoader(Transporter.class).getSupportedExtensions();
             if (!supportedTypes.contains(str)) {
                 throw new RpcException("Unsupported client type: " + str);
             }
         }
-
+        //返回包装的 DubboProtocolServer7
         return new DubboProtocolServer(server);
     }
 
     /**
-     *
+     *  创建一个序列化优化器
      * @param url
      * @throws RpcException
-     * 1、获得optimizer属性值，默认是空的
+     * 1、通过服务提供者获取optimizer属性，默认是空的,optimizer定义了优化器的类名，必须是SerializationOptimizer的实现类
      */
     private void optimizeSerialization(URL url) throws RpcException {
+        //服务提供者获取optimizer属性，默认是空的,optimizer定义了优化器的类名，必须是SerializationOptimizer的实现类
         String className = url.getParameter(OPTIMIZER_KEY, "");
         if (StringUtils.isEmpty(className) || optimizers.contains(className)) {
             return;

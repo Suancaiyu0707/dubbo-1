@@ -76,7 +76,7 @@ public class UrlUtils {
      * 3、检查是否配置了port，没配置的话，默认是9090
      * 4、如果address没有配置的属性，则使用defaults里的，不包括HOST
      */
-    public static URL parseURL(String address, Map<String, String> defaults) {
+    public static URL parseURL(String address, Map<String, String> defaults) {//zookeeper://127.0.0.1:2181
         if (address == null || address.length() == 0) {
             return null;
         }
@@ -99,7 +99,7 @@ public class UrlUtils {
                 url += URL_PARAM_STARTING_SYMBOL + RemotingConstants.BACKUP_KEY + "=" + backup.toString();
             }
         }
-        //检查defaults是否配置了protocol,如果未配置，则默认dubbo协议
+        //检查defaults是否配置了protocol,如果未配置，则默认dubbo协议。对于注册中心，增是zookeeper
         String defaultProtocol = defaults == null ? null : defaults.get(PROTOCOL_KEY);
         if (defaultProtocol == null || defaultProtocol.length() == 0) {
             defaultProtocol = DUBBO_PROTOCOL;
@@ -120,7 +120,7 @@ public class UrlUtils {
         }
         URL u = URL.valueOf(url);
         boolean changed = false;
-        String protocol = u.getProtocol();
+        String protocol = u.getProtocol();//从url上获取协议信息,比如 zookeeper
         String username = u.getUsername();
         String password = u.getPassword();
         String host = u.getHost();
@@ -178,7 +178,7 @@ public class UrlUtils {
     }
 
     /***
-     * 解析URL列表
+     * 解析URL列表：zookeeper://127.0.0.1:2181
      * @param address
      * @param defaults
      * @return
@@ -195,7 +195,7 @@ public class UrlUtils {
         for (String addr : addresses) {
             registries.add(parseURL(addr, defaults));
         }
-        return registries;
+        return registries;//zookeeper://127.0.0.1:2181 ==>zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=686&qos.port=22222&timestamp=1576736124139
     }
 
     public static Map<String, Map<String, String>> convertRegister(Map<String, Map<String, String>> register) {
@@ -530,14 +530,23 @@ public class UrlUtils {
                 !ROUTE_PROTOCOL.equals(url.getProtocol()) &&
                 PROVIDERS_CATEGORY.equals(url.getParameter(CATEGORY_KEY, PROVIDERS_CATEGORY));
     }
-    //判断是否是 registry协议的url
+    /***
+     * 判断是否是一个注册协议：
+     *    服务端注册中心：registry
+     *    客户端注册中心：service-discovery-registry
+     */
     public static boolean isRegistry(URL url) {
         return REGISTRY_PROTOCOL.equals(url.getProtocol()) || SERVICE_REGISTRY_PROTOCOL.equalsIgnoreCase(url.getProtocol());
     }
 
     /**
      * The specified {@link URL} is service discovery registry type or not
-     *
+     *              zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?
+     *              application=demo-provider
+     *              &dubbo=2.0.2
+     *              &pid=686
+     *              &qos.port=22222
+     *              &timestamp=1576736124139
      * @param url the {@link URL} connects to the registry
      * @return If it is, return <code>true</code>, or <code>false</code>
      * @since 2.7.4

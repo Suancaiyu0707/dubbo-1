@@ -37,9 +37,11 @@ public class ListenerExporterWrapper<T> implements Exporter<T> {
     private final List<ExporterListener> listeners;
 
     /***
-     * 将exporter和listeners 包装成一个 ListenerExporterWrapper
+     *
      * @param exporter
      * @param listeners
+     * 1、将exporter和用于监听该exporter的暴露和移除的listeners 包装成一个 ListenerExporterWrapper
+     * 2、遍历监听器listeners，触发已暴露完成的方法 exported()
      */
     public ListenerExporterWrapper(Exporter<T> exporter, List<ExporterListener> listeners) {
         if (exporter == null) {

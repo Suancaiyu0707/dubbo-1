@@ -26,13 +26,26 @@ import java.util.Map;
  * InjvmExporter
  */
 class InjvmExporter<T> extends AbstractExporter<T> {
-
+    // 服务的全路径。eg：org.apache.dubbo.demo.StubService
     private final String key;
-
+    /***
+     * key：org.apache.dubbo.demo.StubService
+     * value：InjvmExporter对象，对象属性
+     *      key = "org.apache.dubbo.demo.StubService"
+     *      exporterMap = {ConcurrentHashMap@4543}  size = 1
+     *      logger = {FailsafeLogger@4562}
+     *      invoker = {ProtocolFilterWrapper$1@4542} "interface org.apache.dubbo.demo.StubService -> injvm://127.0.0.1/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=686&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576737965762"
+     *      unexported = false
+     */
     private final Map<String, Exporter<?>> exporterMap;
-    //jvm内部暴露只是暴露到本地内存里
-    //invoker:interface org.apache.dubbo.demo.EventNotifyService -> injvm://127.0.0.1/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34339&release=&revision=1.0.0&side=provider&timestamp=1575881105857&version=1.0.0
-    //key:cn/org.apache.dubbo.demo.EventNotifyService:1.0.0
+
+    /**
+     *  jvm内部暴露只是暴露到本地内存里，并没有通过NettyServer对外提供服务
+     * @param invoker
+     * @param key 本地注册的服务的全路径，eg：org.apache.dubbo.demo.StubService
+     * @param exporterMap
+     * @return
+     */
     InjvmExporter(Invoker<T> invoker, String key, Map<String, Exporter<?>> exporterMap) {
         super(invoker);
         this.key = key;

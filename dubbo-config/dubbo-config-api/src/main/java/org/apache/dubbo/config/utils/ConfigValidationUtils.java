@@ -205,8 +205,14 @@ public class ConfigValidationUtils {
                     }
                     //将配置参数和address地址拼接成 URL对象，在address里，如果有多个地址的话，用;号分割
                     List<URL> urls = UrlUtils.parseURLs(address, map);
-
-                    for (URL url : urls) {
+                    //registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?
+                    // application=demo-provider
+                    // &dubbo=2.0.2
+                    // &pid=686
+                    // &qos.port=22222
+                    // &registry=zookeeper
+                    // &timestamp=1576736124139
+                    for (URL url : urls) {//
                         //拼接额外参数registry 和 service-discovery-registry或registry
                         url = URLBuilder.from(url)
                                 .addParameter(REGISTRY_KEY, url.getProtocol())
@@ -548,8 +554,20 @@ public class ConfigValidationUtils {
         }
     }
 
+    /***
+     * 获取注册类型
+     *      service-discovery-registry
+     *      registry
+     * @param url zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=686&qos.port=22222&timestamp=1576736124139
+     *
+     * @return
+     *      如果 url中没有设置registry-type=service，则isServiceDiscoveryRegistryType返回true，这边也就返回service-discovery-registry
+     *      其它情况返回 registry
+     */
     private static String extractRegistryType(URL url) {
-        return isServiceDiscoveryRegistryType(url) ? SERVICE_REGISTRY_PROTOCOL : REGISTRY_PROTOCOL;
+        return isServiceDiscoveryRegistryType(url) ? //通常这个返回返回
+                SERVICE_REGISTRY_PROTOCOL
+                : REGISTRY_PROTOCOL;
     }
 
     public static void checkExtension(Class<?> type, String property, String value) {

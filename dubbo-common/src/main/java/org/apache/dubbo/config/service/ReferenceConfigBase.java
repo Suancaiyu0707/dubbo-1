@@ -113,7 +113,10 @@ public abstract class ReferenceConfigBase<T> extends AbstractReferenceConfig {
         }
         return shouldInit;
     }
-    //
+
+    /**
+     * 检查默认配置
+     */
     public void checkDefault() {
         if (consumer != null) {
             return;
@@ -125,6 +128,13 @@ public abstract class ReferenceConfigBase<T> extends AbstractReferenceConfig {
         }));
     }
 
+    /***
+     * 整合消费端的其它配置
+     * 1、application配置
+     * 2、module配置
+     * 3、registries配置
+     * 4、monitor配置
+     */
     public void completeCompoundConfigs() {
         if (consumer != null) {
             if (application == null) {

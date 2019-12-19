@@ -281,10 +281,20 @@ public class RegistryProtocol implements Protocol {
         return serviceConfigurationListener.overrideUrl(providerUrl);
     }
 
+    /***
+     *  从缓存里获取对应的ExporterChangeableWrapper，如果没有的话，开始进行local暴露，如果有的话，无需重复暴露
+     * @param originInvoker 服务提供者
+     * @param providerUrl
+     * @param <T>
+     * @return
+     */
     @SuppressWarnings("unchecked")
     private <T> ExporterChangeableWrapper<T> doLocalExport(final Invoker<T> originInvoker, URL providerUrl) {
+        /***
+         *根据服务提供者地址获得缓存key
+         */
         String key = getCacheKey(originInvoker);
-
+        //检查缓存里是否存在对应的
         return (ExporterChangeableWrapper<T>) bounds.computeIfAbsent(key, s -> {
             Invoker<?> invokerDelegate = new InvokerDelegate<>(originInvoker, providerUrl);//创建一个InvokerDelegate
             return new ExporterChangeableWrapper<>((Exporter<T>) protocol.export(invokerDelegate), originInvoker);
@@ -362,12 +372,14 @@ public class RegistryProtocol implements Protocol {
      * 获得注册中心 URL
      * @param originInvoker
      * @return
+     * 1、从invoker里获取注册中心地址registryUrl
+     * 2、从invoker里获取注册中心地址registryUrl的协议属性protocol从zookeeper更新为设置dubbo
      */
     protected URL getRegistryUrl(Invoker<?> originInvoker) {
-        URL registryUrl = originInvoker.getUrl();//registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.44.56%3A20880%2Forg.apache.dubbo.demo.EventNotifyService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.EventNotifyService%26bind.ip%3D192.168.44.56%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26group%3Dcn%26interface%3Dorg.apache.dubbo.demo.EventNotifyService%26methods%3Dget%26pid%3D34250%26release%3D%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1576073028433%26version%3D1.0.0&pid=34250&qos.port=22222&registry=zookeeper&timestamp=1576073019384
+        URL registryUrl = originInvoker.getUrl();//registryUrl：registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.44.56%3A20880%2Forg.apache.dubbo.demo.EventNotifyService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.EventNotifyService%26bind.ip%3D192.168.44.56%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26group%3Dcn%26interface%3Dorg.apache.dubbo.demo.EventNotifyService%26methods%3Dget%26pid%3D34250%26release%3D%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1576073028433%26version%3D1.0.0&pid=34250&qos.port=22222&registry=zookeeper&timestamp=1576073019384
         if (REGISTRY_PROTOCOL.equals(registryUrl.getProtocol())) {//registry
             String protocol = registryUrl.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY);//获取注册协议，默认是dubbo
-            registryUrl = registryUrl.setProtocol(protocol).removeParameter(REGISTRY_KEY);//设置registryUrl的协议，并移除registry的key
+            registryUrl = registryUrl.setProtocol(protocol).removeParameter(REGISTRY_KEY);//zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F220.250.64.225%3A20880%2Forg.apache.dubbo.demo.StubService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.StubService%26bind.ip%3D220.250.64.225%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.StubService%26methods%3DsayHello%26pid%3D6134%26release%3D%26side%3Dprovider%26stub%3Dorg.apache.dubbo.demo.StubServiceStub%26timestamp%3D1576739514406&pid=6134&qos.port=22222&timestamp=1576739508116
         }
         return registryUrl;
     }
@@ -444,14 +456,30 @@ public class RegistryProtocol implements Protocol {
 
     /**
      * Get the key cached in bounds by invoker
-     *
+     *  获得服务提供者地址，转换成缓存key
      * @param originInvoker
      * @return
      */
     private String getCacheKey(final Invoker<?> originInvoker) {
-        URL providerUrl = getProviderUrl(originInvoker);//dubbo://192.168.44.56:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=192.168.44.56&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34250&release=&revision=1.0.0&side=provider&timestamp=1576073028433&version=1.0.0
+        //获 取invoker的服务提供者url(不包含注册中心地址)
+        //dubbo://192.168.44.56:20880/org.apache.dubbo.demo.EventNotifyService
+        // ?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService
+        // &bind.ip=192.168.44.56
+        // &bind.port=20880
+        // &deprecated=false
+        // &dubbo=2.0.2
+        // &dynamic=true
+        // &generic=false
+        // &group=cn
+        // &interface=org.apache.dubbo.demo.StubService
+        // &methods=get
+        // &pid=34250
+        // &release=
+        // &revision=1.0.0&side=provider&timestamp=1576073028433&version=1.0.0
+        URL providerUrl = getProviderUrl(originInvoker);
+        //移除dynamic属性，生成缓存key
         String key = providerUrl.removeParameters("dynamic", "enabled").toFullString();
-        return key;//dubbo://192.168.44.56:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=192.168.44.56&bind.port=20880&deprecated=false&dubbo=2.0.2&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34250&release=&revision=1.0.0&side=provider&timestamp=1576073028433&version=1.0.0
+        return key;
     }
 
     @Override
@@ -729,6 +757,7 @@ public class RegistryProtocol implements Protocol {
      * exported by the protocol, and can modify the relationship at the time of override.
      *
      * @param <T>
+     *     Exporter 可变的包装器，每个 Exporter都会绑定一个服务提供者的 originInvoker 对象
      */
     private class ExporterChangeableWrapper<T> implements Exporter<T> {
 
@@ -757,18 +786,28 @@ public class RegistryProtocol implements Protocol {
             this.exporter = exporter;
         }
 
+        /***
+         * 取消暴露服务
+         * 1、清除缓存
+         * 2、从注册中心上移除
+         * 3、解除监听器和订阅地址的映射关系
+         * 4、取消暴露服务
+         */
         @Override
         public void unexport() {
+            //清除缓存
             String key = getCacheKey(this.originInvoker);
             bounds.remove(key);
-
+            //根据服务提供者获得注册中心个 i 呢
             Registry registry = RegistryProtocol.this.getRegistry(originInvoker);
             try {
+                //从注册中心上移除
                 registry.unregister(registerUrl);
             } catch (Throwable t) {
                 logger.warn(t.getMessage(), t);
             }
             try {
+                //解除监听器和订阅地址的映射关系
                 NotifyListener listener = RegistryProtocol.this.overrideListeners.remove(subscribeUrl);
                 registry.unsubscribe(subscribeUrl, listener);
                 ExtensionLoader.getExtensionLoader(GovernanceRuleRepository.class).getDefaultExtension()

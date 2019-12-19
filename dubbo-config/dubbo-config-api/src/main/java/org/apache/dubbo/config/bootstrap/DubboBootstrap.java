@@ -248,7 +248,14 @@ public class DubboBootstrap extends GenericEventListener {
         DubboShutdownHook.getDubboShutdownHook().register();
     }
 
+    /****
+     * 检查<dubbo:application>是否只允许注册，配置了registerConsumer=false
+     * @return
+     *      1、获得<dubbo:application>是否配置了 registerConsumer
+     *      2、如果registerConsumer=false,则不允许消费，也就是只允许注册
+     */
     private boolean isOnlyRegisterProvider() {
+        //判断<dubbo:application>是否配置了 registerConsumer
         Boolean registerConsumer = getApplication().getRegisterConsumer();
         return registerConsumer == null || !registerConsumer;
     }
@@ -759,7 +766,8 @@ public class DubboBootstrap extends GenericEventListener {
             exportServices();
 
             // Not only provider register
-            if (!isOnlyRegisterProvider() || hasExportedServices()) {
+            if (!isOnlyRegisterProvider() //检查<dubbo:application>是否不是只允许注册，没有配置registerConsumer=false
+                    || hasExportedServices()) {
                 // 2. export MetadataService
                 exportMetadataService();
                 //3. Register the local ServiceInstance if required
@@ -962,6 +970,9 @@ public class DubboBootstrap extends GenericEventListener {
         exportedServices.clear();
     }
 
+    /***
+     * 开始引用服务
+     */
     private void referServices() {
         if (cache == null) {
             cache = ReferenceConfigCache.getCache();

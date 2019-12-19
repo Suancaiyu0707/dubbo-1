@@ -45,7 +45,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
 public abstract class AbstractProtocol implements Protocol {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
-
+    //通信服务器集合，key: 服务器地址。格式为：host:port
     protected final Map<String, Exporter<?>> exporterMap = new ConcurrentHashMap<String, Exporter<?>>();
 
     /**

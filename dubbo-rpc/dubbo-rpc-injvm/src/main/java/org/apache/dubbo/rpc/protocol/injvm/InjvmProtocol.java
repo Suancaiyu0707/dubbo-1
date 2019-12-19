@@ -37,6 +37,10 @@ import static org.apache.dubbo.rpc.Constants.LOCAL_PROTOCOL;
 
 /**
  * InjvmProtocol
+ * 我们可以发现，服务本地注册的话，其实就是在本地维护一个hashMap内存：
+ *      key：org.apache.dubbo.demo.StubService
+ *      value：InjvmExporter对象，对象属性
+ * 并没有向远程注册那样，需要注册到注册中心，并通过NettyServer将服务暴露出去
  */
 public class InjvmProtocol extends AbstractProtocol implements Protocol {
 
@@ -56,6 +60,12 @@ public class InjvmProtocol extends AbstractProtocol implements Protocol {
         return INSTANCE;
     }
 
+    /***
+     * 检查本地是否有该exporter
+     * @param map
+     * @param key
+     * @return
+     */
     static Exporter<?> getExporter(Map<String, Exporter<?>> map, URL key) {
         Exporter<?> result = null;
 
@@ -86,7 +96,7 @@ public class InjvmProtocol extends AbstractProtocol implements Protocol {
     public int getDefaultPort() {
         return DEFAULT_PORT;
     }
-
+    //我们可以发现
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
         return new InjvmExporter<T>(invoker, invoker.getUrl().getServiceKey(), exporterMap);
@@ -97,21 +107,32 @@ public class InjvmProtocol extends AbstractProtocol implements Protocol {
         return new InjvmInvoker<T>(serviceType, url, url.getServiceKey(), exporterMap);
     }
 
+    /***
+     * 根据消费端的服务引用配置，判断是否是本地引用
+     *      url：
+     * @param url
+     * @return
+     * 1、如果服务消费端配置了scope=local或者injvm=true,则返回true
+     * 2、如果服务消费端配置了scope=remote，则肯定是远程调用，返回false
+     * 3、如果服务消费端配置了generic=true，则是泛化调用，则必定是远程引用，所以返回false
+     * 4、当本地已经有该 url对应的InjvmExporter 时，本地引用
+     * 5、其它的情况返回false
+     */
     public boolean isInjvmRefer(URL url) {
         String scope = url.getParameter(SCOPE_KEY);
         // Since injvm protocol is configured explicitly, we don't need to set any extra flag, use normal refer process.
+        // 如果服务消费端配置了scope=local或者injvm=true,则返回true
         if (SCOPE_LOCAL.equals(scope) || (url.getParameter(LOCAL_PROTOCOL, false))) {
             // if it's declared as local reference
             // 'scope=local' is equivalent to 'injvm=true', injvm will be deprecated in the future release
             return true;
-        } else if (SCOPE_REMOTE.equals(scope)) {
+        } else if (SCOPE_REMOTE.equals(scope)) {//如果服务消费端配置了scope=remote，则肯定是远程调用，返回false
             // it's declared as remote reference
             return false;
-        } else if (url.getParameter(GENERIC_KEY, false)) {
+        } else if (url.getParameter(GENERIC_KEY, false)) {//如果服务消费端配置了generic=true，则是泛化调用，则必定是远程引用，所以返回false
             // generic invocation is not local reference
             return false;
-        } else if (getExporter(exporterMap, url) != null) {
-            // by default, go through local reference if there's the service exposed locally
+        } else if (getExporter(exporterMap, url) != null) { // 当本地已经有该 Exporter 时，本地引用
             return true;
         } else {
             return false;
