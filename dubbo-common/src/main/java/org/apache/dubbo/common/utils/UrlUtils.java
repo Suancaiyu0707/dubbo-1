@@ -64,14 +64,28 @@ public class UrlUtils {
      */
     private final static String URL_PARAM_STARTING_SYMBOL = "?";
 
+    /***
+     * 解析单个url，将defaults里的参数合并到address里，如果address里有不存在的属性，则使用defaults里的。address里的属性优先级高于defaults
+     * @param address 地址
+     * @param defaults 默认参数集合
+     * @return
+     * 1、根据address初始化url
+     *      如果address地址包含'://'或者'?'，则url=address
+     *      如果地址有多个,先按照','分割成数组。然后第一个为url地址，后面的作为backup属性之比如：localhost:2181,localhost:2182,localhost:2183会被转成localhost:2181？backup=localhost:2182,localhost:2183
+     * 2、检查是否配置了protocol,如果未配置，则默认dubbo协议
+     * 3、检查是否配置了port，没配置的话，默认是9090
+     * 4、如果address没有配置的属性，则使用defaults里的，不包括HOST
+     */
     public static URL parseURL(String address, Map<String, String> defaults) {
         if (address == null || address.length() == 0) {
             return null;
         }
         String url;
+        //如果addess地址包含'://'或者'?'
         if (address.contains("://") || address.contains(URL_PARAM_STARTING_SYMBOL)) {
             url = address;
-        } else {
+        } else {//如果地址有多个,比如：localhost:2181,localhost:2182,localhost:2183
+            //
             String[] addresses = COMMA_SPLIT_PATTERN.split(address);
             url = addresses[0];
             if (addresses.length > 1) {
@@ -85,10 +99,12 @@ public class UrlUtils {
                 url += URL_PARAM_STARTING_SYMBOL + RemotingConstants.BACKUP_KEY + "=" + backup.toString();
             }
         }
+        //检查defaults是否配置了protocol,如果未配置，则默认dubbo协议
         String defaultProtocol = defaults == null ? null : defaults.get(PROTOCOL_KEY);
         if (defaultProtocol == null || defaultProtocol.length() == 0) {
             defaultProtocol = DUBBO_PROTOCOL;
         }
+        //获得username和password、port
         String defaultUsername = defaults == null ? null : defaults.get(USERNAME_KEY);
         String defaultPassword = defaults == null ? null : defaults.get(PASSWORD_KEY);
         int defaultPort = StringUtils.parseInteger(defaults == null ? null : defaults.get(PORT_KEY));
@@ -161,6 +177,12 @@ public class UrlUtils {
         return u;
     }
 
+    /***
+     * 解析URL列表
+     * @param address
+     * @param defaults
+     * @return
+     */
     public static List<URL> parseURLs(String address, Map<String, String> defaults) {
         if (address == null || address.length() == 0) {
             return null;

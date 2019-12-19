@@ -128,6 +128,7 @@ public class RegistryProtocol implements Protocol {
     private final ProviderConfigurationListener providerConfigurationListener = new ProviderConfigurationListener();
     //To solve the problem of RMI repeated exposure port conflicts, the services that have been exposed are no longer exposed.
     //providerurl <--> exporter
+    //维护已注册的服务提供者，避免重复注册
     private final ConcurrentMap<String, ExporterChangeableWrapper<?>> bounds = new ConcurrentHashMap<>();
     private Cluster cluster;
     private Protocol protocol;
@@ -195,38 +196,44 @@ public class RegistryProtocol implements Protocol {
      *      这里会进行服务在注册中心上的注册和订阅configurators地址
      *  invoker = {JavassistProxyFactory$1@4074} "interface org.apache.dubbo.demo.EventNotifyService -> registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F220.250.64.225%3A20880%2Forg.apache.dubbo.demo.EventNotifyService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.EventNotifyService%26bind.ip%3D220.250.64.225%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26group%3Dcn%26interface%3Dorg.apache.dubbo.demo.EventNotifyService%26methods%3Dget%26pid%3D34339%26release%3D%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1575881105857%26version%3D1.0.0&pid=34339&qos.port=22222&registry=zookeeper&timestamp=1575881026931"
      *  metadata = {ServiceBean@3049} "<dubbo:service beanName="org.apache.dubbo.demo.EventNotifyService" exported="true" unexported="false" path="org.apache.dubbo.demo.EventNotifyService" ref="org.apache.dubbo.demo.provider.EventNotifyServiceImpl@7807ac2c" interface="org.apache.dubbo.demo.EventNotifyService" uniqueServiceName="cn/org.apache.dubbo.demo.EventNotifyService:1.0.0" generic="false" prefix="dubbo.service.org.apache.dubbo.demo.EventNotifyService" group="cn" deprecated="false" dynamic="true" version="1.0.0" id="org.apache.dubbo.demo.EventNotifyService" valid="true" />"
-     *  1、获得zookeeper注册地址:
+     *  1、获得服务的zookeeper注册地址，用于RegistryProtocol本身进行服务注册:
      *      registryUrl=zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider
      *      &dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.44.56%3A20880%2Forg.apache.dubbo.demo.AsyncService2%3F
      *      anyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.AsyncService2%26bind.ip%3D192.168.44.56%26bind.port%3D20880
      *      %26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse
      *      %26interface%3Dorg.apache.dubbo.demo.AsyncService2%26methods%3DsayHello%26pid%3D22219%26release%3D%26side%3Dprovider
      *      %26timestamp%3D1576066567127&pid=22219&qos.port=22222&timestamp=1576066538747
-     *  2、从registryUrl获得export属性值，也就是服务提供者的地址：
+     *  2、从服务的zookeeper注册地址registryUrl获得export属性值，也就是服务提供者的地址，用于DubboProtocol进行服务暴露：
      *      providerUrl=dubbo://192.168.44.56:20880/org.apache.dubbo.demo.AsyncService2?
      *      anyhost=true&bean.name=org.apache.dubbo.demo.AsyncService2&bind.ip=192.168.44.56&bind.port=20880
      *      &deprecated=false&dubbo=2.0.2&dynamic=true&generic=false
      *      &interface=org.apache.dubbo.demo.AsyncService2&methods=sayHello&pid=22219&release=&side=provider
      *      &timestamp=1576066567127
-     *  3、根据providerUrl获得订阅地址，且paramaters添加了category=configurators和check=false：
+     *  3、根据providerUrl获得订阅地址(因为就算是服务提供者也要监听配置规则的变化)，且parameters添加了category=configurators和check=false：
      *      overrideSubscribeUrl=provider://192.168.44.56:20880/org.apache.dubbo.demo.AsyncService2?
      *      anyhost=true&bean.name=org.apache.dubbo.demo.AsyncService2&bind.ip=192.168.44.56&bind.port=20880
      *      &category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false
      *      &interface=org.apache.dubbo.demo.AsyncService2&methods=sayHello&pid=22219&release=&side=provider
      *      &timestamp=1576066567127
-     *  4、为对应的服务provider绑定一个监听器OverrideListener，用于监听对应的服务provider的地址变化
+     *  4、为对应的服务provider绑定一个监听器OverrideListener，用于监听对应的服务监听配置规则
      *  5、将configurators里对应的providerUrl的配置参数合并到当前的providerUrl里，并监听configurators下对该服务的地址的配置的变化
-     *  6、将originInvoker包装成一个ExporterChangeableWrapper。同时为创建一个NettyServer，用于接收客户端的地址
-     *  7、连接注册中心，并返回一个注册中心对象。2
-     *  7、将当前服务originInvoker注册到注册中心上，同时订阅监听configurators路径
+     *  6、将originInvoker包装成一个ExporterChangeableWrapper。同时会创建一个NettyServer，用于接收客户端的地址。
+     *          这里才是真正的暴露服务，会调用DubboProtocol将服务通过nettyServer暴露出去。
+     *  7、维护和注册中心的连接，返回一个注册中心对象。(这步才是真正的将自己注册到注册中心上去)
+     *  8、将当前服务originInvoker注册到注册中心上，同时订阅监听configurators路径
+     *
+     *  注意：
+     *      RegistryProtocol会在这里再次调用 Protocol$Adaptive 获取到的是 DubboProtocol 对象，进行服务暴露。也就是上面的第5步
+     *
      *
      */
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
-        URL registryUrl = getRegistryUrl(originInvoker);//获得注册地址： zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.44.56%3A20880%2Forg.apache.dubbo.demo.AsyncService2%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.AsyncService2%26bind.ip%3D192.168.44.56%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.AsyncService2%26methods%3DsayHello%26pid%3D22219%26release%3D%26side%3Dprovider%26timestamp%3D1576066567127&pid=22219&qos.port=22222&timestamp=1576066538747
-        // 获得服务提供者的地址 dubbo://192.168.44.56:20880/org.apache.dubbo.demo.AsyncService2?anyhost=true&bean.name=org.apache.dubbo.demo.AsyncService2&bind.ip=192.168.44.56&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.AsyncService2&methods=sayHello&pid=22219&release=&side=provider&timestamp=1576066567127
+        //获得注册地址： zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.44.56%3A20880%2Forg.apache.dubbo.demo.AsyncService2%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.AsyncService2%26bind.ip%3D192.168.44.56%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.AsyncService2%26methods%3DsayHello%26pid%3D22219%26release%3D%26side%3Dprovider%26timestamp%3D1576066567127&pid=22219&qos.port=22222&timestamp=1576066538747
+        URL registryUrl = getRegistryUrl(originInvoker);
+        // 从服务注册地址里获得服务提供者的地址 dubbo://192.168.44.56:20880/org.apache.dubbo.demo.AsyncService2?anyhost=true&bean.name=org.apache.dubbo.demo.AsyncService2&bind.ip=192.168.44.56&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.AsyncService2&methods=sayHello&pid=22219&release=&side=provider&timestamp=1576066567127
         URL providerUrl = getProviderUrl(originInvoker);//dubbo://220.250.64.225:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34339&release=&revision=1.0.0&side=provider&timestamp=1575881105857&version=1.0.0
-        //获得订阅地址，因为服务提供者也要监听对应configurators目录的变化
+        //获得订阅地址，订阅配置规则，因为服务提供者也要监听对应configurators目录的变化
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);//provider://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.HelloService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
@@ -235,12 +242,14 @@ public class RegistryProtocol implements Protocol {
         //获得服务提供者地址
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
         //export invoker 将originInvoker包装成一个ExporterChangeableWrapper。同时为创建一个NettyServer，用于接收客户端的地址
+        //所以这里会调用DubboProtocol将服务通过nettyServer暴露出去
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
-        //获得注册中心的地址
+        //获得注册中心对象
         final Registry registry = getRegistry(originInvoker);//zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
         final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);//dubbo://192.168.44.56:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=22219&release=&revision=1.0.0&side=provider&timestamp=1576065463228&version=1.0.0
         //to judge if we need to delay publish
+        //判断是否需要延迟暴露
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
         if (register) {//服务提供者注册服务,会在zk上创建一个路径
             //将当前服务originInvoker注册到注册中心上
@@ -340,7 +349,7 @@ public class RegistryProtocol implements Protocol {
 
     /**
      * Get an instance of registry based on the address of invoker
-     *  根据 originInvoker 地址获得注册中心实例
+     *  根据 originInvoker 地址获得注册中心对象
      * @param originInvoker
      * @return
      */
@@ -349,6 +358,11 @@ public class RegistryProtocol implements Protocol {
         return registryFactory.getRegistry(registryUrl);
     }
 
+    /***
+     * 获得注册中心 URL
+     * @param originInvoker
+     * @return
+     */
     protected URL getRegistryUrl(Invoker<?> originInvoker) {
         URL registryUrl = originInvoker.getUrl();//registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.44.56%3A20880%2Forg.apache.dubbo.demo.EventNotifyService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.EventNotifyService%26bind.ip%3D192.168.44.56%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26group%3Dcn%26interface%3Dorg.apache.dubbo.demo.EventNotifyService%26methods%3Dget%26pid%3D34250%26release%3D%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1576073028433%26version%3D1.0.0&pid=34250&qos.port=22222&registry=zookeeper&timestamp=1576073019384
         if (REGISTRY_PROTOCOL.equals(registryUrl.getProtocol())) {//registry
@@ -358,6 +372,11 @@ public class RegistryProtocol implements Protocol {
         return registryUrl;
     }
 
+    /***
+     * 获得注册中心 URL
+     * @param url
+     * @return
+     */
     protected URL getRegistryUrl(URL url) {
         return URLBuilder.from(url)
                 .setProtocol(url.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY))
@@ -406,11 +425,14 @@ public class RegistryProtocol implements Protocol {
                 .addParameters(CATEGORY_KEY, CONFIGURATORS_CATEGORY, CHECK_KEY, String.valueOf(false));
     }
 
-    /**originInvoker:
+    /**
+     *
+     * originInvoker:
      *      invoker = {JavassistProxyFactory$1@3698} "interface org.apache.dubbo.demo.EventNotifyService -> registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.44.56%3A20880%2Forg.apache.dubbo.demo.EventNotifyService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.EventNotifyService%26bind.ip%3D192.168.44.56%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26group%3Dcn%26interface%3Dorg.apache.dubbo.demo.EventNotifyService%26methods%3Dget%26pid%3D34250%26release%3D%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1576073028433%26version%3D1.0.0&pid=34250&qos.port=22222&registry=zookeeper&timestamp=1576073019384"
      *      metadata = {ServiceBean@3046} "<dubbo:service beanName="org.apache.dubbo.demo.EventNotifyService" exported="true" unexported="false" path="org.apache.dubbo.demo.EventNotifyService" ref="org.apache.dubbo.demo.provider.EventNotifyServiceImpl@740abb5" generic="false" interface="org.apache.dubbo.demo.EventNotifyService" uniqueServiceName="cn/org.apache.dubbo.demo.EventNotifyService:1.0.0" prefix="dubbo.service.org.apache.dubbo.demo.EventNotifyService" deprecated="false" group="cn" dynamic="true" version="1.0.0" id="org.apache.dubbo.demo.EventNotifyService" valid="true" />"
      * @param originInvoker
      * @return
+     *      从url中根据export属性，获得服务提供者本身在服务端暴露的地址(不是注册中心的地址)，用于NettyServer进行连接
      */
     private URL getProviderUrl(final Invoker<?> originInvoker) {
         String export = originInvoker.getUrl().getParameterAndDecoded(EXPORT_KEY);//dubbo://192.168.0.108:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328

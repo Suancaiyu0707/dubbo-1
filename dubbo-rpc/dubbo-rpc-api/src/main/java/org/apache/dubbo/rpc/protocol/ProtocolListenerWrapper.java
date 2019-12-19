@@ -37,6 +37,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.INVOKER_LISTENER
 
 /**
  * ListenerProtocol
+ * Protocol 的 Wrapper 拓展实现类，用于给 Exporter 增加 ExporterListener ，监听 Exporter 暴露完成和取消暴露完成
  */
 public class ProtocolListenerWrapper implements Protocol {
 
@@ -54,11 +55,29 @@ public class ProtocolListenerWrapper implements Protocol {
         return protocol.getDefaultPort();
     }
 
+    /***
+     * 暴露服务，每个服务暴露的时候都要分成两步：
+     *      1、通过RegistryProtocol将自己注册到注册中心上去，维护跟注册中心的zk连接(一个服务端注册中心配置只要维护一个zkclient)
+     *      2、通过NettyServer将自己暴露到网络层
+     * @param invoker Service invoker
+     * @param <T>
+     * @return
+     * @throws RpcException
+     * 1、判断是registry或者service-discovery-registry的url，
+     *          表示将自己注册到注册中心上去，RegistryProtocol的export会走到这个分支
+     *
+     * 2、如果不是registry或者service-discovery-registry的url，
+     *      则表示开始真正将服务暴露出去，通过NettyServer将自己暴露到网络层。DubboProtocol的export会走到这个分支
+     *
+     */
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
+        // 将自己注册到注册中心上去，RegistryProtocol的export会走到这个分支
         if (UrlUtils.isRegistry(invoker.getUrl())) {//判断是否是service-discovery-registry或registry协议的url
             return protocol.export(invoker);
         }
+        // 真正将服务暴露出去，通过NettyServer将自己暴露到网络层。DubboProtocol的export会走到这个分支:
+        //      先为Invoker绑定一个过滤链，然后暴露服务提供者
         return new ListenerExporterWrapper<T>(protocol.export(invoker),
                 Collections.unmodifiableList(ExtensionLoader.getExtensionLoader(ExporterListener.class)//interface org.apache.dubbo.rpc.ExporterListener
                         .getActivateExtension(invoker.getUrl(), EXPORTER_LISTENER_KEY)));

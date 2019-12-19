@@ -406,8 +406,11 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 this,
                 serviceMetadata
         );
-        //registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=5410
-        // &qos.port=22222&registry=zookeeper&timestamp=1575332257645
+        /***
+         * 加载注册中心的数组。
+         * URL：registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&pid=5410
+         *          &qos.port=22222&registry=zookeeper&timestamp=1575332257645
+         */
         List<URL> registryURLs = ConfigValidationUtils.loadRegistries(this, true);
         //遍历协议配置 <dubbo:protocol name="dubbo" valid="true" id="dubbo" prefix="dubbo.protocols." />
         //按照配置的协议，每种协议都会暴露当前服务
@@ -429,6 +432,11 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
      * 开始暴露服务
      * @param protocolConfig
      * @param registryURLs
+     *
+     * 如果是远程暴露的话，顺序依次是：
+     *      向注册中心注册自己：Protocol$Adaptive => ProtocolFilterWrapper => ProtocolListenerWrapper => RegistryProtocol
+     *      =>
+     *      注册中心注册完自己后，把自己暴露出去：Protocol$Adaptive => ProtocolFilterWrapper => ProtocolListenerWrapper => DubboProtocol
      */
     private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
         String name = protocolConfig.getName();//协议名称 dubbo
@@ -471,9 +479,18 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
          */
         AbstractConfig.appendParameters(map, this);
         //如果配置了<dubbo:method>标签
+        /***
+         * 1、遍历dubbo:method标签，并将 MethodConfig 对象，添加到 `map` 集合中
+         * 2、当 配置了 `MethodConfig.retry = false` 时，强制方法禁用重试
+         * 3、遍历dubbo:method的子标签dubbo:arguments标签
+         * 4、解析argument的参数索引位置和参数类型
+         * 5、校验dubbo:arguments中的参数和索引是否和接口方法里相应的方法的参数和位置保持一致
+         */
         if (CollectionUtils.isNotEmpty(getMethods())) {
             for (MethodConfig method : getMethods()) {
+                // 将 MethodConfig 对象，添加到 `map` 集合中。
                 AbstractConfig.appendParameters(map, method, method.getName());
+                // 当 配置了 `MethodConfig.retry = false` 时，强制禁用重试
                 String retryKey = method.getName() + ".retry";
                 if (map.containsKey(retryKey)) {
                     String retryValue = map.remove(retryKey);
@@ -481,21 +498,25 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                         map.put(method.getName() + ".retries", "0");
                     }
                 }
+                // 将 ArgumentConfig 对象数组，添加到 `map` 集合中。
                 List<ArgumentConfig> arguments = method.getArguments();
                 if (CollectionUtils.isNotEmpty(arguments)) {
                     for (ArgumentConfig argument : arguments) {
-                        // convert argument type
+                        // 获得参数标签的type类型
                         if (argument.getType() != null && argument.getType().length() > 0) {
                             Method[] methods = interfaceClass.getMethods();
-                            // visit all methods
+                            // 检查接口里相应的方法，查找方法和dubbo:method的方法名一样的方法
                             if (methods != null && methods.length > 0) {
                                 for (int i = 0; i < methods.length; i++) {
                                     String methodName = methods[i].getName();
                                     // target the method, and get its signature
                                     if (methodName.equals(method.getName())) {
+                                        //获得方法的参数类型数组
                                         Class<?>[] argtypes = methods[i].getParameterTypes();
                                         // one callback in the method
                                         if (argument.getIndex() != -1) {
+                                            // 校验dubbo:arguments中的参数和索引是否和接口方法里相应的方法的参数和位置保持一致
+                                            //将 ArgumentConfig 对象，添加到 `map` 集合中。`${methodName}.${index}`
                                             if (argtypes[argument.getIndex()].getName().equals(argument.getType())) {
                                                 AbstractConfig.appendParameters(map, argument, method.getName() + "." + argument.getIndex());
                                             } else {
@@ -516,7 +537,9 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                                     }
                                 }
                             }
-                        } else if (argument.getIndex() != -1) {
+                        } else if (argument.getIndex() != -1) { // 指定单个参数的位置
+                            // 将 ArgumentConfig 对象，添加到 `map` 集合中。
+                            //`${methodName}.${index}`
                             AbstractConfig.appendParameters(map, argument, method.getName() + "." + argument.getIndex());
                         } else {
                             throw new IllegalArgumentException("Argument config must set index or type attribute.eg: <dubbo:argument index='0' .../> or <dubbo:argument type=xxx .../>");
@@ -599,7 +622,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                         if (LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {//如果注册中心的协议是injvm，则不远程暴露
                             continue;
                         }
-                        //如果url地址未设置dynamic属性，但是注册中心配置设置了，则使用注册中心配置来作为url的dynamic属性
+                        //"dynamic" ：服务是否动态注册，如果设为false，注册后将显示后disable状态，需人工启用，并且服务提供者停止时，也不会自动取消册，需人工禁用。
                         url = url.addParameterIfAbsent(DYNAMIC_KEY, registryURL.getParameter(DYNAMIC_KEY));//dubbo://220.250.64.225:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=34339&release=&revision=1.0.0&side=provider&timestamp=1575881105857&version=1.0.0
                         URL monitorUrl = ConfigValidationUtils.loadMonitor(this, registryURL);//获得监控中心地址
                         if (monitorUrl != null) {//判断监控地址
@@ -628,18 +651,20 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                          */
                         Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
-                        //利用 protocol 将服务暴露注册到注册中心上，这里默认的是：RegistryProtocol
+                        //利用 protocol 将服务注册到注册中心上并暴露出去，这里顺序是：RegistryProtocol->DubboProtocol
+                        //RegistryProtocol的export方法里会再次调用 Protocol$Adaptive 获取到的是 DubboProtocol 对象，通过netty进行服务暴露。
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
                         //维护已暴露的服务
                         exporters.add(exporter);
                     }
-                } else {
+                } else {//当配置注册中心为 "N/A" 时，表示即使远程暴露服务，也不向注册中心注册。这种方式用于被服务消费者直连服务提供者，参见文档 http://dubbo.apache.org/zh-cn/docs/user/demos/explicit-target.html 。主要用于开发测试环境使用。
                     if (logger.isInfoEnabled()) {
                         logger.info("Export dubbo service " + interfaceClass.getName() + " to url " + url);
                     }
+                    // 使用 ProxyFactory 创建 Invoker 对象
                     Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, url);
                     DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
-
+                    // 使用 Protocol 暴露 Invoker 对象
                     Exporter<?> exporter = protocol.export(wrapperInvoker);
                     exporters.add(exporter);
                 }
@@ -659,17 +684,23 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     /**
      * always export injvm 本地暴露
+     * 1、根据服务提供者的url，生成一个协议是injvm,端口是0的本地url对象
+     * 2、代理工厂会根据接口和被代理对象为本地暴露协议生成一个代理的对象。
+     * 3、将代理对象使用InjvmProtocol协议进行暴露
+     * 4、本地缓存已暴露的对象
      */
     private void exportLocal(URL url) {
         //旧的：url=dubbo://192.168.0.103:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.103&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=78763&release=&side=provider&timestamp=1574988715703
         //新的：url=injvm://127.0.0.1          /org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
+        // 创建本地 注册 URL
         URL local = URLBuilder.from(url)
                 .setProtocol(LOCAL_PROTOCOL)//固定是：injvm协议
                 .setHost(LOCALHOST_VALUE)//host：127.0.0.1
-                .setPort(0)
+                .setPort(0)//端口号 0
                 .build();
         Exporter<?> exporter = protocol.export(//将服务包装成对象，放到本地内存地址里
-                PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, local));
+                PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, local)//代理对象工厂PROXY_FACTORY会帮我们生成代理对象
+        );
         exporters.add(exporter);//缓存暴露的服务
         logger.info("Export dubbo service " + interfaceClass.getName() + " to local registry url : " + local);
     }

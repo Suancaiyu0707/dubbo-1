@@ -166,10 +166,14 @@ public class ConfigValidationUtils {
     private static final Pattern PATTERN_KEY = Pattern.compile("[*,\\-._0-9a-zA-Z]+");
 
     /***
-     *
+     *  加载注册中心地址
      * @param interfaceConfig 具体服务提供者配置
      * @param provider 服务端provider配置
      * @return
+     * 1、检查serviceConfig服务配置指定的注册中心列表(dubbo:service可自定义registries地址，如果未指定，则向所有的注册中心注册)
+     * 2、遍历每个注册中心配置
+     * 3、为每个注册中心地址url封装额外的请求参数：
+     *      application、RegistryConfig、path=RegistryService.class.getName()、protocol、
      */
     public static List<URL> loadRegistries(AbstractInterfaceConfig interfaceConfig, boolean provider) {
         // check && override if necessary
@@ -195,7 +199,7 @@ public class ConfigValidationUtils {
                     map.put(PATH_KEY, RegistryService.class.getName());
                     //添加运行时参数
                     AbstractInterfaceConfig.appendRuntimeParameters(map);
-                    //如果未指定协议protocol，则默认未dubbo协议
+                    //如果在<dubbo:registry>未指定协议protocol，则默认为dubbo协议
                     if (!map.containsKey(PROTOCOL_KEY)) {
                         map.put(PROTOCOL_KEY, DUBBO_PROTOCOL);
                     }
@@ -208,8 +212,13 @@ public class ConfigValidationUtils {
                                 .addParameter(REGISTRY_KEY, url.getProtocol())
                                 .setProtocol(extractRegistryType(url))
                                 .build();
+                        //如果是服务提供者&&允许注册（<dubbo:registry>里指定了 register 属性）
+                        //或者不是服务提供者，但是允许订阅
+                        //则加到注册中心列表里
                         if ((provider && url.getParameter(REGISTER_KEY, true))
-                                || (!provider && url.getParameter(SUBSCRIBE_KEY, true))) {
+                                || (!provider
+                                //<dubbo:registry>里指定了 subscribe属性
+                                && url.getParameter(SUBSCRIBE_KEY, true))) {
                             registryList.add(url);
                         }
                     }
