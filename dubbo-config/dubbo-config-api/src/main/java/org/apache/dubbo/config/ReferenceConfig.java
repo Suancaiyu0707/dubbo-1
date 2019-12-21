@@ -203,9 +203,9 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         serviceMetadata.setServiceInterfaceName(interfaceName);
         // TODO, uncomment this line once service key is unified
         serviceMetadata.setServiceKey(URL.buildKey(interfaceName, group, version));//org.apache.dubbo.demo.DemoService
-        //检查本地存根和本地调用
+        //检查本地存根和本地调用(检查stub和local引用的类是否存在，是否规范：必须存在一个只有一个参数类型为interfaceClass的构造函数；且必须实现 interfaceClass 接口)
         checkStubAndLocal(interfaceClass);
-        ConfigValidationUtils.checkMock(interfaceClass, this);
+        ConfigValidationUtils.checkMock(interfaceClass, this);//如果配置了mock属性，则根据mock不同值进行校验
 
         Map<String, String> map = new HashMap<String, String>();
         //标记这边是一个消费端
@@ -219,11 +219,11 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
          */
         ReferenceConfigBase.appendRuntimeParameters(map);
         if (!ProtocolUtils.isGeneric(generic)) {
-            String revision = Version.getVersion(interfaceClass, version);
+            String revision = Version.getVersion(interfaceClass, version);//获得接口的版本配置，可通过vesrion进行设置
             if (revision != null && revision.length() > 0) {
                 map.put(REVISION_KEY, revision);
             }
-
+            //获得调用接口的所有方法，并组装成数组
             String[] methods = Wrapper.getWrapper(interfaceClass).getMethodNames();//{sayHello,sayHelloAsyn}
             if (methods.length == 0) {
                 logger.warn("No method found in service interface " + interfaceClass.getName());
@@ -232,13 +232,13 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 map.put(METHODS_KEY, StringUtils.join(new HashSet<String>(Arrays.asList(methods)), COMMA_SEPARATOR));
             }
         }
-        map.put(INTERFACE_KEY, interfaceName);
-        AbstractConfig.appendParameters(map, metrics);
-        AbstractConfig.appendParameters(map, application);
+        map.put(INTERFACE_KEY, interfaceName);//添加接口类型
+        AbstractConfig.appendParameters(map, metrics);//添加埋点配置
+        AbstractConfig.appendParameters(map, application);//添加application配置
         AbstractConfig.appendParameters(map, module);
         // remove 'default.' prefix for configs from ConsumerConfig
         // appendParameters(map, consumer, Constants.DEFAULT_KEY);
-        AbstractConfig.appendParameters(map, consumer);
+        AbstractConfig.appendParameters(map, consumer);//添加服务引用者配置
         AbstractConfig.appendParameters(map, this);
         Map<String, Object> attributes = null;
         //检查消费者调用的方法
@@ -260,10 +260,10 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 }
             }
         }
-
+        //检查是否配置了系统配置：DUBBO_IP_TO_REGISTRY。顺序： System environment -> System properties
         String hostToRegistry = ConfigUtils.getSystemProperty(DUBBO_IP_TO_REGISTRY);
-        if (StringUtils.isEmpty(hostToRegistry)) {
-            hostToRegistry = NetUtils.getLocalHost();
+        if (StringUtils.isEmpty(hostToRegistry)) {//如果没有配置 DUBBO_IP_TO_REGISTRY
+            hostToRegistry = NetUtils.getLocalHost();//使用服务器本地地址作为暴露服务的地址
         } else if (isInvalidLocalHost(hostToRegistry)) {
             throw new IllegalArgumentException("Specified invalid registry ip from property:" + DUBBO_IP_TO_REGISTRY + ", value:" + hostToRegistry);
         }
@@ -273,7 +273,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
 
         ServiceRepository repository = ApplicationModel.getServiceRepository();
         ServiceDescriptor serviceDescriptor = repository.registerService(interfaceClass);
-        repository.registerConsumer(
+        repository.registerConsumer(//缓存repository.consumers，记录已注册的消费者
                 serviceMetadata.getServiceKey(),//org.apache.dubbo.demo.DemoService
                 attributes,
                 serviceDescriptor,
@@ -294,7 +294,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
 
     /**
      * 根据消费端引用服务配置创建代理对象
-     * 1、判断是否本地引用，如果是本地引用，则使用injvm、127.0.0.1 创建一个本地引用的url。
+     * 1、判断是否本地引用，如果是本地引用，则使用协议：injvm、暴露的ip:127.0.0.1 创建一个本地引用的url。
      *      根据url和引用服务，返回一个引用的invoker对象
      * 2、如果不是本地引用的化，那么就走远程引用
      * 3、如果配置了check=true,则需要检查提供者服务是否可用(这个是开启 启动时检查)
@@ -310,7 +310,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             }
         } else {//远程引用
             urls.clear();
-            if (url != null && url.length() > 0) { // user specified URL, could be peer-to-peer address, or register center's address.
+            if (url != null && url.length() > 0) { // 如果<dubbo:reference>配置了url属性,则可以通过点对点的直连，或者通过注册中心地址。
                 String[] us = SEMICOLON_SPLIT_PATTERN.split(url);
                 if (us != null && us.length > 0) {
                     for (String u : us) {
@@ -325,14 +325,14 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                         }
                     }
                 }
-            } else { // assemble URL from register center's configuration
-                // if protocols not injvm checkRegistry
+            } else { //如果没有配置URL属性，则通过注册中心进行引用
+                // 检查协议不能是inJvm协议
                 if (!LOCAL_PROTOCOL.equalsIgnoreCase(getProtocol())) {//如果不是local本地协议的话
-                    checkRegistry();//检查注册中心
+                    checkRegistry();//检查注册中心，并加载注册中心URL列表
                     List<URL> us = ConfigValidationUtils.loadRegistries(this, false);//registry://localhost:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=68831&qos.port=33333&registry=zookeeper&timestamp=1575935377133
-                    if (CollectionUtils.isNotEmpty(us)) {
+                    if (CollectionUtils.isNotEmpty(us)) {//检查注册中心列表不为空
                         for (URL u : us) {
-                            URL monitorUrl = ConfigValidationUtils.loadMonitor(this, u);
+                            URL monitorUrl = ConfigValidationUtils.loadMonitor(this, u);//检查是否配置了监控中心地址
                             if (monitorUrl != null) {
                                 map.put(MONITOR_KEY, URL.encode(monitorUrl.toFullString()));
                             }
@@ -344,8 +344,8 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                     }
                 }
             }
-
-            if (urls.size() == 1) {//创建消费者的代理对象
+            //url：registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=41141&qos.port=33333&refer=dubbo%3D2.0.2%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.StubService%26lazy%3Dfalse%26methods%3DsayHello%26pid%3D41141%26register.ip%3D220.250.64.225%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1576810746199&registry=zookeeper&timestamp=1576812247269
+            if (urls.size() == 1) {//创建消费者的代理对象，顺序：Protocol$Adaptive -> ProtocolFilterWrapper -> ProtocolListenerWrapper
                 invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));
             } else {
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
@@ -428,9 +428,9 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 throw new IllegalStateException(e.getMessage(), e);
             }
             checkInterfaceAndMethods(interfaceClass, getMethods());
-        }
+        }//从配置文件里查找接口的配置，顺序依次：System系统变量配置->-Ddubbo.resolve.file 文件配置->${user.home}/dubbo-resolve.properties 配置
         resolveFile();
-        ConfigValidationUtils.validateReferenceConfig(this);
+        ConfigValidationUtils.validateReferenceConfig(this);//检查服务引用的属性配置，这里主要是检查命名的规范，包括长度和字符规范
         appendParameters();
     }
 

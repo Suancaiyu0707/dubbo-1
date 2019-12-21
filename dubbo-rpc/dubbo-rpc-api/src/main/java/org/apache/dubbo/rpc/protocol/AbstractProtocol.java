@@ -99,6 +99,14 @@ public abstract class AbstractProtocol implements Protocol {
         }
     }
 
+    /***
+     * 将引用服务的invoker绑定对应的NettyClient
+     * @param type Service class
+     * @param url  URL address for the remote service
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
         return new AsyncToSyncInvoker<>(protocolBindingRefer(type, url));

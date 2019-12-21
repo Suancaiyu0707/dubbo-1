@@ -188,7 +188,7 @@ public class ConfigUtils {
 
     /**
      * System environment -> System properties
-     *
+     *  检查系统配置，是否配置了：DUBBO_IP_TO_REGISTRY
      * @param key key
      * @return value
      */

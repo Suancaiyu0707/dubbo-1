@@ -82,9 +82,9 @@ public class ServiceRepository extends LifecycleAdapter implements FrameworkExt 
     }
 
     /***
-     * 更新本地缓存consumers
-     * @param serviceKey
-     * @param attributes
+     * 更新本地缓存consumers,记录已注册的消费者
+     * @param serviceKey org.apache.dubbo.demo.StubService
+     * @param attributes null
      * @param serviceModel
      * @param rc
      * @param proxy
@@ -99,7 +99,7 @@ public class ServiceRepository extends LifecycleAdapter implements FrameworkExt 
         consumers.computeIfAbsent(
                 serviceKey,
                 _k -> new ConsumerModel(
-                        serviceMetadata.getServiceKey(),//org.apache.dubbo.demo.DemoService
+                        serviceMetadata.getServiceKey(),//org.apache.dubbo.demo.StubService
                         proxy,
                         serviceModel,
                         rc,

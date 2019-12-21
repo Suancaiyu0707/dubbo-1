@@ -212,16 +212,19 @@ final public class MockInvoker<T> implements Invoker<T> {
 
     /***
      * 根据mockService名称和接口类型创建一个对应的Mock实例
-     * @param mockService
-     * @param serviceType
+     * @param mockService 本地伪装Mock实例的类型
+     * @param serviceType 本地伪装Mock实例需要实现的接口
      * @return
+     * 1、如果mockService的值是defaul/true，则mockService的类型：serviceType.getName() + "Mock"
+     * 2、检查mockService类型是否实现接口serviceType，如果没有实现serviceType接口，则抛出异常。
+     * 3、根据 mockService 返回一个Mock实例。所以mockService必须提供一个无参数的构造函数。
      */
     @SuppressWarnings("unchecked")
     public static Object getMockObject(String mockService, Class serviceType) {
-        if (ConfigUtils.isDefault(mockService)) {
+        if (ConfigUtils.isDefault(mockService)) {//如果mockService的值是defaul/true，则mockService的类型：serviceType.getName() + "Mock"；否则
             mockService = serviceType.getName() + "Mock";
         }
-
+        //检查mockService类型是否实现接口serviceType，如果没有实现serviceType接口，则抛出异常。
         Class<?> mockClass = ReflectUtils.forName(mockService);
         if (!serviceType.isAssignableFrom(mockClass)) {
             throw new IllegalStateException("The mock class " + mockClass.getName() +
@@ -229,7 +232,7 @@ final public class MockInvoker<T> implements Invoker<T> {
         }
 
         try {
-            return mockClass.newInstance();
+            return mockClass.newInstance();//根据 mockService 返回一个Mock实例
         } catch (InstantiationException e) {
             throw new IllegalStateException("No default constructor from mock class " + mockClass.getName(), e);
         } catch (IllegalAccessException e) {

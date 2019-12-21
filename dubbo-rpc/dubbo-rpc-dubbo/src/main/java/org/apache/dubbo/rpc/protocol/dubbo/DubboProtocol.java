@@ -439,37 +439,55 @@ public class DubboProtocol extends AbstractProtocol {
         }
     }
 
+    /***
+     * 将Invokers绑定一组客户端连接NettyClient，这样后续针对这个invoker的调用，都会交给相应的NettyClient处理
+     * @param serviceType interface org.apache.dubbo.demo.StubService
+     * @param url dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=63743&register.ip=220.250.64.225&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576754446869
+     * @param <T>
+     * @return
+     * @throws RpcException
+     * 1、根据引用的地址获取引用服务对应的客户端连接数组：nettyClients
+     * 2、把serviceType、invokers和nettyClients进行绑定，这样后续针对这个invoker的调用，都会交给相应的NettyClient处理。
+     */
     @Override
     public <T> Invoker<T> protocolBindingRefer(Class<T> serviceType, URL url) throws RpcException {
         optimizeSerialization(url);
 
-        // create rpc invoker.
+        // 创建一个DubboInvoker，绑定了连接服务提供者的客户端连接NettyClient
         DubboInvoker<T> invoker = new DubboInvoker<T>(serviceType, url, getClients(url), invokers);
-        invokers.add(invoker);
+        invokers.add(invoker);//本地缓存已初始化的DubboInvoker
 
         return invoker;
     }
 
+    /***
+     * 根据引用的服务提供者的地址，创建客户端连接NettyClient
+     * @param url dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=63743&register.ip=220.250.64.225&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576754446869
+     * @return
+     * 获得连接到服务提供者的客户端连接数组NettyClient.
+     *      1、如果<dubbo:reference>配置了connections属性值，且大于0，则这个服务引用不会使用共享的NettyClient连接，则会为该服务引用者维护独立的NettyClient数组
+     *      2、如果<dubbo:reference>没有connections属性值，则这个服务引用会使用共享的NettyClient连接。
+     */
     private ExchangeClient[] getClients(URL url) {
         // whether to share connection
 
         boolean useShareConnect = false;
-
+        //从url中获取connections配置，默认是0
         int connections = url.getParameter(CONNECTIONS_KEY, 0);
         List<ReferenceCountExchangeClient> shareClients = null;
         // if not configured, connection is shared, otherwise, one connection for one service
-        if (connections == 0) {
+        if (connections == 0) {//如果connections=0，则使用共享的连接
             useShareConnect = true;
 
             /**
              * The xml configuration should have a higher priority than properties.
-             */
+             *///获得shareconnections属性，并获得共享连接数，默认是1
             String shareConnectionsStr = url.getParameter(SHARE_CONNECTIONS_KEY, (String) null);
             connections = Integer.parseInt(StringUtils.isBlank(shareConnectionsStr) ? ConfigUtils.getProperty(SHARE_CONNECTIONS_KEY,
                     DEFAULT_SHARE_CONNECTIONS) : shareConnectionsStr);
             shareClients = getSharedClient(url, connections);
         }
-
+        //返回指向服务端的共享的客户端连接数组：ExchangeClient
         ExchangeClient[] clients = new ExchangeClient[connections];
         for (int i = 0; i < clients.length; i++) {
             if (useShareConnect) {
@@ -485,14 +503,22 @@ public class DubboProtocol extends AbstractProtocol {
 
     /**
      * Get shared connection
-     *
+     *  获得共享客户端连接(事实上，这些NettyClient跟服务提供者无关，只是当某个NettyClient被某个引用服务绑定了，则会标记这个引用服务)
      * @param url
-     * @param connectNum connectNum must be greater than or equal to 1
+     *      dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=63743&register.ip=220.250.64.225&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576754446869
+     * @param connectNum 共享的连接数
+     *  1、获得服务端的地址：220.250.64.225:20880
+     *  2、根据服务端的地址，获得对应的所有的客户端连接(包括所有服务引用者的连接，因为这些连接是所有的consumer共享)
+     *  3、检查针对这个服务端地址的所有客户端连接，如果已存在的所有的客户端连接数都可用，则可以直接返回这些共享的客户端连接。同时会记录共享这些连接的Invoker次数+1
+     *  4、如果当前的针对这个服务端地址的所有客户端连接中，存在一些NettyClient已被关闭的话，那么我们就需要创建新的NettyClient，维持NettyClient的连接数
+     *  5、如果当前存在指向该服务端的地址的客户端连接，则遍历每个NettyClient：
+     *     如果遍历到有客户端连接已使用完或者被关闭了，则创建一个新的NettyClient替换掉这个无效的连接
+     *     如果遍历到的客户端连接目前还在使用，则ExchangeClient 会被新的invoker共享，所以被引用的次数需要+1
      */
     private List<ReferenceCountExchangeClient> getSharedClient(URL url, int connectNum) {
-        String key = url.getAddress();
-        List<ReferenceCountExchangeClient> clients = referenceClientMap.get(key);
-
+        String key = url.getAddress();//获得服务提供者的地址，也就是Netty网络服务端的地址：220.250.64.225:20880
+        List<ReferenceCountExchangeClient> clients = referenceClientMap.get(key);//检查该服务提供者地址是否已创建客户端实例
+        //检查客户端连接是否可用，只要任何一个不可用，则返回false
         if (checkClientCanUse(clients)) {
             batchClientRefIncr(clients);
             return clients;
@@ -500,7 +526,7 @@ public class DubboProtocol extends AbstractProtocol {
 
         locks.putIfAbsent(key, new Object());
         synchronized (locks.get(key)) {
-            clients = referenceClientMap.get(key);
+            clients = referenceClientMap.get(key);//判断是否已为Netty服务端创建好客户端连接
             // dubbo check
             if (checkClientCanUse(clients)) {
                 batchClientRefIncr(clients);
@@ -510,20 +536,22 @@ public class DubboProtocol extends AbstractProtocol {
             // connectNum must be greater than or equal to 1
             connectNum = Math.max(connectNum, 1);
 
-            // If the clients is empty, then the first initialization is
+            // 创建是第一次向服务端创建连接
             if (CollectionUtils.isEmpty(clients)) {
+                //初始化创建connectNum个共享连接，并返回
                 clients = buildReferenceCountExchangeClientList(url, connectNum);
                 referenceClientMap.put(key, clients);
 
             } else {
+                //如果当前存在指向该服务端的地址的客户端连接，则遍历每个NettyClient：
                 for (int i = 0; i < clients.size(); i++) {
                     ReferenceCountExchangeClient referenceCountExchangeClient = clients.get(i);
-                    // If there is a client in the list that is no longer available, create a new one to replace him.
+                    //如果遍历到有客户端连接已使用完或者被关闭了，则创建一个新的NettyClient替换掉这个无效的连接
                     if (referenceCountExchangeClient == null || referenceCountExchangeClient.isClosed()) {
                         clients.set(i, buildReferenceCountExchangeClient(url));
                         continue;
                     }
-
+                    //走到这边，说明这个referenceCountExchangeClient 会被新的invoker共享，所以被引用的次数需要+1
                     referenceCountExchangeClient.incrementAndGetCount();
                 }
             }
@@ -540,17 +568,18 @@ public class DubboProtocol extends AbstractProtocol {
 
     /**
      * Check if the client list is all available
-     *
+     * 检查客户端连接是否可用
      * @param referenceCountExchangeClients
      * @return true-available，false-unavailable
+     * 1、如果遍历到有客户端连接已使用完或者被关闭了，只有任何一个客户端连接不可用，则返回false
      */
     private boolean checkClientCanUse(List<ReferenceCountExchangeClient> referenceCountExchangeClients) {
         if (CollectionUtils.isEmpty(referenceCountExchangeClients)) {
             return false;
         }
-
+        //遍历每个 客户端连接
         for (ReferenceCountExchangeClient referenceCountExchangeClient : referenceCountExchangeClients) {
-            // As long as one client is not available, you need to replace the unavailable client with the available one.
+            //如果遍历到有客户端连接已使用完或者被关闭了，只有任何一个客户端连接不可用，则返回false
             if (referenceCountExchangeClient == null || referenceCountExchangeClient.isClosed()) {
                 return false;
             }
@@ -560,15 +589,16 @@ public class DubboProtocol extends AbstractProtocol {
     }
 
     /**
-     * Increase the reference Count if we create new invoker shares same connection, the connection will be closed without any reference.
      *
      * @param referenceCountExchangeClients
+     * 如果有新的服务引用invoker共享这些客户端连接，则需要遍历客户端连接列表，并为每个NettyClient的引用+1
+     *      注意：只有引用次数为0，这个nettyClient才能被关闭
      */
     private void batchClientRefIncr(List<ReferenceCountExchangeClient> referenceCountExchangeClients) {
         if (CollectionUtils.isEmpty(referenceCountExchangeClients)) {
             return;
         }
-
+        //为每个NettyClient记录被Invoker引用的次数，只有引用次数为0，这个nettyClient才能被关闭
         for (ReferenceCountExchangeClient referenceCountExchangeClient : referenceCountExchangeClients) {
             if (referenceCountExchangeClient != null) {
                 referenceCountExchangeClient.incrementAndGetCount();
@@ -579,13 +609,14 @@ public class DubboProtocol extends AbstractProtocol {
     /**
      * Bulk build client
      *
-     * @param url
+     * @param url dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=63743&register.ip=220.250.64.225&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576754446869
      * @param connectNum
      * @return
+     *  遍历，根据url地址获得指定数量的客户端端链接：ReferenceCountExchangeClient
      */
     private List<ReferenceCountExchangeClient> buildReferenceCountExchangeClientList(URL url, int connectNum) {
         List<ReferenceCountExchangeClient> clients = new ArrayList<>();
-
+        //根据引用服务的地址，创建跟客户端的连接NettyClient
         for (int i = 0; i < connectNum; i++) {
             clients.add(buildReferenceCountExchangeClient(url));
         }
@@ -595,8 +626,8 @@ public class DubboProtocol extends AbstractProtocol {
 
     /**
      * Build a single client
-     *
-     * @param url
+     *  根据服务提供者的地址，创建一个连接到服务端的客户端连接NettyClient
+     * @param url dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=63743&register.ip=220.250.64.225&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576754446869
      * @return
      */
     private ReferenceCountExchangeClient buildReferenceCountExchangeClient(URL url) {
@@ -606,17 +637,21 @@ public class DubboProtocol extends AbstractProtocol {
     }
 
     /**
-     * Create new connection
+     * 根据url创建一个客户端连接NettyClient
      *
-     * @param url
+     * @param url dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=63743&register.ip=220.250.64.225&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576754446869
+     * 1、获得网络连接方式，默认是Netty
+     * 2、获得网络传输的序列化方式，默认是dubbo
+     * 3、设置客户端和服务端的心跳间隔
+     * 4、创建一个ExchangeClient,ExchangeClient其实是一个NettyClient连接。
      */
     private ExchangeClient initClient(URL url) {
 
-        // client type setting.
+        // client type setting. 从url中获得网络连接方式client属性，默认是netty。
         String str = url.getParameter(CLIENT_KEY, url.getParameter(SERVER_KEY, DEFAULT_REMOTING_CLIENT));
-
+        //获得网络传输的序列化方式，默认是dubbo，可用 codec 指定
         url = url.addParameter(CODEC_KEY, DubboCodec.NAME);
-        // enable heartbeat by default
+        //设置客户端和服务端的心跳间隔
         url = url.addParameterIfAbsent(HEARTBEAT_KEY, String.valueOf(DEFAULT_HEARTBEAT));
 
         // BIO is not allowed since it has severe performance issue.
@@ -627,7 +662,7 @@ public class DubboProtocol extends AbstractProtocol {
 
         ExchangeClient client;
         try {
-            // connection should be lazy
+            // 创建一个连接NettyServer的客户端连接
             if (url.getParameter(LAZY_CONNECT_KEY, false)) {
                 client = new LazyConnectExchangeClient(url, requestHandler);
 

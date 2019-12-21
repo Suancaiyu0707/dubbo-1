@@ -91,11 +91,23 @@ public class ProtocolListenerWrapper implements Protocol {
 
     /***
      * 服务引用时会通过该方法进行引用
+     *      1、根据引用的协议，判断是否需要通过RegistryProtocol将自己注册到注册中心上去，维护跟注册中心的zk连接(一个客户端注册中心配置只要维护一个zkclient)
+     *            通常远引用远程服务会分两步，第一步就是通过该分支向注册中心创建目录，并获得注册中心的客户端连接。(注意，这一步只是将自己的网络地址暴露到注册中心上，保证可以被消dubbo-admin获取)
+     *      2、真正进行服务引用，主要有两种情况：
+     *          如果本地引用，
+     *          如果是远程引用的话，除了上面它会把自己地址添加到注册中心后，还会将invoker绑定NettyClient数组，后续调用invoker的方法，都要通过该NettyClient进行网络请求。
      * @param type Service class 被引用的服务类型
      * @param url  被引用的服务的远程地址
      * @param <T>
      * @return
      * @throws RpcException
+     * 1、判断是registry或者service-discovery-registry的url，表示需要把自己注册到注册中心上，以便于远程服务发现自己：
+     *       将自己注册到注册中心上去，RegistryProtocol的export会走到这个分支。
+     * 2、如果不是registry或者service-discovery-registry的url，则通常是真正的将注册暴露出去，便于别人调用：
+     *      如果本地暴露，
+     *      如果是远程暴露的话，除了上面它会把自己地址添加到注册中心后，还会将invoker绑定NettyClient数组，后续调用invoker的方法，都要通过该NettyClient进行网络请求。
+     * 3、获得远程服务的引用对象invoker后，根据invoker.listener属性初始化一个 InvokerListener 实例，用于引用服务的结果，并将该 InvokerListener 和 Invoker 进行一一对应。
+     *      注意：从这里，我们可以知道。通过自己拓展实现一个InvokerListener类来监听对应服务的引用和移除的结果。
      */
     @Override
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {

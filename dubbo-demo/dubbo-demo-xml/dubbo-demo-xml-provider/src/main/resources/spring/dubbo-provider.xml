@@ -23,7 +23,7 @@
 
     <dubbo:application name="demo-provider"/>
 
-    <dubbo:registry address="zookeeper://127.0.0.1:2181"/>
+    <dubbo:registry address="zookeeper://127.0.0.1:2181" />
 
     <dubbo:protocol name="dubbo"/>
 
@@ -55,7 +55,7 @@
     <!--<dubbo:service interface="org.apache.dubbo.demo.EventNotifyService" ref="eventNotifyService" version="1.0.0" group="cn"/>-->
     <!--&lt;!&ndash;本地存根&ndash;&gt;-->
     <bean id="stubService" class="org.apache.dubbo.demo.provider.StubServiceImpl" />
-    <dubbo:service interface="org.apache.dubbo.demo.StubService" stub="org.apache.dubbo.demo.StubServiceStub" ref="stubService"/>
+    <dubbo:service interface="org.apache.dubbo.demo.StubService" stub="org.apache.dubbo.demo.StubServiceStub" ref="stubService" />
     <!--本地伪装-->
     <bean id="mockService" class="org.apache.dubbo.demo.provider.MockServiceImpl" />
     <dubbo:service interface="org.apache.dubbo.demo.MockService" ref="mockService"/>

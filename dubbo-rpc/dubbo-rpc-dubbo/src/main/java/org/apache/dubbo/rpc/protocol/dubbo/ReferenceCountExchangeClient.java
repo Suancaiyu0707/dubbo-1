@@ -36,11 +36,13 @@ import static org.apache.dubbo.rpc.protocol.dubbo.Constants.LAZY_CONNECT_INITIAL
 
 /**
  * dubbo protocol support class.
+ * ReferenceCountExchangeClient实现了ExchangeClient，同时增加了这个ExchangeClient被共享的个数
  */
 @SuppressWarnings("deprecation")
 final class ReferenceCountExchangeClient implements ExchangeClient {
 
     private final URL url;
+    //共享次数，也就是共享该ExchangeClient的invoker引用对象的数目
     private final AtomicInteger referenceCount = new AtomicInteger(0);
 
     private ExchangeClient client;

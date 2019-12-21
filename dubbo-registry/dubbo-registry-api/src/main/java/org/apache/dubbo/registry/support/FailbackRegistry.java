@@ -70,7 +70,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
 
     public FailbackRegistry(URL url) {
         super(url);
-        this.retryPeriod = url.getParameter(REGISTRY_RETRY_PERIOD_KEY, DEFAULT_REGISTRY_RETRY_PERIOD);//5000
+        this.retryPeriod = url.getParameter(REGISTRY_RETRY_PERIOD_KEY, DEFAULT_REGISTRY_RETRY_PERIOD);//重试注册的时间，默认是5000ms
 
 
         retryTimer = new HashedWheelTimer(new NamedThreadFactory("DubboRegistryRetryTimer", true), retryPeriod, TimeUnit.MILLISECONDS, 128);
@@ -259,6 +259,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
      *
      * @param url  Registration information , is not allowed to be empty, e.g: dubbo://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
      *      provider: dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=30672&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576489098974
+     *      consumer：consumer://220.250.64.225/org.apache.dubbo.demo.StubService?category=consumers&check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&side=consumer&sticky=false&timestamp=1576810746199
      * 1、判断注册中心是否接受注册
      * 2、更新内存，缓存已注册的服务提供者地址
      * 3、移除注册失败的服务地址
@@ -275,7 +276,6 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         removeFailedRegistered(url);//执行注册失败的任务，移除注册失败的服务地址
         removeFailedUnregistered(url);//执行取消注册失败的任务
         try {
-            // Sending a registration request to the server side
             doRegister(url);//根据url在zk上创建相应的路径
         } catch (Exception e) {
             Throwable t = e;
@@ -338,7 +338,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
      *      provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880
      *                 &category=configurators
      *                 &check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=19528&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576482019237
-     *      consumer:
+     *      consumer: consumer://220.250.64.225/org.apache.dubbo.demo.StubService?category=providers,configurators,routers&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&side=consumer&sticky=false&timestamp=1576810746199
      * 1、本地的订阅信息缓存记录订阅关系
      * 2、移除先前订阅失败的关系，包括 `failedSubscribed` `failedUnsubscribed` `failedNotified`
      * 3、向注册中心发起订阅请求
@@ -438,7 +438,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
      * @param url 订阅者 URL
      *     provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=10604&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576476419518
      *         会订阅configurators 目录
-     *     consumer：
+     *     consumer：consumer://220.250.64.225/org.apache.dubbo.demo.StubService?category=providers,configurators,routers&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&side=consumer&sticky=false&timestamp=1576810746199
      *        会订阅configurators/providers/routers 目录
      * @param listener 监听子路径变化的监听器 listener
      * @param urls 通知的 URL 变化结果（全量数据）

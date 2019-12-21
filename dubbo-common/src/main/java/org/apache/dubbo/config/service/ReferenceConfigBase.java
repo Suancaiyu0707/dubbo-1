@@ -270,26 +270,26 @@ public abstract class ReferenceConfigBase<T> extends AbstractReferenceConfig {
     public String getPrefix() {
         return DUBBO + ".reference." + interfaceName;
     }
-
+    //从配置文件里查找接口的配置，顺序依次：System系统变量配置->-Ddubbo.resolve.file 文件配置->${user.home}/dubbo-resolve.properties 配置
     public void resolveFile() {
         String resolve = System.getProperty(interfaceName);
         String resolveFile = null;
         if (StringUtils.isEmpty(resolve)) {
-            resolveFile = System.getProperty("dubbo.resolve.file");
+            resolveFile = System.getProperty("dubbo.resolve.file");//如果服务比较多，也可以用文件映射，用 -Ddubbo.resolve.file 指定映射文件路径，此配置优先级高于 <dubbo:reference> 中的配置
             if (StringUtils.isEmpty(resolveFile)) {
-                File userResolveFile = new File(new File(System.getProperty("user.home")), "dubbo-resolve.properties");
+                File userResolveFile = new File(new File(System.getProperty("user.home")), "dubbo-resolve.properties");//自动加载${user.home}/dubbo-resolve.properties文件
                 if (userResolveFile.exists()) {
                     resolveFile = userResolveFile.getAbsolutePath();
                 }
             }
-            if (resolveFile != null && resolveFile.length() > 0) {
+            if (resolveFile != null && resolveFile.length() > 0) {//所以可以通过${user.home}/dubbo-resolve.properties 添加配置属性
                 Properties properties = new Properties();
                 try (FileInputStream fis = new FileInputStream(new File(resolveFile))) {
                     properties.load(fis);
                 } catch (IOException e) {
                     throw new IllegalStateException("Failed to load " + resolveFile + ", cause: " + e.getMessage(), e);
                 }
-
+                //检查
                 resolve = properties.getProperty(interfaceName);
             }
         }

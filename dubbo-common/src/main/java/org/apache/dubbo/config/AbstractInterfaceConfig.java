@@ -258,7 +258,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
      *
      * @param interfaceClass for provider side, it is the {@link Class} of the service that will be exported; for consumer
      *                       side, it is the {@link Class} of the remote service interface
-     *      // 检查接口是否配置了stub伪装属性或者local本地调用的属性，如果配置了，则检查对应的local/stub的正确性，
+     *      // 检查接口是否配置了stub伪装属性或者local本地调用的属性，如果配置了，则检查对应的local/stub的正确性
      *          1、localClass 必须实现 interfaceClass 接口
      *          2、localClass 必须存在一个只有一个参数类型为interfaceClass的构造函数
      *

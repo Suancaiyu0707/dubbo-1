@@ -166,7 +166,7 @@ public class ConfigValidationUtils {
     private static final Pattern PATTERN_KEY = Pattern.compile("[*,\\-._0-9a-zA-Z]+");
 
     /***
-     *  加载注册中心地址
+     *  加载注册中心地址列表
      * @param interfaceConfig 具体服务提供者配置
      * @param provider 服务端provider配置
      * @return
@@ -233,12 +233,12 @@ public class ConfigValidationUtils {
         }
         return registryList;
     }
-
+    //检查是否配置了监控中心地址，优先级：系统属性dubbo.monitor.address-><dubbo:service monitor=''>或<dubbo:reference monitor=''>
     public static URL loadMonitor(AbstractInterfaceConfig interfaceConfig, URL registryURL) {
         Map<String, String> map = new HashMap<String, String>();
         map.put(INTERFACE_KEY, MonitorService.class.getName());
         AbstractInterfaceConfig.appendRuntimeParameters(map);
-        //set ip
+        //修改暴露到注册中心的地址，可以通过DUBBO_IP_TO_REGISTRY进行配置，默认是本机地址
         String hostToRegistry = ConfigUtils.getSystemProperty(DUBBO_IP_TO_REGISTRY);
         if (StringUtils.isEmpty(hostToRegistry)) {
             hostToRegistry = NetUtils.getLocalHost();
@@ -247,13 +247,13 @@ public class ConfigValidationUtils {
                     DUBBO_IP_TO_REGISTRY + ", value:" + hostToRegistry);
         }
         map.put(REGISTER_IP_KEY, hostToRegistry);
-
+        //检查 <dubbo:service>或<dubbo:reference>是否配置了monitor
         MonitorConfig monitor = interfaceConfig.getMonitor();
         ApplicationConfig application = interfaceConfig.getApplication();
         AbstractConfig.appendParameters(map, monitor);
         AbstractConfig.appendParameters(map, application);
         String address = monitor.getAddress();
-        String sysaddress = System.getProperty("dubbo.monitor.address");
+        String sysaddress = System.getProperty("dubbo.monitor.address");//可通过 系统属性 dubbo.monitor.address配置
         if (sysaddress != null && sysaddress.length() > 0) {
             address = sysaddress;
         }
@@ -280,12 +280,12 @@ public class ConfigValidationUtils {
     /**
      * Legitimacy check and setup of local simulated operations. The operations can be a string with Simple operation or
      * a classname whose {@link Class} implements a particular function
-     *
      * @param interfaceClass for provider side, it is the {@link Class} of the service that will be exported; for consumer
      *                       side, it is the {@link Class} of the remote service interface that will be referenced
      * 1、对mock属性的值进行规范化
      * 2、如果mock的值以return开始，则截断return
      * 3、如果mock的值以return开始，则截断 throw
+     * 4、检查normalizedMock类型是否实现了interfaceClass接口，且是否存在无参数的构造函数
      */
 
     public static void checkMock(Class<?> interfaceClass, AbstractInterfaceConfig config) {
@@ -330,7 +330,7 @@ public class ConfigValidationUtils {
                 }
             }
         } else {
-            //Check whether the mock class is a implementation of the interfaceClass, and if it has a default constructor
+            //检查normalizedMock类型是否实现了interfaceClass接口，且是否存在无参数的构造函数
             MockInvoker.getMockObject(normalizedMock, interfaceClass);
         }
     }
@@ -339,7 +339,7 @@ public class ConfigValidationUtils {
         checkName(LOCAL_KEY, config.getLocal());
         checkName("stub", config.getStub());
         checkMultiName("owner", config.getOwner());
-
+        //各种拓展类是否存在的检查
         checkExtension(ProxyFactory.class, PROXY_KEY, config.getProxy());
         checkExtension(Cluster.class, CLUSTER_KEY, config.getCluster());
         checkMultiExtension(Filter.class, FILE_KEY, config.getFilter());
@@ -389,13 +389,13 @@ public class ConfigValidationUtils {
             validateProviderConfig(providerConfig);
         }
     }
-
+    //检查服务引用的属性配置，这里主要是检查命名的规范，包括长度和字符规范
     public static void validateReferenceConfig(ReferenceConfig config) {
-        checkMultiExtension(InvokerListener.class, "listener", config.getListener());
-        checkKey(VERSION_KEY, config.getVersion());
-        checkKey(GROUP_KEY, config.getGroup());
-        checkName(CLIENT_KEY, config.getClient());
-
+        checkMultiExtension(InvokerListener.class, "listener", config.getListener());//检查listener属性值引用的是否是InvokerListener的实现类
+        checkKey(VERSION_KEY, config.getVersion());//检查版本的值是否规范(如果没有配置的化无需检查)
+        checkKey(GROUP_KEY, config.getGroup());//检查group(如果没有配置的化无需检查)
+        checkName(CLIENT_KEY, config.getClient());//检查client网络传输的值(如果没有配置的化无需检查)
+        //各种拓展类配置的规范存在
         validateAbstractInterfaceConfig(config);
 
         List<RegistryConfig> registries = config.getRegistries();
@@ -579,7 +579,7 @@ public class ConfigValidationUtils {
     }
 
     /**
-     *
+     *  如果配置了type类型的监听器，则检查是否在该type下是否存在对应的SPI拓展实现类
      * @param type
      * @param property
      * @param value

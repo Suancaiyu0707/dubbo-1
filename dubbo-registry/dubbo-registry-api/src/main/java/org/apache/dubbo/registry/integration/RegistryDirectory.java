@@ -180,7 +180,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         if (url.getServiceKey() == null || url.getServiceKey().length() == 0) {
             throw new IllegalArgumentException("registry serviceKey is null.");
         }
-        this.serviceType = serviceType;
+        this.serviceType = serviceType;//interface org.apache.dubbo.demo.StubService
         this.serviceKey = url.getServiceKey();
         this.queryMap = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
         //根据url构建 overrideDirectoryUrl 和 directoryUrl
@@ -220,6 +220,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     /***
      *根据url 订阅服务提供者列表的更新信息，时刻关注这个服务提供者列表中的URL变化
+     *      consumer: consumer://220.250.64.225/org.apache.dubbo.demo.StubService?category=providers,configurators,routers&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&side=consumer&sticky=false&timestamp=1576810746199
      * @param url
      */
     public void subscribe(URL url) {
@@ -766,7 +767,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     public URL getUrl() {
         return this.overrideDirectoryUrl;//zookeeper://localhost:2181/org.apache.dubbo.registry.RegistryService?anyhost=true&bean.name=org.apache.dubbo.demo.MockService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.MockService&lazy=false&methods=sayHello&mock=force%3Aorg.apache.dubbo.demo.consumer.MockServiceMock&pid=73942&register.ip=192.168.0.104&release=&remote.application=&side=consumer&sticky=false&timestamp=1575937873293
     }
-
+    //consumer://220.250.64.225/org.apache.dubbo.demo.StubService?category=consumers&check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&side=consumer&sticky=false&timestamp=1576810746199
     public URL getRegisteredConsumerUrl() {
         return registeredConsumerUrl;
     }

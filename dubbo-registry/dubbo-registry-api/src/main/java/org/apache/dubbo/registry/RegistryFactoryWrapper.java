@@ -34,7 +34,8 @@ public class RegistryFactoryWrapper implements RegistryFactory {
      * @param url Registry address, is not allowed to be empty
      * @return
      * 1、根据url向注册中心发起连接，并返回一个注册中心对象Registry
-     * 2、把Registry和RegistryServiceListener包装成一个ListenerRegistryWrapper对象
+     * 2、把Registry和RegistryServiceListener包装成一个ListenerRegistryWrapper对象。
+     *      从这里，我们发现，可以通过<dubbo:registry>中配置registry.listeners属性来监听注册中心的注册
      */
     @Override
     public Registry getRegistry(URL url) {

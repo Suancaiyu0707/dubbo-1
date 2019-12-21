@@ -183,7 +183,7 @@ public abstract class AbstractRegistry implements Registry {
         syncSaveFile = url.getParameter(REGISTRY_FILESAVE_SYNC_KEY, false);
         //配置信息本地缓存的文件名
         String defaultFilename = System.getProperty("user.home") + "/.dubbo/dubbo-registry-" + url.getParameter(APPLICATION_KEY) + "-" + url.getAddress().replaceAll(":", "-") + ".cache";//
-        String filename = url.getParameter(FILE_KEY, defaultFilename);///Users/hb/.dubbo/dubbo-registry-demo-provider-127.0.0.1-2181.cache
+        String filename = url.getParameter(FILE_KEY, defaultFilename);// /Users/hb/.dubbo/dubbo-registry-demo-provider-127.0.0.1-2181.cache
         File file = null;
         if (ConfigUtils.isNotEmpty(filename)) {
             file = new File(filename);
@@ -404,7 +404,7 @@ public abstract class AbstractRegistry implements Registry {
      * 本地内存记录已注册的服务（这步其实还没有真正的进行注册，仅仅是添加到 registered 中，进行状态的维护）
      * @param url  Registration information , is not allowed to be empty, e.g: dubbo://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
      *      provider: dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=30672&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576489098974
-     *      consumer:
+     *      consumer: consumer://220.250.64.225/org.apache.dubbo.demo.StubService?category=consumers&check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&side=consumer&sticky=false&timestamp=1576810746199
      */
     @Override
     public void register(URL url) {
@@ -421,7 +421,7 @@ public abstract class AbstractRegistry implements Registry {
      * 取消注册的服务
      * @param url Registration information , is not allowed to be empty, e.g: dubbo://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
      *      provider: dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=30672&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576489098974
-     *      consumer:
+     *      consumer: consumer://220.250.64.225/org.apache.dubbo.demo.StubService?category=consumers&check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&side=consumer&sticky=false&timestamp=1576810746199
      */
     @Override
     public void unregister(URL url) {
@@ -439,7 +439,7 @@ public abstract class AbstractRegistry implements Registry {
      * @param url      Subscription condition, not allowed to be empty, e.g. consumer://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
      * @param listener A listener of the change event, not allowed to be empty
      *      provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=19528&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576482019237
-     *      consumer:
+     *      consumer: consumer://220.250.64.225/org.apache.dubbo.demo.StubService?category=providers,configurators,routers&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&side=consumer&sticky=false&timestamp=1576810746199
      * 1、维护订阅关系，listener监听订阅url
      */
     @Override
@@ -463,7 +463,7 @@ public abstract class AbstractRegistry implements Registry {
      * @param url      Subscription condition, not allowed to be empty, e.g. consumer://10.20.153.10/org.apache.dubbo.foo.BarService?version=1.0.0&application=kylin
      * @param listener A listener of the change event, not allowed to be empty
      *      provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=19528&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576482019237
-     *      consumer:
+     *      consumer: consumer://220.250.64.225/org.apache.dubbo.demo.StubService?category=consumers&check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&side=consumer&sticky=false&timestamp=1576810746199
      */
     @Override
     public void unsubscribe(URL url, NotifyListener listener) {
@@ -561,7 +561,7 @@ public abstract class AbstractRegistry implements Registry {
      * @param url 订阅者 URL
      *     provider: provider://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=10604&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576476419518
      *         会订阅configurators 目录
-     *     consumer：
+     *     consumer：consumer://220.250.64.225/org.apache.dubbo.demo.StubService?category=providers,configurators,routers&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&side=consumer&sticky=false&timestamp=1576810746199
      *        会订阅configurators/providers/routers 目录
      * @param listener 监听子路径变化的监听器 listener
      * @param urls 通知的 URL 变化结果（全量数据，这里的全量是某个服务下面的某一种分类的全量）
