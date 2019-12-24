@@ -54,6 +54,14 @@ import static org.apache.dubbo.common.constants.CommonConstants.*;
  * @see org.apache.dubbo.common.extension.Adaptive
  * @see org.apache.dubbo.common.extension.Activate
  */
+
+/**
+ * 每个拓展接口类型对应一个ExtensionLoader实例
+ *
+ * ExtensionLoader 考虑到性能和资源的优化，读取拓展配置后，会首先进行缓存。
+ * 等到 Dubbo 代码真正用到对应的拓展实现时，进行拓展实现的对象的初始化。并且，初始化完成后，也会进行缓存
+ * @param <T>
+ */
 public class ExtensionLoader<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(ExtensionLoader.class);
@@ -68,51 +76,92 @@ public class ExtensionLoader<T> {
     /***
      * 每个拓展类型对应一个ExtensionLoader
      *      key：拓展类型
-     *      value：ExtensionLoader
+     *          eg：org.apache.dubbo.common.threadpool.ThreadPool.class
+     *      value：ExtensionLoader对象
      */
     private static final ConcurrentMap<Class<?>, ExtensionLoader<?>> EXTENSION_LOADERS = new ConcurrentHashMap<>();
     /***
      * 对应的拓展类型下的实现类和对应的实例映射关系
      *      key：拓展类型下的实现类的Class对象
+     *          eg：org.apache.dubbo.common.threadpool.support.fixed.FixedThreadPool.class
      *      value：拓展类型下的实现类的具体实例对象
      */
     private static final ConcurrentMap<Class<?>, Object> EXTENSION_INSTANCES = new ConcurrentHashMap<>();
     /***
      * ExtensionLoader 对应的拓展类型
+     *      org.apache.dubbo.common.threadpool.ThreadPool.class
      */
     private final Class<?> type;
     /***
-     * 用于加载创建拓展类的实例
+     * 用于调用 {@link #injectExtension(Object)} 方法，向拓展对象注入依赖属性。
+     *  AdaptiveExtensionFactory$2431
      */
     private final ExtensionFactory objectFactory;
     /**
      * 获得当前拓展类型下的实现类的拓展名称
+     *      key: 拓展类的实现类
+     *          eg: org.apache.dubbo.common.threadpool.support.fixed.FixedThreadPool.class
+     *      value: 拓展实现类的名称
+     *          eg: fixed
      */
     private final ConcurrentMap<Class<?>, String> cachedNames = new ConcurrentHashMap<>();
+    /**
+     * 获得当前拓展类型下的实现类的拓展名称
+     *      key: 拓展实现类的名称
+     *          eg: fixed
+     *      value:拓展类的实现类
+     *          eg: org.apache.dubbo.common.threadpool.support.fixed.FixedThreadPool.class
+     *
+     * 不包含如下两种类型：
+     *      1. 自适应拓展实现类。例如 AdaptiveExtensionFactory
+     *      2. 带唯一参数为拓展接口的构造方法的实现类，或者说拓展 Wrapper 实现类。例如，ProtocolFilterWrapper 。拓展 Wrapper 实现类，会添加到 {@link #cachedWrapperClasses} 中
+     */
     private final Holder<Map<String, Class<?>>> cachedClasses = new Holder<>();
     /***
      * 缓存当前拓展类下所有带有 Activate 注解的 实现类
-     * KEY：实现类的拓展名称
-     * VALUE: Activate 对象
+     *          KEY：实现类的拓展名称
+     *              eg：fixed
+     *          VALUE: Activate 对象
      */
     private final Map<String, Object> cachedActivates = new ConcurrentHashMap<>();
+    /***
+     *  拓展类实现类的实例的缓存
+     *      key：拓展实例名
+     *          eg: dubbo
+     *      value：实例对应的Hodler对象
+     *          eg: DubboProtocol
+     */
     private final ConcurrentMap<String, Holder<Object>> cachedInstances = new ConcurrentHashMap<>();
+    /***
+     * 当前拓展类型的 自适应的实现实例
+     */
     private final Holder<Object> cachedAdaptiveInstance = new Holder<>();
     /**
      * 当前拓展类型的默认的自适应的实现类,一个拓展类型只能有一个默认的自适应的实现类
      */
     private volatile Class<?> cachedAdaptiveClass = null;
-    //拓展类型对应的默认的实现类型
+    /***
+     * 拓展类型对应的默认的实现类型
+     */
+
     private String cachedDefaultName;
     private volatile Throwable createAdaptiveInstanceError;
-    //缓存当前拓展类型对应的包装类
+    /***
+     * 缓存拓展 Wrapper 实现类集合
+     * 带唯一参数为拓展接口的构造方法的实现类
+     */
     private Set<Class<?>> cachedWrapperClasses;
-
+    /***
+     * key: 拓展类实现类的实例名
+     * value: 异常
+     */
     private Map<String, IllegalStateException> exceptions = new ConcurrentHashMap<>();
 
     /***
      * 为拓展类型绑定 一个 ExtensionLoader
      * @param type
+     * 1、如果当前拓展类型是ExtensionFactory，则对应的ExtensionLoader无需绑定ExtensionFactory。
+     * 2、如果当前拓展类型不是ExtensionFactory，则对应的ExtensionLoader需绑定ExtensionFactory，默认实现是AdaptiveExtensionFactory
      */
     private ExtensionLoader(Class<?> type) {
         this.type = type;
@@ -131,8 +180,8 @@ public class ExtensionLoader<T> {
      * @param <T>
      * @return
      * 1、对type类型进行相应的校验: 类型、是否接口、是否添加了SPI注解
-     * 2、检查内存EXTENSION_LOADERS缓存里是否已经存在该type对应的类加载器 ExtensionLoader
-     * 3、本地内存EXTENSION_LOADERS里会为每一种type维护一个独立的 ExtensionLoader实例
+     * 2、检查内存EXTENSION_LOADERS缓存里是否已经存在该拓展类型type对应的类加载器 ExtensionLoader
+     * 3、本地内存EXTENSION_LOADERS里会为每一种拓展类型type维护一个独立的 ExtensionLoader实例
      *
      * 这里要注意一个特殊的拓展类型：ExtensionFactory.class
      */
@@ -151,6 +200,7 @@ public class ExtensionLoader<T> {
 
         ExtensionLoader<T> loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         if (loader == null) {
+            //本地内存EXTENSION_LOADERS里会为每一种拓展类型type维护一个独立的 ExtensionLoader实例
             EXTENSION_LOADERS.putIfAbsent(type, new ExtensionLoader<T>(type));
             loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         }
@@ -158,6 +208,11 @@ public class ExtensionLoader<T> {
     }
 
     // For testing purposes only
+
+    /**
+     * 清空缓存里 type对应的ExtensionLoader的缓存
+     * @param type
+     */
     public static void resetExtensionLoader(Class type) {
         ExtensionLoader loader = EXTENSION_LOADERS.get(type);
         if (loader != null) {
@@ -171,6 +226,9 @@ public class ExtensionLoader<T> {
         }
     }
 
+    /***
+     * 销毁所有的实例
+     */
     public static void destroyAll() {
         EXTENSION_INSTANCES.forEach((_type, instance) -> {
             if (instance instanceof Lifecycle) {
@@ -184,14 +242,28 @@ public class ExtensionLoader<T> {
         });
     }
 
+    /***
+     * 根据ExtensionLoader.class获得相应的类加载器
+     * @return
+     */
     private static ClassLoader findClassLoader() {
         return ClassUtils.getClassLoader(ExtensionLoader.class);
     }
 
+    /***
+     * 根据拓展类型的实现类的实例获得 拓展实现类实例的拓展名称，比如dubbo
+     * @param extensionInstance
+     * @return
+     */
     public String getExtensionName(T extensionInstance) {
         return getExtensionName(extensionInstance.getClass());
     }
 
+    /**
+     * 根据拓展类型的实现类的类型获得 拓展实现类的拓展名称，比如dubbo
+     * @param extensionClass
+     * @return
+     */
     public String getExtensionName(Class<?> extensionClass) {
         getExtensionClasses();// load class
         return cachedNames.get(extensionClass);
@@ -204,6 +276,7 @@ public class ExtensionLoader<T> {
      * @param key url parameter key which used to get extension point names
      * @return extension list which are activated.
      * @see #getActivateExtension(org.apache.dubbo.common.URL, String, String)
+     * 根据url上的索引key，来激活相应的Activate实现类
      */
     public List<T> getActivateExtension(URL url, String key) {
         return getActivateExtension(url, key, null);
@@ -216,6 +289,7 @@ public class ExtensionLoader<T> {
      * @param values extension point names
      * @return extension list which are activated
      * @see #getActivateExtension(org.apache.dubbo.common.URL, String[], String)
+     * 根据url上的属性key，来激活相应的Activate实现类
      */
     public List<T> getActivateExtension(URL url, String[] values) {
         return getActivateExtension(url, values, null);
@@ -247,12 +321,18 @@ public class ExtensionLoader<T> {
      * @param group  group
      * @return extension list which are activated
      * @see org.apache.dubbo.common.extension.Activate
+     *
+     * 根据url上的属性key，来激活相应的Activate实现类
+     * 1、遍历所有的values
+     * 1、如果values不包含 '-default'
      */
     public List<T> getActivateExtension(URL url, String[] values, String group) {
         List<T> exts = new ArrayList<>();
         List<String> names = values == null ? new ArrayList<>(0) : Arrays.asList(values);
+        //遍历所有的values
         if (!names.contains(REMOVE_VALUE_PREFIX + DEFAULT_KEY)) {//如果names不包含'-default'
-            getExtensionClasses();
+            getExtensionClasses();//获得当前拓展类型所有的拓展类
+            //遍历当前拓展类下的所有普通拓展类 Activate注解的实现类
             for (Map.Entry<String, Object> entry : cachedActivates.entrySet()) {
                 String name = entry.getKey();
                 Object activate = entry.getValue();
@@ -345,20 +425,25 @@ public class ExtensionLoader<T> {
      * In order to trigger extension load, call {@link #getExtension(String)} instead.
      *
      * @see #getExtension(String)
+     * 根据拓展类型名称对应的实现类的实例
      */
     @SuppressWarnings("unchecked")
     public T getLoadedExtension(String name) {
         if (StringUtils.isEmpty(name)) {
             throw new IllegalArgumentException("Extension name == null");
         }
+        //
         Holder<Object> holder = getOrCreateHolder(name);
         return (T) holder.get();
     }
 
     /***
-     * 判断ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例
+     * 根据ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例
      * @param name
      * @return
+     * 1、判断ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例。
+     *      有的话，直接返回。
+     *      没有的话，则创建一个新的new Holder关联 name
      */
     private Holder<Object> getOrCreateHolder(String name) {
         Holder<Object> holder = cachedInstances.get(name);
@@ -460,9 +545,9 @@ public class ExtensionLoader<T> {
         Class<?> c = this.getExtensionClass(name);
         return c != null;
     }
-
+    //从ExtensionLoader获得这个拓展类的所有实现类
     public Set<String> getSupportedExtensions() {
-        Map<String, Class<?>> clazzes = getExtensionClasses();
+        Map<String, Class<?>> clazzes = getExtensionClasses();//从ExtensionLoader获得这个拓展类的所有实现类
         return Collections.unmodifiableSet(new TreeSet<>(clazzes.keySet()));
     }
 
@@ -568,9 +653,11 @@ public class ExtensionLoader<T> {
     }
 
     /***
-     * 获得拓展类对应的 adaptive拓展对象（这一步会对Adaptive 实例进行缓存）
+     * 通过ExtensionLoader.getAdaptiveExtension获得当前拓展类对应的 adaptive类型拓展对象（这一步会对Adaptive 实例进行缓存）
+     *
      * @return
-     * 1、先双重检查这种拓展类型是否存在适配的：AdaptiveExtension
+     * 1、先双重检查当前拓展类型是否已存在适配的：AdaptiveExtension
+     * 2、如果缓存里没有，则新建一个自适应的拓展类实现
      */
     @SuppressWarnings("unchecked")
     public T getAdaptiveExtension() {
@@ -585,7 +672,7 @@ public class ExtensionLoader<T> {
             synchronized (cachedAdaptiveInstance) {
                 instance = cachedAdaptiveInstance.get();
                 if (instance == null) {
-                    try {
+                    try {//创建一个自适应的拓展实例
                         instance = createAdaptiveExtension();
                         cachedAdaptiveInstance.set(instance);
                     } catch (Throwable t) {
@@ -670,14 +757,24 @@ public class ExtensionLoader<T> {
         return getExtensionClasses().containsKey(name);
     }
 
+    /***
+     *向拓展对象注入依赖属性
+     * @param instance
+     * @return
+     * 1、遍历实例里所有的方法
+     * 2、获得方法的参数的属性的类型
+     * 3、获得方法名
+     * 4、获得属性值
+     * 5、设置属性值
+     */
     private T injectExtension(T instance) {
-
+        //表示是一个ExtensionFactory实例
         if (objectFactory == null) {
             return instance;
         }
 
         try {
-            //遍历拓展接口里的所有方法
+            //遍历实例里所有的方法
             for (Method method : instance.getClass().getMethods()) {
                 if (!isSetter(method)) {//如果方法不是set方法，则跳过
                     continue;
@@ -688,15 +785,18 @@ public class ExtensionLoader<T> {
                 if (method.getAnnotation(DisableInject.class) != null) {//如果方法上带有 DisableInject 注解，则跳过
                     continue;
                 }
+                // 获得属性的类型
                 Class<?> pt = method.getParameterTypes()[0];
                 if (ReflectUtils.isPrimitives(pt)) {//如果方法是基本类型,则跳过
                     continue;
                 }
 
                 try {
-                    //获得 方法名
+                    // 获得属性
                     String property = getSetterProperty(method);
+                    // 获得属性值
                     Object object = objectFactory.getExtension(pt, property);
+                    // 设置属性值
                     if (object != null) {
                         method.invoke(instance, object);
                     }
@@ -723,6 +823,7 @@ public class ExtensionLoader<T> {
      * get properties name for setter, for instance: setVersion, return "version"
      * <p>
      * return "", if setter name with length less than 3
+     *  获得属性
      */
     private String getSetterProperty(Method method) {
         return method.getName().length() > 3 ? method.getName().substring(3, 4).toLowerCase() + method.getName().substring(4) : "";
@@ -754,7 +855,7 @@ public class ExtensionLoader<T> {
     }
 
     /***
-     * 查找本地内存classes，是否已加载对应拓展类型所有的实现类的Class对象
+     * 查找本地内存classes，是否已加载对应拓展类型所有的实现类的Class对象。没有的话加载这个拓展类的所有的实现类
      * @return
      * 1、如果cachedClasses不为空，则表示该拓展类型已加载过，那么就无需在加载了，直接返回
      * 2、如果cachedClasses为空，则根据拓展类型去相应的目录下加载所有的实现类，具体目录：
@@ -843,7 +944,7 @@ public class ExtensionLoader<T> {
      * @param extensionLoaderClassLoaderFirst 默认是true
      */
     private void loadDirectory(Map<String, Class<?>> extensionClasses, String dir, String type, boolean extensionLoaderClassLoaderFirst) {
-        //获得指定的文件路径
+        //获得指定的文件路径 META-INF/dubbo/internal/org.apache.dubbo.common.extension.ExtensionFactory
         String fileName = dir + type;
         try {
             Enumeration<java.net.URL> urls = null;
@@ -883,7 +984,7 @@ public class ExtensionLoader<T> {
      * 获得拓展类型的实现
      * @param extensionClasses 拓展类型
      * @param classLoader 类加载器
-     * @param resourceURL 加载路径
+     * @param resourceURL 加载路径 eg：META-INF/dubbo/internal/org.apache.dubbo.common.extension.ExtensionFactory
      */
     private void loadResource(Map<String, Class<?>> extensionClasses, ClassLoader classLoader, java.net.URL resourceURL) {
         try {
@@ -923,9 +1024,13 @@ public class ExtensionLoader<T> {
      * 获取拓展类型的实现类的class对象
      * @param extensionClasses 拓展类型
      * @param resourceURL
-     * @param clazz 拓展类型对应的具体实现类
-     * @param name
+     * @param clazz 拓展类型对应的具体实现类  eg: class org.apache.dubbo.common.extension.factory.SpiExtensionFactory
+     * @param name eg：spi
      * @throws NoSuchMethodException
+     * 1、如果实现类持有 Adaptive 注解，如果有的话，作为当前拓展类型的默认的自适应的实现类，则该实现类设置为cachedAdaptiveClass
+     * 2、如果当前实现类存在以拓展接口作为参数的构造函数，则表示是一个包装类。则添加到 cachedWrapperClasses里
+     * 3、如果是一个普通的拓展实现类，则添加到缓存里的cachedNames，同时也会添加到收集的集合 extensionClasses 里
+     *      普通的拓展实现类，必须要有一个无参数的构造函数。
      */
     private void loadClass(Map<String, Class<?>> extensionClasses, java.net.URL resourceURL, Class<?> clazz, String name) throws NoSuchMethodException {
         if (!type.isAssignableFrom(clazz)) {//判断实现类是否实现了type接口
@@ -951,7 +1056,7 @@ public class ExtensionLoader<T> {
             String[] names = NAME_SEPARATOR.split(name);
             if (ArrayUtils.isNotEmpty(names)) {
                 cacheActivateClass(clazz, names[0]);
-                for (String n : names) {
+                for (String n : names) {//{"spi"}
                     cacheName(clazz, n);
                     saveInExtensionClass(extensionClasses, clazz, n);
                 }
@@ -961,7 +1066,7 @@ public class ExtensionLoader<T> {
 
     /**
      * cache name
-     * 获得当前拓展类型下的实现类的拓展名称
+     * 缓存当前拓展类型下的实现类的拓展名称
      */
     private void cacheName(Class<?> clazz, String name) {
         if (!cachedNames.containsKey(clazz)) {
@@ -971,12 +1076,13 @@ public class ExtensionLoader<T> {
 
     /**
      * put clazz in extensionClasses
+     * 将拓展类的实现类的class对象放到extensionClasses，已存在，则报错
      */
     private void saveInExtensionClass(Map<String, Class<?>> extensionClasses, Class<?> clazz, String name) {
         Class<?> c = extensionClasses.get(name);
         if (c == null) {
             extensionClasses.put(name, clazz);
-        } else if (c != clazz) {
+        } else if (c != clazz) {//多个实现类的映射名称是重复的
             String duplicateMsg = "Duplicate extension " + type.getName() + " name " + name + " on " + c.getName() + " and " + clazz.getName();
             logger.error(duplicateMsg);
             throw new IllegalStateException(duplicateMsg);
@@ -1004,6 +1110,7 @@ public class ExtensionLoader<T> {
 
     /**
      * cache Adaptive class which is annotated with <code>Adaptive</code>
+     * 缓存 Adaptive的实现类的class对象
      */
     private void cacheAdaptiveClass(Class<?> clazz) {
         if (cachedAdaptiveClass == null) {
@@ -1036,6 +1143,7 @@ public class ExtensionLoader<T> {
      */
     private boolean isWrapperClass(Class<?> clazz) {
         try {
+            //是否存在以接口作为参数的构造函数
             clazz.getConstructor(type);
             return true;
         } catch (NoSuchMethodException e) {
@@ -1059,28 +1167,45 @@ public class ExtensionLoader<T> {
 
     @SuppressWarnings("unchecked")
     /**
-     * 创建自适应的Adaptive 拓展对象
+     * 创建自适应的Adaptive 拓展对象实例
+     * 1、获得 拓展类型的 Adaptive 实现类的实例，如果没有实现类配置了@Adaptive，则要根据拓展类型编译生成一个默认的 type$Adaptive 实现类型
+     * 2、为拓展类型的Adaptive实现类 注入依赖属性
      */
     private T createAdaptiveExtension() {
         try {
-            return injectExtension((T) getAdaptiveExtensionClass().newInstance());
+            return injectExtension((T) getAdaptiveExtensionClass().newInstance());//返回默认的自适应类的实例
         } catch (Exception e) {
             throw new IllegalStateException("Can't create adaptive extension " + type + ", cause: " + e.getMessage(), e);
         }
     }
 
+    /***
+     *
+     * @return
+     * 1、根据当前的拓展类型通过Dubbo spi到指定路径下加载相应的实现类并存放到缓存里 ，如果已加载的到，就无需再加载：
+     *       META-INF/services/、META-INF/dubbo/internal/、META-INF/dubbo/
+     * 2、通过步骤1加载后，我们去检查是否有实现类配置了@Adaptive
+     *      如果有实现类配置了@Adaptive，则作为默认的Adaptive实现，会被缓存到 cachedAdaptiveClass里，并返回
+     *      如果没有实现类配置了@Adaptive，则要根据拓展类型编译生成一个默认的 type$Adaptive 实现类型
+     */
     private Class<?> getAdaptiveExtensionClass() {
-        getExtensionClasses();
-        if (cachedAdaptiveClass != null) {
+        getExtensionClasses();//加载拓展实现类
+        if (cachedAdaptiveClass != null) {//检查这个拓展类是否有默认的自适应类，有的话，直接返回
             return cachedAdaptiveClass;
-        }
+        }//没有的话，采用字节码增强，生成一个自适应的实现类cachedAdaptiveClass
         return cachedAdaptiveClass = createAdaptiveExtensionClass();
     }
 
+    /***
+     * 通过拓展接口类型生成字节码，并反编译生成 默认的 type$Adaptive 实现类型
+     * @return
+     */
     private Class<?> createAdaptiveExtensionClass() {
+        //通过拓展接口类型生成字节码
         String code = new AdaptiveClassCodeGenerator(type, cachedDefaultName).generate();
         ClassLoader classLoader = findClassLoader();
         org.apache.dubbo.common.compiler.Compiler compiler = ExtensionLoader.getExtensionLoader(org.apache.dubbo.common.compiler.Compiler.class).getAdaptiveExtension();
+        //反编译生成 默认的 type$Adaptive 实现类型
         return compiler.compile(code, classLoader);
     }
 
