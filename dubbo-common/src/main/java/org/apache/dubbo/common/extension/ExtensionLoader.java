@@ -107,9 +107,14 @@ public class ExtensionLoader<T> {
 
     private Map<String, IllegalStateException> exceptions = new ConcurrentHashMap<>();
 
+    /***
+     * 为拓展类型绑定 一个 ExtensionLoader
+     * @param type
+     */
     private ExtensionLoader(Class<?> type) {
         this.type = type;
-        objectFactory = (type == ExtensionFactory.class ? null : ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());
+        objectFactory = (type == ExtensionFactory.class ? null :
+                ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());
     }
 
     private static <T> boolean withExtensionAnnotation(Class<T> type) {
@@ -118,10 +123,15 @@ public class ExtensionLoader<T> {
 
     /***
      * 根据接口类型，获取对应的拓展类加载器，用于加载拓展类。
-     * 接口的拓展类加载器会放到内存里
+     * 接口的拓展类加载器会放到内存里(这一步会是针对CLASSLOADER的缓存)
      * @param type
      * @param <T>
      * @return
+     * 1、对type类型进行相应的校验: 类型、是否接口、是否添加了SPI注解
+     * 2、检查内存EXTENSION_LOADERS缓存里是否已经存在该type对应的类加载器 ExtensionLoader
+     * 3、本地内存EXTENSION_LOADERS里会为每一种type维护一个独立的 ExtensionLoader实例
+     *
+     * 这里要注意一个特殊的拓展类型：ExtensionFactory.class
      */
     @SuppressWarnings("unchecked")
     public static <T> ExtensionLoader<T> getExtensionLoader(Class<T> type) {
@@ -388,8 +398,8 @@ public class ExtensionLoader<T> {
 //
 //    }
 
-    /***获得普通拓展类，根据name返回拓展类型对应的实现类的实例
-     *      1、判断name是否为空
+    /***获得普通拓展类，根据name返回拓展类型对应的实现类的实例（这里我们要注意，本身每一个ExtensionLoader都绑定了一种拓展类型）
+     *      1、判断name是否为空，如果name为true,则返回默认的拓展实现
      *      2、判断ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例
      *      3、如果name没有对应的实例，则根据name对应的Class创建一个实例并返回
      * 根据name从cachedInstances集合中获取配置的拓展类
@@ -554,6 +564,11 @@ public class ExtensionLoader<T> {
         }
     }
 
+    /***
+     * 获得拓展类对应的 adaptive拓展对象（这一步会对Adaptive 实例进行缓存）
+     * @return
+     * 1、先双重检查这种拓展类型是否存在适配的：AdaptiveExtension
+     */
     @SuppressWarnings("unchecked")
     public T getAdaptiveExtension() {
         Object instance = cachedAdaptiveInstance.get();
@@ -652,22 +667,24 @@ public class ExtensionLoader<T> {
         }
 
         try {
+            //遍历拓展接口里的所有方法
             for (Method method : instance.getClass().getMethods()) {
-                if (!isSetter(method)) {
+                if (!isSetter(method)) {//如果方法不是set方法，则跳过
                     continue;
                 }
                 /**
                  * Check {@link DisableInject} to see if we need auto injection for this property
                  */
-                if (method.getAnnotation(DisableInject.class) != null) {
+                if (method.getAnnotation(DisableInject.class) != null) {//如果方法上带有 DisableInject 注解，则跳过
                     continue;
                 }
                 Class<?> pt = method.getParameterTypes()[0];
-                if (ReflectUtils.isPrimitives(pt)) {
+                if (ReflectUtils.isPrimitives(pt)) {//如果方法是基本类型,则跳过
                     continue;
                 }
 
                 try {
+                    //获得 方法名
                     String property = getSetterProperty(method);
                     Object object = objectFactory.getExtension(pt, property);
                     if (object != null) {
@@ -981,6 +998,9 @@ public class ExtensionLoader<T> {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * 创建自适应的Adaptive 拓展对象
+     */
     private T createAdaptiveExtension() {
         try {
             return injectExtension((T) getAdaptiveExtensionClass().newInstance());
