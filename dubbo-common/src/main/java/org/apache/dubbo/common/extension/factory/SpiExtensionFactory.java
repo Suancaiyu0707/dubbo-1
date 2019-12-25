@@ -22,6 +22,7 @@ import org.apache.dubbo.common.extension.SPI;
 
 /**
  * SpiExtensionFactory
+ * 某个拓展点 实现类上有 @Adaptive注解，则会用该SpiExtensionFactory进行加载
  */
 public class SpiExtensionFactory implements ExtensionFactory {
 
@@ -29,6 +30,7 @@ public class SpiExtensionFactory implements ExtensionFactory {
     public <T> T getExtension(Class<T> type, String name) {
         if (type.isInterface() && type.isAnnotationPresent(SPI.class)) {//判断type是否持有SPI注解
             ExtensionLoader<T> loader = ExtensionLoader.getExtensionLoader(type);
+            //如果缓存的拓展节点不为空，则直接返回 自适应拓展实现类实例
             if (!loader.getSupportedExtensions().isEmpty()) {
                 return loader.getAdaptiveExtension();
             }

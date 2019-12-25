@@ -43,6 +43,10 @@ public class SpringExtensionFactory implements ExtensionFactory {
     private static final Set<ApplicationContext> CONTEXTS = new ConcurrentHashSet<ApplicationContext>();
     private static final ApplicationListener SHUTDOWN_HOOK_LISTENER = new ShutdownHookListener();
 
+    /***
+     * 持有SRping的上下文，所以可以根据name或type从容器里查找所有的实例
+     * @param context
+     */
     public static void addApplicationContext(ApplicationContext context) {
         CONTEXTS.add(context);
         if (context instanceof ConfigurableApplicationContext) {
@@ -65,6 +69,13 @@ public class SpringExtensionFactory implements ExtensionFactory {
         CONTEXTS.clear();
     }
 
+    /**
+     * 根据name或type从容器里查找所有的实例
+     * @param type object type.
+     * @param name object name.
+     * @param <T>
+     * @return
+     */
     @Override
     @SuppressWarnings("unchecked")
     public <T> T getExtension(Class<T> type, String name) {

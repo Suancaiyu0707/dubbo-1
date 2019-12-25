@@ -40,6 +40,8 @@ public class AdaptiveExtensionFactory implements ExtensionFactory {
     /**
      * 1、AdaptiveExtensionFactory是ExtensionFactory默认的自适应类
      * 2、加载遍历所有的ExtensionFactory的ExtensionLoader
+     * 3、遍历完所有的ExtensionLoader后会进行排序：
+     *      这个排序很重要，它会把SpiExtensionFactory的排到最前面。这样调用getExtension会优先使用getExtension去查找默认的带有Adaptive注解的拓展实现
      */
     public AdaptiveExtensionFactory() {
         ExtensionLoader<ExtensionFactory> loader = ExtensionLoader.getExtensionLoader(ExtensionFactory.class);//获得ExtensionFactory绑定的ExtensionLoader实例

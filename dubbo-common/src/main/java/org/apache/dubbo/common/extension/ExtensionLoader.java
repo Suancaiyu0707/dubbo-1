@@ -323,8 +323,13 @@ public class ExtensionLoader<T> {
      * @see org.apache.dubbo.common.extension.Activate
      *
      * 根据url上的属性key，来激活相应的Activate实现类
-     * 1、遍历所有的values
-     * 1、如果values不包含 '-default'
+     *
+     *  如果values不包含 '-default'
+     *      1、遍历所有的values
+     *      2、检查每一个Activate的group、value属性值
+     *      3、判断group和values是否匹配
+     *      4、匹配出来的Activate类标根据order属性进行排序
+     *      5、根据适配的名称获得拓展实现类Activate
      */
     public List<T> getActivateExtension(URL url, String[] values, String group) {
         List<T> exts = new ArrayList<>();
@@ -334,7 +339,7 @@ public class ExtensionLoader<T> {
             getExtensionClasses();//获得当前拓展类型所有的拓展类
             //遍历当前拓展类下的所有普通拓展类 Activate注解的实现类
             for (Map.Entry<String, Object> entry : cachedActivates.entrySet()) {
-                String name = entry.getKey();
+                String name = entry.getKey();//Activate的名称
                 Object activate = entry.getValue();
 
                 String[] activateGroup, activateValue;
@@ -348,7 +353,7 @@ public class ExtensionLoader<T> {
                 } else {
                     continue;
                 }
-                //判断group是否匹配
+                //判断group、name是否匹配
                 if (isMatchGroup(group, activateGroup)
                         && !names.contains(name)
                         && !names.contains(REMOVE_VALUE_PREFIX + name)
@@ -356,6 +361,7 @@ public class ExtensionLoader<T> {
                     exts.add(getExtension(name));
                 }
             }
+            //进行排序
             exts.sort(ActivateComparator.COMPARATOR);
         }
         List<T> usrs = new ArrayList<>();
@@ -794,7 +800,7 @@ public class ExtensionLoader<T> {
                 try {
                     // 获得属性
                     String property = getSetterProperty(method);
-                    // 获得属性值
+                    // 获得属性值,也就是对应的bean实例
                     Object object = objectFactory.getExtension(pt, property);
                     // 设置属性值
                     if (object != null) {
@@ -1055,6 +1061,7 @@ public class ExtensionLoader<T> {
 
             String[] names = NAME_SEPARATOR.split(name);
             if (ArrayUtils.isNotEmpty(names)) {
+                //默认缓存激活的拓展实现类，会判断是否有Activate注解
                 cacheActivateClass(clazz, names[0]);
                 for (String n : names) {//{"spi"}
                     cacheName(clazz, n);
@@ -1094,12 +1101,14 @@ public class ExtensionLoader<T> {
      * <p>
      * for compatibility, also cache class with old alibaba Activate annotation
      * 检查当前实现类是否持有Activate注解，有的话缓存到 cachedActivates 中
+     * 1、判断是否配置了 Activate 注解，有的化，则缓存到cachedActivates
      */
     private void cacheActivateClass(Class<?> clazz, String name) {
+        //获得 Activate 注解
         Activate activate = clazz.getAnnotation(Activate.class);
-        if (activate != null) {
+        if (activate != null) {//如果持有Activate注解，则缓存这个激活类
             cachedActivates.put(name, activate);
-        } else {
+        } else {//如果没有，判断是否有
             // support com.alibaba.dubbo.common.extension.Activate
             com.alibaba.dubbo.common.extension.Activate oldActivate = clazz.getAnnotation(com.alibaba.dubbo.common.extension.Activate.class);
             if (oldActivate != null) {
@@ -1201,9 +1210,15 @@ public class ExtensionLoader<T> {
      * @return
      */
     private Class<?> createAdaptiveExtensionClass() {
-        //通过拓展接口类型生成字节码
+        /***
+         * 通过拓展接口自动生成实现类字符串
+         * 1、为接口每个有Adaptive注解的方法生成默认的实现
+         * 2、没有Adaptive注解的方法生成空实现
+         * 3、每个默认实现会从URL中提取Adaptive参数值，并以此为依据动态加载拓展点
+         */
         String code = new AdaptiveClassCodeGenerator(type, cachedDefaultName).generate();
         ClassLoader classLoader = findClassLoader();
+        //不同的编译器会把字符串编码成自适应的类并返回
         org.apache.dubbo.common.compiler.Compiler compiler = ExtensionLoader.getExtensionLoader(org.apache.dubbo.common.compiler.Compiler.class).getAdaptiveExtension();
         //反编译生成 默认的 type$Adaptive 实现类型
         return compiler.compile(code, classLoader);

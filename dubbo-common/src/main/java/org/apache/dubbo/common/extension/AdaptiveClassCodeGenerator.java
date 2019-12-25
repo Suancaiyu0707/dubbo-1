@@ -91,8 +91,11 @@ public class AdaptiveClassCodeGenerator {
         }
 
         StringBuilder code = new StringBuilder();
+        //生成package信息
         code.append(generatePackageInfo());
+        //生成import信息
         code.append(generateImports());
+        //生成类字节码
         code.append(generateClassDeclaration());
 
         Method[] methods = type.getMethods();
