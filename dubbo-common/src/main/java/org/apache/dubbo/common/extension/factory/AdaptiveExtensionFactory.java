@@ -28,7 +28,7 @@ import java.util.List;
  * AdaptiveExtensionFactory
  * 负责拓展 Adaptive 实现类，会添加到 ExtensionLoader.cachedAdaptiveClass 属性中。
  */
-@Adaptive
+@Adaptive // 用 Adaptive 表示这个一个默认的自适应实现
 public class AdaptiveExtensionFactory implements ExtensionFactory {
     /**
      * 存放ExtensionFactory拓展类型的所有实现类，不包含AdaptiveExtensionFactory
@@ -54,10 +54,15 @@ public class AdaptiveExtensionFactory implements ExtensionFactory {
 
     /***
      *
-     * @param type object type.
-     * @param name object name.
+     * @param type 拓展类型
+     * @param name 拓展实现类的名称
      * @param <T>
      * @return
+     * 由于在AdaptiveExtensionFactory构造函数里进行排序了，所以就变成按顺序调用：SpiExtensionFactory -> SpringExtensionFactory
+     * 1、先通过SpiExtensionFactory.getExtension 根据type和名称查找是否存在对应的拓展类型实现类
+     * 2、如果通过SpiExtensionFactory找不到，则通过 SpringExtensionFactory 在容器里根据type和名称查找是否存在对应的拓展类型实现类
+     *
+     * 从这边，我们可以发现SpiExtensionFactory的优先级比SpringExtensionFactory高
      */
     @Override
     public <T> T getExtension(Class<T> type, String name) {

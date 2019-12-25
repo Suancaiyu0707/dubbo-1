@@ -18,9 +18,10 @@ package org.apache.dubbo.common.utils;
 
 /**
  * Helper Class for hold a value.
+ * 每个holder其实都绑定了一个拓展类型实现类的实例
  */
 public class Holder<T> {
-
+    //一个拓展类型实现类的实例
     private volatile T value;
 
     public void set(T value) {

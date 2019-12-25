@@ -71,10 +71,12 @@ public class SpringExtensionFactory implements ExtensionFactory {
 
     /**
      * 根据name或type从容器里查找所有的实例
-     * @param type object type.
-     * @param name object name.
+     * @param type 拓展类型
+     * @param name 拓展实现类的名称
      * @param <T>
      * @return
+     * 1、检查拓展类型是否添加了SPI注解
+     * 2、根据拓展实现类的名称从容器里拿，如果没有的话，则继续根据类型从容器拿，如果还是没有的话，返回空null
      */
     @Override
     @SuppressWarnings("unchecked")

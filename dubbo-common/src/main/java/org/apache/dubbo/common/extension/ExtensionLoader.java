@@ -299,8 +299,8 @@ public class ExtensionLoader<T> {
      * This is equivalent to {@code getActivateExtension(url, url.getParameter(key).split(","), null)}
      *
      * @param url   请求的url
-     * @param key   用于从请求url获取指定key的值，再根据这个值获取对应的拓展类
-     * @param group group
+     * @param key   用于从请求url获取指定key的值，再根据这个值获取对应的拓展类 eg: service.filter
+     * @param group group eg： provider
      * @return extension list which are activated.
      * @see #getActivateExtension(org.apache.dubbo.common.URL, String[], String)
      * 1、从url中获取指定的key的值
@@ -316,9 +316,9 @@ public class ExtensionLoader<T> {
     /**
      * Get activate extensions.
      *
-     * @param url    url
-     * @param values extension point names
-     * @param group  group
+     * @param url
+     * @param values  point names
+     * @param group   eg: provider
      * @return extension list which are activated
      * @see org.apache.dubbo.common.extension.Activate
      *
@@ -445,11 +445,11 @@ public class ExtensionLoader<T> {
 
     /***
      * 根据ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例
-     * @param name
+     * @param name eg：dubbo
      * @return
      * 1、判断ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例。
-     *      有的话，直接返回。
-     *      没有的话，则创建一个新的new Holder关联 name
+     *      如果内存里有的话，直接返回。
+     *      没有的话，则创建一个新的new Holder关联 name。注意，新建的Holder里的值是null
      */
     private Holder<Object> getOrCreateHolder(String name) {
         Holder<Object> holder = cachedInstances.get(name);
@@ -493,7 +493,7 @@ public class ExtensionLoader<T> {
 //    }
 
     /***获得普通拓展类，根据name返回拓展类型对应的实现类的实例（这里我们要注意，本身每一个ExtensionLoader都绑定了一种拓展类型）
-     *      1、判断name是否为空，如果name为true,则返回默认的拓展实现
+     *      1、判断name是否为空，如果name为true,则返回默认的拓展类实现
      *      2、判断ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例
      *      3、如果name没有对应的实例，则根据name对应的Class创建一个实例并返回
      * 根据name从cachedInstances集合中获取配置的拓展类
@@ -502,7 +502,7 @@ public class ExtensionLoader<T> {
      *      * 2 = {ConcurrentHashMap$MapEntry@3978} "dubbo" ->
      */
     @SuppressWarnings("unchecked")
-    public T getExtension(String name) {
+    public T getExtension(String name) {//name：dubbo
         if (StringUtils.isEmpty(name)) {//判断name是否为空
             throw new IllegalArgumentException("Extension name == null");
         }
@@ -526,8 +526,9 @@ public class ExtensionLoader<T> {
     /**
      * Get the extension by specified name if found, or {@link #getDefaultExtension() returns the default one}
      *
-     * @param name the name of extension
+     * @param name 拓展类实例名称，例如dubbo
      * @return non-null
+     * 根据name获得对应的拓展类实例，如果没有的话，则获取默认的拓展类实例
      */
     public T getOrDefaultExtension(String name) {
         return containsExtension(name)  ? getExtension(name) : getDefaultExtension();
@@ -535,6 +536,7 @@ public class ExtensionLoader<T> {
 
     /**
      * Return default extension, return <code>null</code> if it's not configured.
+     * 获得默认的拓展类实例，如果有的话，则直接返回，这个默认的是在@SPI注解里指定的额。比如：@SPI("netty")
      */
     public T getDefaultExtension() {
         getExtensionClasses();
@@ -544,6 +546,11 @@ public class ExtensionLoader<T> {
         return getExtension(cachedDefaultName);
     }
 
+    /***
+     * 判断拓展类实例是否存在
+     * @param name 拓展类实例名称，例如dubbo
+     * @return
+     */
     public boolean hasExtension(String name) {
         if (StringUtils.isEmpty(name)) {
             throw new IllegalArgumentException("Extension name == null");
@@ -557,6 +564,10 @@ public class ExtensionLoader<T> {
         return Collections.unmodifiableSet(new TreeSet<>(clazzes.keySet()));
     }
 
+    /**
+     * 获得可用的拓展类实例集合
+     * @return
+     */
     public Set<T> getSupportedExtensionInstances() {
         Set<T> instances = new HashSet<>();
         Set<String> supportedExtensions = getSupportedExtensions();
@@ -570,6 +581,7 @@ public class ExtensionLoader<T> {
 
     /**
      * Return default extension name, return <code>null</code> if not configured.
+     * 获得默认的拓展类实例名称
      */
     public String getDefaultExtensionName() {
         getExtensionClasses();
@@ -594,11 +606,12 @@ public class ExtensionLoader<T> {
             throw new IllegalStateException("Input type " +
                     clazz + " can't be interface!");
         }
-
+        //判断class是否持有Adaptive注解
         if (!clazz.isAnnotationPresent(Adaptive.class)) {
             if (StringUtils.isBlank(name)) {
                 throw new IllegalStateException("Extension name is blank (Extension " + type + ")!");
             }
+            //拓展类的实例名称不能重复
             if (cachedClasses.get().containsKey(name)) {
                 throw new IllegalStateException("Extension name " +
                         name + " already exists (Extension " + type + ")!");
@@ -607,6 +620,7 @@ public class ExtensionLoader<T> {
             cachedNames.put(clazz, name);
             cachedClasses.get().put(name, clazz);
         } else {
+            //如果持有Adaptive注解，则判断是否已经有自适应实现了
             if (cachedAdaptiveClass != null) {
                 throw new IllegalStateException("Adaptive Extension already exists (Extension " + type + ")!");
             }
@@ -751,7 +765,7 @@ public class ExtensionLoader<T> {
                     instance = injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));
                 }
             }
-            initExtension(instance);
+            initExtension(instance);//
             return instance;
         } catch (Throwable t) {
             throw new IllegalStateException("Extension instance (name: " + name + ", class: " +
@@ -791,14 +805,14 @@ public class ExtensionLoader<T> {
                 if (method.getAnnotation(DisableInject.class) != null) {//如果方法上带有 DisableInject 注解，则跳过
                     continue;
                 }
-                // 获得属性的类型
+                // 获得属性的类型,也就是拓展类型 org.apache.dubbo.rpc.Protocol
                 Class<?> pt = method.getParameterTypes()[0];
                 if (ReflectUtils.isPrimitives(pt)) {//如果方法是基本类型,则跳过
                     continue;
                 }
 
                 try {
-                    // 获得属性
+                    // 获得属性的name，也就是拓展类型对应的实现类的name,比如 protocol
                     String property = getSetterProperty(method);
                     // 获得属性值,也就是对应的bean实例
                     Object object = objectFactory.getExtension(pt, property);
@@ -817,9 +831,9 @@ public class ExtensionLoader<T> {
         }
         return instance;
     }
-
+    //初始化拓展类实例
     private void initExtension(T instance) {
-        if (instance instanceof Lifecycle) {
+        if (instance instanceof Lifecycle) {//如果这个拓展类是有生命周期的
             Lifecycle lifecycle = (Lifecycle) instance;
             lifecycle.initialize();
         }
@@ -936,7 +950,9 @@ public class ExtensionLoader<T> {
      * 根据目录和拓展类型获得所有的拓展实现类并缓存起来(此时还未加载)
      * @param extensionClasses 缓存map
      * @param dir  查找目录
+     *             eg: META-INF/services/
      * @param type 拓展类型
+     *             eg: org.apache.dubbo.remoting.Transporter
      */
     private void loadDirectory(Map<String, Class<?>> extensionClasses, String dir, String type) {
         loadDirectory(extensionClasses, dir, type, false);
@@ -945,8 +961,10 @@ public class ExtensionLoader<T> {
     /**
      *根据目录和拓展类型获得所有的拓展实现类并缓存起来(此时还未加载)
      * @param extensionClasses  用于缓存接收 拓展类的实现类型
-     * @param dir 查找路径，比如META-INF/services/
-     * @param type 拓展类型名称，比如org.apache.dubbo.remoting.Transporter
+     * @param dir 查找路径，
+     *            eg: META-INF/services/
+     * @param type 拓展类型名称:
+     *            eg: org.apache.dubbo.remoting.Transporter
      * @param extensionLoaderClassLoaderFirst 默认是true
      */
     private void loadDirectory(Map<String, Class<?>> extensionClasses, String dir, String type, boolean extensionLoaderClassLoaderFirst) {
@@ -989,8 +1007,10 @@ public class ExtensionLoader<T> {
     /***
      * 获得拓展类型的实现
      * @param extensionClasses 拓展类型
+     *          eg：
      * @param classLoader 类加载器
-     * @param resourceURL 加载路径 eg：META-INF/dubbo/internal/org.apache.dubbo.common.extension.ExtensionFactory
+     * @param resourceURL 加载路径
+     *          eg：META-INF/dubbo/internal/org.apache.dubbo.common.extension.ExtensionFactory
      */
     private void loadResource(Map<String, Class<?>> extensionClasses, ClassLoader classLoader, java.net.URL resourceURL) {
         try {
