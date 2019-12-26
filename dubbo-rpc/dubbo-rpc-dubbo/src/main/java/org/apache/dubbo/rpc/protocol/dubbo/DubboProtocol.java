@@ -441,7 +441,7 @@ public class DubboProtocol extends AbstractProtocol {
 
     /***
      * 将Invokers绑定一组客户端连接NettyClient，这样后续针对这个invoker的调用，都会交给相应的NettyClient处理
-     * @param serviceType interface org.apache.dubbo.demo.StubService
+     * @param serviceType org.apache.dubbo.demo.StubService
      * @param url dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=63743&register.ip=220.250.64.225&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576754446869
      * @param <T>
      * @return

@@ -224,7 +224,7 @@ public class ProtocolFilterWrapper implements Protocol {
         /***
          * 引用服务，返回 Invoker 对象
          * 1、引用服务，最终返回 Invoker
-         * 2、创建带有 Filter 过滤链的 Invoker 对象
+         * 2、为invoker包装Filter过滤链，创建带有 Filter 过滤链的 Invoker 对象
          */
         return buildInvokerChain(protocol.refer(type, url), REFERENCE_FILTER_KEY, CommonConstants.CONSUMER);
     }

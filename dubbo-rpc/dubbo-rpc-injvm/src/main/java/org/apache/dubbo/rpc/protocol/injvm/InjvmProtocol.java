@@ -63,7 +63,8 @@ public class InjvmProtocol extends AbstractProtocol implements Protocol {
     /***
      * 检查本地是否有该exporter
      * @param map
-     * @param key
+     * @param key  服务暴露的url地址
+     *      eg：injvm://127.0.0.1/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=81987&register.ip=220.250.64.225&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1577351435363
      * @return
      */
     static Exporter<?> getExporter(Map<String, Exporter<?>> map, URL key) {
@@ -102,6 +103,16 @@ public class InjvmProtocol extends AbstractProtocol implements Protocol {
         return new InjvmExporter<T>(invoker, invoker.getUrl().getServiceKey(), exporterMap);
     }
 
+    /***
+     * 将暴露的协议和引用绑定
+     * @param serviceType 接口类型
+     *                     eg：org.apache.dubbo.demo.StubService
+     * @param url   被引用的服务的地址
+     *                  eg：injvm://127.0.0.1/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=81987&register.ip=220.250.64.225&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1577351435363
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> Invoker<T> protocolBindingRefer(Class<T> serviceType, URL url) throws RpcException {
         return new InjvmInvoker<T>(serviceType, url, url.getServiceKey(), exporterMap);

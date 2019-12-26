@@ -32,19 +32,41 @@ import static org.apache.dubbo.common.constants.CommonConstants.LOCALHOST_VALUE;
  * InjvmInvoker
  */
 class InjvmInvoker<T> extends AbstractInvoker<T> {
-
+    /**
+     * 所引用的服务
+     */
     private final String key;
-
+    /***
+     * key：org.apache.dubbo.demo.StubService
+     * value：InjvmExporter对象，对象属性
+     *      key = "org.apache.dubbo.demo.StubService"
+     *      exporterMap = {ConcurrentHashMap@4543}  size = 1
+     *      logger = {FailsafeLogger@4562}
+     *      invoker = {ProtocolFilterWrapper$1@4542} "interface org.apache.dubbo.demo.StubService -> injvm://127.0.0.1/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=686&release=&side=provider&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576737965762"
+     *      unexported = false
+     */
     private final Map<String, Exporter<?>> exporterMap;
 
+    /***
+     *
+     * @param type 接口类型 eg：org.apache.dubbo.demo.StubService
+     * @param url 引用的服务提供者的url
+     * @param key  被引用的服务键，eg：org.apache.dubbo.demo.StubService
+     * @param exporterMap 本地暴露的服务
+     */
     InjvmInvoker(Class<T> type, URL url, String key, Map<String, Exporter<?>> exporterMap) {
         super(type, url);
         this.key = key;
         this.exporterMap = exporterMap;
     }
 
+    /***
+     * 判断服务所引用的key
+     * @return
+     */
     @Override
     public boolean isAvailable() {
+        //如果
         InjvmExporter<?> exporter = (InjvmExporter<?>) exporterMap.get(key);
         if (exporter == null) {
             return false;
@@ -53,8 +75,15 @@ class InjvmInvoker<T> extends AbstractInvoker<T> {
         }
     }
 
+    /***
+     *
+     * @param invocation
+     * @return
+     * @throws Throwable
+     */
     @Override
     public Result doInvoke(Invocation invocation) throws Throwable {
+        //检查
         Exporter<?> exporter = InjvmProtocol.getExporter(exporterMap, getUrl());
         if (exporter == null) {
             throw new RpcException("Service [" + key + "] not found.");
