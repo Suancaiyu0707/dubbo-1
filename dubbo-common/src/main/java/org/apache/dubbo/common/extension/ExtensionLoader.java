@@ -154,6 +154,7 @@ public class ExtensionLoader<T> {
     /***
      * key: 拓展类实现类的实例名
      * value: 异常
+     * 这个是在加载拓展点的配置文件里的实现类的时候出现报错，会把报错的映射关系缓存到exceptions里
      */
     private Map<String, IllegalStateException> exceptions = new ConcurrentHashMap<>();
 
@@ -734,6 +735,11 @@ public class ExtensionLoader<T> {
         return (T) instance;
     }
 
+    /***
+     * 查找 拓展实现类对应的异常信息
+     * @param name 拓展实现类名称
+     * @return
+     */
     private IllegalStateException findException(String name) {
         for (Map.Entry<String, IllegalStateException> entry : exceptions.entrySet()) {
             if (entry.getKey().toLowerCase().contains(name.toLowerCase())) {
