@@ -535,6 +535,8 @@ public class ExtensionLoader<T> {
      * @param name 拓展类实例名称，例如dubbo
      * @return non-null
      * 根据name获得对应的拓展类实例，如果没有的话，则获取默认的拓展类实例
+     * 1、如果存在name对应的拓展点实现类，则返回这个实现类的实例
+     * 2、如果不存在name对应的拓展点实现类，则返回默认的实现类的实例。这个默认的是在@SPI注解里指定的额。比如：@SPI("netty")
      */
     public T getOrDefaultExtension(String name) {
         return containsExtension(name)  ? getExtension(name) : getDefaultExtension();
@@ -556,6 +558,7 @@ public class ExtensionLoader<T> {
      * 判断拓展类实例是否存在
      * @param name 拓展类实例名称，例如dubbo
      * @return
+     * 如果不存在name对应的拓展点实现类，则返回false
      */
     public boolean hasExtension(String name) {
         if (StringUtils.isEmpty(name)) {
@@ -573,6 +576,7 @@ public class ExtensionLoader<T> {
     /**
      * 获得可用的拓展类实例集合
      * @return
+     * 遍历每个拓展点的所有实现类，并获取每个拓展点实现类的实例列表
      */
     public Set<T> getSupportedExtensionInstances() {
         Set<T> instances = new HashSet<>();
@@ -587,7 +591,8 @@ public class ExtensionLoader<T> {
 
     /**
      * Return default extension name, return <code>null</code> if not configured.
-     * 获得默认的拓展类实例名称
+     * 获得默认的拓展点实现类的名称
+     * 这个默认的是在@SPI注解里指定的额。比如：@SPI("netty")
      */
     public String getDefaultExtensionName() {
         getExtensionClasses();
