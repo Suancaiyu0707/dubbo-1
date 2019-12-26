@@ -647,6 +647,11 @@ public class ExtensionLoader<T> {
      * @param clazz extension class
      * @throws IllegalStateException when extension to be placed doesn't exist
      * @deprecated not recommended any longer, and use only when test
+     * 根据拓展点的实现类名称，替换掉名称对应的拓展点实现类
+     * 注意：
+     *      替换的clazz必须也是实现了当前拓展点的一个实现类
+     *      替换的时候要保证整个拓展点里只能有一个持有Adaptive注解的实现类
+     *      所谓的替换，其实就是更新缓存中的映射关系
      */
     @Deprecated
     public void replaceExtension(String name, Class<?> clazz) {
