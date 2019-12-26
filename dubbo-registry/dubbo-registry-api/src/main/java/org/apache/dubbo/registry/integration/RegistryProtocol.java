@@ -498,10 +498,10 @@ public class RegistryProtocol implements Protocol {
     @Override
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
-        //获得注册中心地址：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=41141&qos.port=33333&refer=dubbo%3D2.0.2%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.StubService%26lazy%3Dfalse%26methods%3DsayHello%26pid%3D41141%26register.ip%3D220.250.64.225%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1576810746199&timestamp=1576812247269
+        //获得真实的注册中心地址：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=41141&qos.port=33333&refer=dubbo%3D2.0.2%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.StubService%26lazy%3Dfalse%26methods%3DsayHello%26pid%3D41141%26register.ip%3D220.250.64.225%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1576810746199&timestamp=1576812247269
         url = getRegistryUrl(url);
-        Registry registry = registryFactory.getRegistry(url);//获得注册中心对象ZookeeperRegistry：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=41141&qos.port=33333&timestamp=1576812247269
-        if (RegistryService.class.equals(type)) {
+        //获得注册中心对象ZookeeperRegistry：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=41141&qos.port=33333&timestamp=1576812247269
+        Registry registry = registryFactory.getRegistry(url);if (RegistryService.class.equals(type)) {
             return proxyFactory.getInvoker((T) registry, type, url);
         }
 
@@ -524,9 +524,11 @@ public class RegistryProtocol implements Protocol {
     /***
      * 使用特定的集群策略从注册中心获取一个服务引用
      * @param cluster 集群策略对象
-     * @param registry 注册中心
-     * @param type 接口类型 interface org.apache.dubbo.demo.StubService
-     * @param url 注册中心地址 zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=60066&qos.port=33333&refer=dubbo%3D2.0.2%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.StubService%26lazy%3Dfalse%26methods%3DsayHello%26pid%3D60066%26register.ip%3D220.250.64.225%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1576820056821&timestamp=1576820058061
+     * @param registry 注册中心对象
+     * @param type 接口类型
+     *             eg: interface org.apache.dubbo.demo.StubService
+     * @param url 注册中心地址
+     *            eg:zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=60066&qos.port=33333&refer=dubbo%3D2.0.2%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.StubService%26lazy%3Dfalse%26methods%3DsayHello%26pid%3D60066%26register.ip%3D220.250.64.225%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1576820056821&timestamp=1576820058061
      * @param <T>
      * @return
      * 1、根据引用接口，获得服务端引用的路径：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=63743&register.ip=220.250.64.225&side=consumer&sticky=false&timestamp=1576822403501
@@ -537,20 +539,23 @@ public class RegistryProtocol implements Protocol {
      * 5、集群策略算法根据/dubbo/org.apache.dubbo.demo.StubService/providers/目录下的服务提供者选择一个服务，生成invoker引用对象并返回。
      */
     private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url) {
-        RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);//zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&register.ip=220.250.64.225&side=consumer&sticky=false&timestamp=1576810746199
+        //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&register.ip=220.250.64.225&side=consumer&sticky=false&timestamp=1576810746199
+        RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);
         directory.setRegistry(registry);
         directory.setProtocol(protocol);
-        // all attributes of REFER_KEY
+        // 创建订阅 URL
         Map<String, String> parameters = new HashMap<String, String>(directory.getUrl().getParameters());
         URL subscribeUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);//consumer://220.250.64.225/org.apache.dubbo.demo.StubService?dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&side=consumer&sticky=false&timestamp=1576810746199
+        // 向注册中心注册自己（服务消费者）
         if (!ANY_VALUE.equals(url.getServiceInterface()) && url.getParameter(REGISTER_KEY, true)) {
             directory.setRegisteredConsumerUrl(getRegisteredConsumerUrl(subscribeUrl, url));
             registry.register(directory.getRegisteredConsumerUrl());//将服务引用者的服务地址注册到注册中心上去
         }
         directory.buildRouterChain(subscribeUrl);//为订阅者绑定路由链
+        // 向注册中心订阅服务提供者
         directory.subscribe(subscribeUrl.addParameter(CATEGORY_KEY,
                 PROVIDERS_CATEGORY + "," + CONFIGURATORS_CATEGORY + "," + ROUTERS_CATEGORY));//添加服务引用者需要订阅的category：providers/configurators/routers
-
+        // 创建 Invoker 对象
         Invoker invoker = cluster.join(directory);
         return invoker;
     }
