@@ -122,6 +122,9 @@ public class ExtensionLoader<T> {
      *          KEY：实现类的拓展名称
      *              eg：fixed
      *          VALUE: Activate 对象
+     * 用于 {@link #getActivateExtension(URL, String)}
+     * 像RouterFactory的一些拓展实现类就带有Activate这个注解，这些实现类有：TagRouterFactory、ServiceRouterFactory、MockRouterFactory。
+     *      这些拓展实现类在加载拓展点的时候同时也会被添加到cachedActivates中
      */
     private final Map<String, Object> cachedActivates = new ConcurrentHashMap<>();
     /***
@@ -134,17 +137,26 @@ public class ExtensionLoader<T> {
     private final ConcurrentMap<String, Holder<Object>> cachedInstances = new ConcurrentHashMap<>();
     /***
      * 当前拓展类型的 自适应的实现实例
+     *    在加载拓展点的实现类的时候，会检查每个拓展实现类是否添加了Adaptive注解：
+     *       如果有的话，会把这个拓展实现类缓存到cachedAdaptiveClass中，后续会根据cachedAdaptiveClass创建一个自使用的拓展实现类的实例并缓存到cachedAdaptiveInstance中。
+     *       如果没有的话，则会根据拓展点接口根据字节码生成技术创建一个默认的拓展点的自适应的实现类，并缓存到cachedAdaptiveClass中后续会根据cachedAdaptiveClass创建一个自使用的拓展实现类的实例并缓存到cachedAdaptiveInstance中。
+     *       如果在上面两步生成实例失败，则会把失败异常保存到createAdaptiveInstanceError中，这样就没必要每次都去尝试 实现类自适应的拓展类实例了。
      */
     private final Holder<Object> cachedAdaptiveInstance = new Holder<>();
     /**
      * 当前拓展类型的默认的自适应的实现类,一个拓展类型只能有一个默认的自适应的实现类
+     *    在加载拓展点的实现类的时候，会检查每个拓展实现类是否添加了Adaptive注解：
+     *       如果有的话，会把这个拓展实现类缓存到cachedAdaptiveClass中，后续会根据cachedAdaptiveClass创建一个自使用的拓展实现类的实例并缓存到cachedAdaptiveInstance中。
+     *       如果没有的话，则会根据拓展点接口根据字节码生成技术创建一个默认的拓展点的自适应的实现类，并缓存到cachedAdaptiveClass中，后续会根据cachedAdaptiveClass创建一个自使用的拓展实现类的实例并缓存到cachedAdaptiveInstance中。
      */
     private volatile Class<?> cachedAdaptiveClass = null;
     /***
      * 拓展类型对应的默认的实现类型
+     * 这个默认的是在@SPI注解里指定的额。比如：@SPI("netty")
      */
 
     private String cachedDefaultName;
+
     private volatile Throwable createAdaptiveInstanceError;
     /***
      * 缓存拓展 Wrapper 实现类集合
@@ -498,6 +510,7 @@ public class ExtensionLoader<T> {
 //    }
 
     /***
+     *   调用方法：比如 ExtensionLoader.getExtensionLoader(Protocol.class).getExtension(name)
      *      根据拓展实现类的名称获得相应的拓展实现类的实例（这里我们要注意，本身每一个ExtensionLoader都绑定了一种拓展类型）
      *      1、判断name是否为空，如果name为true,则返回默认的拓展实现类实现（通过类似@SPI("netty")定义）
      *      2、判断ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例
@@ -690,6 +703,8 @@ public class ExtensionLoader<T> {
     }
 
     /***
+     *
+     * 获得自适应的拓展对象调用方式：ExtensionLoader.getExtensionLoader(Protocol.class).getAdaptiveExtension()
      * 通过ExtensionLoader.getAdaptiveExtension获得当前拓展类对应的 adaptive类型拓展对象（这一步会对Adaptive 实例进行缓存）
      *      一个拓展点只能有一个拓展实现类持有@Adaptive注解。如果有这样的拓展实现类，则直接返回它对应的实例。
      *      如果一个拓展点并未有拓展实现类持有@Adaptive注解，则框架会为拓展点自动生成一个实现类拓展点接口的实现类，格式：type$Adaptive,会通过拓展接口自动生成实现类字符串
@@ -765,7 +780,7 @@ public class ExtensionLoader<T> {
         return new IllegalStateException(buf.toString());
     }
     /***
-     *      根据拓展点实现类的名称name对找出对应的拓展实现类，并创建实例（保证了拓展类型下的每种实现类只需要一个实例对象即可）
+     *  根据拓展点实现类的名称name对找出对应的拓展实现类，并创建实例（保证了拓展类型下的每种实现类只需要一个实例对象即可）
      *      1、根据name查询ExtensionLoader实例中的本地缓存cachedClasses集合，并获取name对应的拓展类型的实现类的Class实例。如果不存在或抛出异常
      *      2、根据Class对象查询ExtensionLoader实例中的本地缓存EXTENSION_INSTANCES，如果存放拓展类型的实现实例的EXTENSION_INSTANCES已经存在相应的实例，则直接返回该实例，否则就新建一个实例
      *      3、通过ExtensionFactory为实例对象注射初始值
@@ -963,6 +978,7 @@ public class ExtensionLoader<T> {
      * extract and cache default extension name if exists
      * 1、检查拓展类型是否有SPI注解
      * 2、判断拓展类型里是否设置了默认值：比如@SPI("netty")
+     * 3、将默认值设置到cachedDefaultName缓存里
      */
     private void cacheDefaultExtensionName() {
         final SPI defaultAnnotation = type.getAnnotation(SPI.class);
@@ -1004,7 +1020,12 @@ public class ExtensionLoader<T> {
      *            eg: org.apache.dubbo.remoting.Transporter
      * @param extensionLoaderClassLoaderFirst 默认是true
      */
-    private void loadDirectory(Map<String, Class<?>> extensionClasses, String dir, String type, boolean extensionLoaderClassLoaderFirst) {
+    private void loadDirectory(
+                               Map<String, Class<?>> extensionClasses,
+                               String dir,
+                               String type,
+                               boolean extensionLoaderClassLoaderFirst
+                            ) {
         //获得指定的文件路径 META-INF/dubbo/internal/org.apache.dubbo.common.extension.ExtensionFactory
         String fileName = dir + type;
         try {
@@ -1052,7 +1073,7 @@ public class ExtensionLoader<T> {
     private void loadResource(Map<String, Class<?>> extensionClasses, ClassLoader classLoader, java.net.URL resourceURL) {
         try {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(resourceURL.openStream(), StandardCharsets.UTF_8))) {
-                String line;
+                String line;//类名
                 while ((line = reader.readLine()) != null) {
                     final int ci = line.indexOf('#');
                     if (ci >= 0) {
@@ -1086,9 +1107,13 @@ public class ExtensionLoader<T> {
     /***
      * 获取拓展类型的实现类的class对象
      * @param extensionClasses 拓展类型
+     *              eg:
      * @param resourceURL
-     * @param clazz 拓展类型对应的具体实现类  eg: class org.apache.dubbo.common.extension.factory.SpiExtensionFactory
-     * @param name eg：spi
+     * @param clazz 拓展类型对应的具体实现类
+     *              eg: class org.apache.dubbo.common.extension.factory.SpiExtensionFactory
+     * @param name  拓展实现的类名，如果是java spi的格式的话，这里的name是空的
+     *              eg：spi
+     *
      * @throws NoSuchMethodException
      * 1、如果实现类持有 Adaptive 注解，如果有的话，作为当前拓展类型的默认的自适应的实现类，则该实现类设置为cachedAdaptiveClass
      * 2、如果当前实现类存在以拓展接口作为参数的构造函数，则表示是一个包装类。则添加到 cachedWrapperClasses里
@@ -1217,6 +1242,15 @@ public class ExtensionLoader<T> {
         }
     }
 
+    /***
+     * 获得拓展实现类的类名
+     * @param clazz 拓展实现类类型
+     *              eg：
+     * @return
+     * 1、如果当前拓展实现类设置了@Extension注解，则获得该注解的值，作为拓展实现类的拓展名
+     * 2、如果如果当前拓展实现类没有设置@Extension注解，则使用类名的前缀来作为拓展实现类的拓展名（用来兼容java spi）
+     *      eg：DubboProtocol-->dubbbo
+     */
     @SuppressWarnings("deprecation")
     private String findAnnotationName(Class<?> clazz) {
         org.apache.dubbo.common.Extension extension = clazz.getAnnotation(org.apache.dubbo.common.Extension.class);

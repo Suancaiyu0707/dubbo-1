@@ -53,7 +53,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.SERVICE_FILTER_K
  * compatible=org.apache.dubbo.rpc.filter.CompatibleFilter
  * timeout=org.apache.dubbo.rpc.filter.TimeoutFilter
  *
- *  是prtocol的一个拓展类，用于给 Invoker 增加过滤链
+ *  是protocol的一个拓展类，用于给 Invoker 增加过滤链
  *
  */
 public class ProtocolFilterWrapper implements Protocol {

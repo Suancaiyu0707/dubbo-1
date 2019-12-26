@@ -38,6 +38,7 @@ import java.lang.annotation.Target;
  * @see SPI
  * @see URL
  * @see ExtensionLoader
+ * 自动激活条件的标记
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
@@ -49,6 +50,7 @@ public @interface Activate {
      *
      * @return group names to match
      * @see ExtensionLoader#getActivateExtension(URL, String, String)
+     * Group过滤条件。如没有Group设置，则不过滤
      */
     String[] group() default {};
 
@@ -62,6 +64,9 @@ public @interface Activate {
      * @return URL parameter keys
      * @see ExtensionLoader#getActivateExtension(URL, String)
      * @see ExtensionLoader#getActivateExtension(URL, String, String)
+     *
+     * Key过滤条件。包含{@link ExtensionLoader#getActivateExtension}的URL的参数Key中有，则返回扩展。
+     *      eg:@Activate("cache,validatioin")
      */
     String[] value() default {};
 
@@ -70,6 +75,7 @@ public @interface Activate {
      * Deprecated since 2.7.0
      *
      * @return extension list which should be put before the current one
+     * 排序信息，可以不提供。
      */
     @Deprecated
     String[] before() default {};
@@ -79,6 +85,7 @@ public @interface Activate {
      * Deprecated since 2.7.0
      *
      * @return extension list which should be put after the current one
+     * 排序信息，可以不提供。
      */
     @Deprecated
     String[] after() default {};
@@ -87,6 +94,7 @@ public @interface Activate {
      * Absolute ordering info, optional
      *
      * @return absolute ordering info
+     * 排序信息，可以不提供。
      */
     int order() default 0;
 }
