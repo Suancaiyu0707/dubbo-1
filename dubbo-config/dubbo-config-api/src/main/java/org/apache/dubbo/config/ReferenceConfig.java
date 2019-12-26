@@ -293,34 +293,68 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
     }
 
     /**
-     * 根据消费端引用服务配置创建代理对象
-     * 1、判断是否本地引用，如果是本地引用，则使用协议：injvm、暴露的ip:127.0.0.1 创建一个本地引用的url。
-     *      根据url和引用服务，返回一个引用的invoker对象
-     * 2、如果不是本地引用的化，那么就走远程引用
-     * 3、如果配置了check=true,则需要检查提供者服务是否可用(这个是开启 启动时检查)
+     * 根据服务引用信息生成指向远程服务地址的代理对象
+     * @param map  服务引用的配置参数：
+     *              0 = {HashMap$Node@3155} "init" -> "false"
+     *              1 = {HashMap$Node@3156} "side" -> "consumer"
+     *              2 = {HashMap$Node@3157} "register.ip" -> "220.250.64.225"
+     *              3 = {HashMap$Node@3158} "release" ->
+     *              4 = {HashMap$Node@3159} "methods" -> "sayHello"
+     *              5 = {HashMap$Node@3160} "lazy" -> "false"
+     *              6 = {HashMap$Node@3161} "sticky" -> "false"
+     *              7 = {HashMap$Node@3162} "dubbo" -> "2.0.2"
+     *              8 = {HashMap$Node@3163} "pid" -> "73168"
+     *              9 = {HashMap$Node@3164} "interface" -> "org.apache.dubbo.demo.StubService"
+     *              10 = {HashMap$Node@3165} "timestamp" -> "1577351546755"
+     * @return
+     * 	1、如果是jvm内部调用：
+     * 		定义一个jvm内部调用的URL:
+     * 			protocol：Injvm
+     * 			host：127.0.0.1
+     * 			port：0
+     * 			path：serviceName,eg：org.apache.dubbo.demo.StubService
+     * 		protocol$Adapative对象会根据url的参数里的协议protocol获得对应的实现InjvmProtocol，并返回代理对象Invoker
+     * 	2、如果不是jvm内部调用
+     * 		获得远程调用的请求地址列表(注册中心的列表，如果是直连的话，则是直连地址的列表)：
+     * 			a、如果<dubbo:reference>配置了url属性，则根据','号进行分割。
+     * 				1）如果url未设置path属性，则设置path为服务名称，比如：org.apache.dubbo.demo.StubService
+     * 				2）如果url是一个注册中心地址，则表示通过注册中心进行远程调用：则将请求参数拼接并作为url的refer属性
+     * 				3）如果url不是一个注册中心地址的话，则表示直连：则会将url的键值配置和接口配置的参数进行合并
+     * 			b、如果<dubbo:reference>没有配置url属性，则表示通过注册中心来进行远程调用
+     * 				获取注册中心的地址列表urls
+     * 				参数处理注册中心的地址url
+     * 		遍历注册中心/直连地址，根据每个注册中心/直连地址生成一个用于相应的远程服务调用的代理对象invoker。
+     *
+     * 	生成invoker时候做了哪些工作了呢？
+     * 		a、根据注册中心地址获得注册中心客户端实例，并向注册中心地址注册当前提供者，并订阅远程服务的configurators/providers/routers路径，用于监听消费的服务的配置变更
+     * 		b、根据集群的负载均衡算法从注册中心的服务提供者列表中选举出一个服务提供者。
+     * 		c、根据选举出来的服务提供者地址，创建一个NettyClient.
+     * 		c、为选举出来的服务远程服务的调用的代理调用invoker绑定相应的过滤链，便于在服务调用过程中，进行过滤等处理。
+     * 	3、如果消费端配置了check属性,则会校验远程服务代理对象invoker是否可用。
+     * 	4、根据远程调用服务的代理对象invoker生成一个代理实例
      */
     private T createProxy(Map<String, String> map) {
         if (shouldJvmRefer(map)) {//判断是否injvm协议注册，是否内部访问
-            // 创建服务引用 URL 对象
+            // 创建一个jvm内部服务引用的 URL 对象。协议：injvm ；127.0.0.1
             URL url = new URL(LOCAL_PROTOCOL, LOCALHOST_VALUE, 0, interfaceClass.getName()).addParameters(map);
-            // 引用服务，返回 Invoker 对象
+            // 引用服务，返回 Invoker 对象（协议REF_PROTOCOL或根据url参数查找匹配的InjvmProtocol并调用）
             invoker = REF_PROTOCOL.refer(interfaceClass, url);
             if (logger.isInfoEnabled()) {
                 logger.info("Using injvm service " + interfaceClass.getName());
             }
-        } else {//远程引用
+        } else {//如果不是内部调用，也就是远程调用的话
             urls.clear();
             if (url != null && url.length() > 0) { // 如果<dubbo:reference>配置了url属性,则可以通过点对点的直连，或者通过注册中心地址。
-                String[] us = SEMICOLON_SPLIT_PATTERN.split(url);
+                String[] us = SEMICOLON_SPLIT_PATTERN.split(url);//按照','分割
                 if (us != null && us.length > 0) {
                     for (String u : us) {
                         URL url = URL.valueOf(u);
                         if (StringUtils.isEmpty(url.getPath())) {
-                            url = url.setPath(interfaceName);
+                            url = url.setPath(interfaceName);//默认的path属性是接口名
                         }
-                        if (UrlUtils.isRegistry(url)) {
+                        if (UrlUtils.isRegistry(url)) {//如果url地址是注册中心
                             urls.add(url.addParameterAndEncoded(REFER_KEY, StringUtils.toQueryString(map)));
-                        } else {
+                        } else {//如果url地址是不是注册中心，也就是直连调用
                             urls.add(ClusterUtils.mergeUrl(url, map));
                         }
                     }
