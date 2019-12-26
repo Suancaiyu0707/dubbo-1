@@ -174,7 +174,8 @@ public class ExtensionLoader<T> {
     }
 
     /***
-     * 根据接口类型，获取对应的拓展类加载器，用于加载拓展类。
+     * 根据接口类型，获取对应的拓展类加载器，用于加载拓展类。这步只是为一种拓展类型初始化一个ExtensionLoader并绑定一个ExtensionFactory.
+     *      其中ExtensionFactory的目的是用于在初始化拓展实现类实例的时候，为拓展实现类实例注入依赖的拓展点。
      * 接口的拓展类加载器会放到内存里(这一步会是针对CLASSLOADER的缓存)
      * @param type
      * @param <T>
@@ -271,12 +272,12 @@ public class ExtensionLoader<T> {
 
     /**
      * This is equivalent to {@code getActivateExtension(url, key, null)}
-     *
+     *  代码调用： List<RouterFactory> extensionFactories = ExtensionLoader.getExtensionLoader(RouterFactory.class).getActivateExtension(url, "router");
      * @param url url
      * @param key url parameter key which used to get extension point names
      * @return extension list which are activated.
      * @see #getActivateExtension(org.apache.dubbo.common.URL, String, String)
-     * 根据url上的索引key，来激活相应的Activate实现类
+     *      根据url上的索引key，来激活相应的Activate实现类
      */
     public List<T> getActivateExtension(URL url, String key) {
         return getActivateExtension(url, key, null);
@@ -284,7 +285,7 @@ public class ExtensionLoader<T> {
 
     /**
      * This is equivalent to {@code getActivateExtension(url, values, null)}
-     *
+     *代码调用： List<RouterFactory> extensionFactories = ExtensionLoader.getExtensionLoader(RouterFactory.class).getActivateExtension(url, "router");
      * @param url    url
      * @param values extension point names
      * @return extension list which are activated
@@ -297,7 +298,7 @@ public class ExtensionLoader<T> {
 
     /**
      * This is equivalent to {@code getActivateExtension(url, url.getParameter(key).split(","), null)}
-     *
+     *  代码调用： List<RouterFactory> extensionFactories = ExtensionLoader.getExtensionLoader(RouterFactory.class).getActivateExtension(url, "router");
      * @param url   请求的url
      * @param key   用于从请求url获取指定key的值，再根据这个值获取对应的拓展类 eg: service.filter
      * @param group group eg： provider
@@ -321,8 +322,9 @@ public class ExtensionLoader<T> {
      * @param group   eg: provider
      * @return extension list which are activated
      * @see org.apache.dubbo.common.extension.Activate
-     *
+     *  代码调用： List<RouterFactory> extensionFactories = ExtensionLoader.getExtensionLoader(RouterFactory.class).getActivateExtension(url, "router");
      * 根据url上的属性key，来激活相应的Activate实现类
+     *      像RouterFactory的一些拓展实现类就会带有Activate这个注解，这些实现类有：TagRouterFactory、ServiceRouterFactory、MockRouterFactory。这些拓展实现类在加载拓展点的时候同时也就会被添加到cachedActivates中
      *
      *  如果values不包含 '-default'
      *      1、遍历所有的values
@@ -337,7 +339,8 @@ public class ExtensionLoader<T> {
         //遍历所有的values
         if (!names.contains(REMOVE_VALUE_PREFIX + DEFAULT_KEY)) {//如果names不包含'-default'
             getExtensionClasses();//获得当前拓展类型所有的拓展类
-            //遍历当前拓展类下的所有普通拓展类 Activate注解的实现类
+            //在从配置文件加载拓展点的实现类的时候，会判断拓展实现类是否持有注解Activate，如果有的话，会被缓存到cachedActivates里。
+            // 遍历当前拓展类下的所有普通拓展类 Activate注解的实现类
             for (Map.Entry<String, Object> entry : cachedActivates.entrySet()) {
                 String name = entry.getKey();//Activate的名称
                 Object activate = entry.getValue();
@@ -358,6 +361,7 @@ public class ExtensionLoader<T> {
                         && !names.contains(name)
                         && !names.contains(REMOVE_VALUE_PREFIX + name)
                         && isActive(activateValue, url)) {
+                    //获得拓展类实现类的实例
                     exts.add(getExtension(name));
                 }
             }
@@ -492,10 +496,11 @@ public class ExtensionLoader<T> {
 //
 //    }
 
-    /***获得普通拓展类，根据name返回拓展类型对应的实现类的实例（这里我们要注意，本身每一个ExtensionLoader都绑定了一种拓展类型）
-     *      1、判断name是否为空，如果name为true,则返回默认的拓展类实现
+    /***
+     *      根据拓展实现类的名称获得相应的拓展实现类的实例（这里我们要注意，本身每一个ExtensionLoader都绑定了一种拓展类型）
+     *      1、判断name是否为空，如果name为true,则返回默认的拓展实现类实现（通过类似@SPI("netty")定义）
      *      2、判断ExtensionLoader的本地缓存cachedInstances是否包含name对应的实现类类型的实例
-     *      3、如果name没有对应的实例，则根据name对应的Class创建一个实例并返回
+     *      3、如果name没有对应的实例，则根据name对应的拓展实现类创建并绑定一个Holder对象，同时为Holder绑定一个拓展实现类实例
      * 根据name从cachedInstances集合中获取配置的拓展类
      *        0 = {ConcurrentHashMap$MapEntry@3976} "registry" ->
      *      * 1 = {ConcurrentHashMap$MapEntry@3977} "injvm" ->
@@ -506,6 +511,7 @@ public class ExtensionLoader<T> {
         if (StringUtils.isEmpty(name)) {//判断name是否为空
             throw new IllegalArgumentException("Extension name == null");
         }
+        //如果name为true,则返回默认的拓展实现类实现（通过类似@SPI("netty")定义）
         if ("true".equals(name)) {
             return getDefaultExtension();
         }//本地内存里为每一类name维护一个Holder
@@ -674,9 +680,20 @@ public class ExtensionLoader<T> {
 
     /***
      * 通过ExtensionLoader.getAdaptiveExtension获得当前拓展类对应的 adaptive类型拓展对象（这一步会对Adaptive 实例进行缓存）
+     *      一个拓展点只能有一个拓展实现类持有@Adaptive注解。如果有这样的拓展实现类，则直接返回它对应的实例。
+     *      如果一个拓展点并未有拓展实现类持有@Adaptive注解，则框架会为拓展点自动生成一个实现类拓展点接口的实现类，格式：type$Adaptive,会通过拓展接口自动生成实现类字符串
+     *          1、为接口每个有Adaptive注解的方法生成默认的实现：
+     *                  每个有Adaptive注解的方法必须带有URL类型的参数
+     *          2、没有Adaptive注解的方法生成的实现里只有一行内容：
+     *                "throw new UnsupportedOperationException(\"The method %s of interface %s is not adaptive method!\");\n"
+     *          3、这样每个默认实现会从URL中提取Adaptive参数值，并以此为依据动态加载拓展点
      *
      * @return
-     * 1、先双重检查当前拓展类型是否已存在适配的：AdaptiveExtension
+     * 1、先双重检查当前拓展类型是否已存在自适应的拓展实现类的实例：AdaptiveExtension
+     *      在加载拓展点的实现类的时候，会检查每个拓展实现类是否添加了Adaptive注解：
+     *          如果有的话，会把这个拓展实现类缓存到cachedAdaptiveClass中，后续会根据cachedAdaptiveClass创建一个自使用的拓展实现类的实例并缓存到cachedAdaptiveInstance中。
+     *          如果没有的话，则会根据拓展点接口根据字节码生成技术创建一个默认的拓展点的自适应的实现类，并缓存到cachedAdaptiveClass中后续会根据cachedAdaptiveClass创建一个自使用的拓展实现类的实例并缓存到cachedAdaptiveInstance中。
+     *          如果在上面两步生成实例失败，则会把失败异常保存到createAdaptiveInstanceError中，这样就没必要每次都去尝试 实现类自适应的拓展类实例了。
      * 2、如果缓存里没有，则新建一个自适应的拓展类实现
      */
     @SuppressWarnings("unchecked")
@@ -693,6 +710,7 @@ public class ExtensionLoader<T> {
                 instance = cachedAdaptiveInstance.get();
                 if (instance == null) {
                     try {//创建一个自适应的拓展实例
+
                         instance = createAdaptiveExtension();
                         cachedAdaptiveInstance.set(instance);
                     } catch (Throwable t) {
@@ -730,16 +748,18 @@ public class ExtensionLoader<T> {
         }
         return new IllegalStateException(buf.toString());
     }
-    /***创建name对应的拓展类型的实现类的实例（保证了拓展类型下的每种实现类只需要一个实例对象即可）
+    /***
+     *      根据拓展点实现类的名称name对找出对应的拓展实现类，并创建实例（保证了拓展类型下的每种实现类只需要一个实例对象即可）
      *      1、根据name查询ExtensionLoader实例中的本地缓存cachedClasses集合，并获取name对应的拓展类型的实现类的Class实例。如果不存在或抛出异常
      *      2、根据Class对象查询ExtensionLoader实例中的本地缓存EXTENSION_INSTANCES，如果存放拓展类型的实现实例的EXTENSION_INSTANCES已经存在相应的实例，则直接返回该实例，否则就新建一个实例
      *      3、通过ExtensionFactory为实例对象注射初始值
-     *      4、循环遍历定义了包含拓展类型的构造方法的实现类，如果存在这样的构造方法，则会优先级使用带有接口类型的构造方法来实例化对象
+     *      4、如果拓展点下有包装类实现，则实现类的实例包装成一个包装对象
+     *      5、循环遍历定义了包含拓展类型的构造方法的实现类，如果存在这样的构造方法，则会优先级使用带有接口类型的构造方法来实例化对象
      */
     @SuppressWarnings("unchecked")
     private T createExtension(String name) {
-        //根据name查找拓展类型下对应的拓展类的实现的Class对象
         /***
+         * 找出对应的拓展实现类
          * 查找本地内存classes，是否已加载对应拓展类型所有的实现类的Class对象
          * @return
          * 1、如果cachedClasses不为空，则表示该拓展类型已加载过，那么就无需在加载了，直接返回
@@ -758,8 +778,9 @@ public class ExtensionLoader<T> {
                 EXTENSION_INSTANCES.putIfAbsent(clazz, clazz.newInstance());
                 instance = (T) EXTENSION_INSTANCES.get(clazz);
             }
-            injectExtension(instance);//通过ExtensionFactory为实例对象注射初始值
+            injectExtension(instance);//通过ExtensionFactory为实例对象注入初始值
             Set<Class<?>> wrapperClasses = cachedWrapperClasses;
+            //如果拓展点下有包装类实现，则实现类的实例包装成一个包装对象
             if (CollectionUtils.isNotEmpty(wrapperClasses)) {
                 for (Class<?> wrapperClass : wrapperClasses) {
                     instance = injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));
@@ -1197,7 +1218,7 @@ public class ExtensionLoader<T> {
     @SuppressWarnings("unchecked")
     /**
      * 创建自适应的Adaptive 拓展对象实例
-     * 1、获得 拓展类型的 Adaptive 实现类的实例，如果没有实现类配置了@Adaptive，则要根据拓展类型编译生成一个默认的 type$Adaptive 实现类型
+     * 1、获得 拓展类型的 Adaptive 实现类的实例，如果没有实现类配置了@Adaptive，则要根据拓展类型编译生成一个默认的 type$Adaptive 实现类型，并根据这个类型创建一个实例
      * 2、为拓展类型的Adaptive实现类 注入依赖属性
      */
     private T createAdaptiveExtension() {
@@ -1222,19 +1243,29 @@ public class ExtensionLoader<T> {
         if (cachedAdaptiveClass != null) {//检查这个拓展类是否有默认的自适应类，有的话，直接返回
             return cachedAdaptiveClass;
         }//没有的话，采用字节码增强，生成一个自适应的实现类cachedAdaptiveClass
+             /* 1、为接口每个有Adaptive注解的方法生成默认的实现：
+              *        每个有Adaptive注解的方法必须带有URL类型的参数
+              * 2、没有Adaptive注解的方法生成的实现里只有一行内容：
+              *      "throw new UnsupportedOperationException(\"The method %s of interface %s is not adaptive method!\");\n"
+              * 3、这样每个默认实现会从URL中提取Adaptive参数值，并以此为依据动态加载拓展点
+              *
+              */
         return cachedAdaptiveClass = createAdaptiveExtensionClass();
     }
 
     /***
      * 通过拓展接口类型生成字节码，并反编译生成 默认的 type$Adaptive 实现类型
      * @return
+     *
      */
     private Class<?> createAdaptiveExtensionClass() {
         /***
          * 通过拓展接口自动生成实现类字符串
-         * 1、为接口每个有Adaptive注解的方法生成默认的实现
-         * 2、没有Adaptive注解的方法生成空实现
-         * 3、每个默认实现会从URL中提取Adaptive参数值，并以此为依据动态加载拓展点
+         * 1、为接口每个有Adaptive注解的方法生成默认的实现：
+         *        每个有Adaptive注解的方法必须带有URL类型的参数
+         * 2、没有Adaptive注解的方法生成的实现里只有一行内容：
+         *      "throw new UnsupportedOperationException(\"The method %s of interface %s is not adaptive method!\");\n"
+         * 3、这样每个默认实现会从URL中提取Adaptive参数值，并以此为依据动态加载拓展点
          */
         String code = new AdaptiveClassCodeGenerator(type, cachedDefaultName).generate();
         ClassLoader classLoader = findClassLoader();

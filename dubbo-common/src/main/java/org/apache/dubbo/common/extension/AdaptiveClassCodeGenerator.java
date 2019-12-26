@@ -155,12 +155,18 @@ public class AdaptiveClassCodeGenerator {
 
     /**
      * generate method declaration
+     * 根据接口方法生成方法实现的信息
      */
     private String generateMethod(Method method) {
+        //生成方法返回类型
         String methodReturnType = method.getReturnType().getCanonicalName();
+        //生成方法名称
         String methodName = method.getName();
+        //生成方法内容
         String methodContent = generateMethodContent(method);
+        //生成方法参数
         String methodArgs = generateMethodArguments(method);
+        //为方法生成抛出的异常
         String methodThrows = generateMethodThrows(method);
         return String.format(CODE_METHOD_DECLARATION, methodReturnType, methodName, methodArgs, methodThrows, methodContent);
     }
@@ -199,12 +205,13 @@ public class AdaptiveClassCodeGenerator {
      * generate method content
      */
     private String generateMethodContent(Method method) {
+        //获得方法的注解 Adaptive
         Adaptive adaptiveAnnotation = method.getAnnotation(Adaptive.class);
         StringBuilder code = new StringBuilder(512);
-        if (adaptiveAnnotation == null) {
+        if (adaptiveAnnotation == null) {//如果方法上没有注解，则生成的方法内容只包含抛出异常的内容
             return generateUnsupported(method);
-        } else {
-            int urlTypeIndex = getUrlTypeIndex(method);
+        } else {//如果方法上有Adaptive注解
+            int urlTypeIndex = getUrlTypeIndex(method);//获得方法的参数URL类型的索引位置
 
             // found parameter in URL type
             if (urlTypeIndex != -1) {
