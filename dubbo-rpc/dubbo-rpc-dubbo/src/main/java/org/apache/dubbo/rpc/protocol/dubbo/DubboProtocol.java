@@ -461,7 +461,8 @@ public class DubboProtocol extends AbstractProtocol {
     }
 
     /***
-     * 根据引用的服务提供者的地址，创建客户端连接NettyClient
+     *
+     * 根据引用的服务提供者的地址，获得连接服务提供者的远程通信客户端数组：NettyClient
      * @param url dubbo://220.250.64.225:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=63743&register.ip=220.250.64.225&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1576754446869
      * @return
      * 获得连接到服务提供者的客户端连接数组NettyClient.
@@ -469,14 +470,13 @@ public class DubboProtocol extends AbstractProtocol {
      *      2、如果<dubbo:reference>没有connections属性值，则这个服务引用会使用共享的NettyClient连接。
      */
     private ExchangeClient[] getClients(URL url) {
-        // whether to share connection
-
+        // 是否共享连接
         boolean useShareConnect = false;
         //从url中获取connections配置，默认是0
         int connections = url.getParameter(CONNECTIONS_KEY, 0);
         List<ReferenceCountExchangeClient> shareClients = null;
         // if not configured, connection is shared, otherwise, one connection for one service
-        if (connections == 0) {//如果connections=0，则使用共享的连接
+        if (connections == 0) {//如果connections=0，默认共享
             useShareConnect = true;
 
             /**
@@ -490,10 +490,10 @@ public class DubboProtocol extends AbstractProtocol {
         //返回指向服务端的共享的客户端连接数组：ExchangeClient
         ExchangeClient[] clients = new ExchangeClient[connections];
         for (int i = 0; i < clients.length; i++) {
-            if (useShareConnect) {
+            if (useShareConnect) {// 共享
                 clients[i] = shareClients.get(i);
 
-            } else {
+            } else {// 不共享
                 clients[i] = initClient(url);
             }
         }
