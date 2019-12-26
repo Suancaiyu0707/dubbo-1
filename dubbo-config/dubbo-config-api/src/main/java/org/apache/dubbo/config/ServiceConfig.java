@@ -650,10 +650,13 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                             registryURL = registryURL.addParameter(PROXY_KEY, proxy);
                         }
                         /***
+                         *
                          * 1、根据以下三个参数创建并缓存Invoker代理对象，该invoker代理对象指向真正的对象ref。代理方式通过 proxy属性指定，默认是javassist
                          *      ref：被代理的实例
                          *      interfaceClass：服务接口类型
                          *      registryURL：注册地址信息对象
+                         *    JavassistProxyFactory：创建wrapper子类，在子类中实现invokeMethod方法，方法内为每个ref方法做参数名和参数校验，然后直接调用，减少了反射调用的开销
+                         *    JdkProxyFactory：通过反射获取真实对象的方法，然后进行调用即可
                          * 2、把代理对象包装成一个DelegateProviderMetaDataInvoker
                          * 3、通过RegistryProtocol 暴露服务（RegistryProtocol在将自己服务注册地址注册到注册中心的同时，会调用DubboProtocol将具体服务通过NettyServer暴露出去，方便其它服务调用）
                          *      整个流程如下：

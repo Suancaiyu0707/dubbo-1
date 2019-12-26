@@ -27,6 +27,7 @@ import java.lang.reflect.Proxy;
 
 /**
  * JdkRpcProxyFactory
+ * jdk代理对象工厂：通过反射获取真实对象的方法，然后进行调用即可
  */
 public class JdkProxyFactory extends AbstractProxyFactory {
 
