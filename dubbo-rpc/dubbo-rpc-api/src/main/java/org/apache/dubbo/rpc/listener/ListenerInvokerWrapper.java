@@ -34,11 +34,22 @@ import java.util.List;
 public class ListenerInvokerWrapper<T> implements Invoker<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(ListenerInvokerWrapper.class);
-
+    /**
+     * 真实的 Invoker 对象
+     */
     private final Invoker<T> invoker;
-
+    /**
+     * Invoker 监听器数组
+     */
     private final List<InvokerListener> listeners;
 
+    /**
+     *
+     * @param invoker
+     * @param listeners
+     * 循环 listeners ，执行 InvokerListener#referred(invoker) 方法.
+     * 和 ListenerExporterWrapper 不同，若执行过程中发生异常 RuntimeException ，仅打印错误日志，继续执行，最终不抛出异常。
+     */
     public ListenerInvokerWrapper(Invoker<T> invoker, List<InvokerListener> listeners) {
         if (invoker == null) {
             throw new IllegalArgumentException("invoker == null");
@@ -46,11 +57,12 @@ public class ListenerInvokerWrapper<T> implements Invoker<T> {
         this.invoker = invoker;
         this.listeners = listeners;
         if (CollectionUtils.isNotEmpty(listeners)) {
-            for (InvokerListener listener : listeners) {
+            for (InvokerListener listener : listeners) {//循环 listeners ，执行 InvokerListener#referred(invoker) 方法
                 if (listener != null) {
                     try {
                         listener.referred(invoker);
                     } catch (Throwable t) {
+                        //和 ListenerExporterWrapper 不同，若执行过程中发生异常 RuntimeException ，仅打印错误日志，继续执行，最终不抛出异常。
                         logger.error(t.getMessage(), t);
                     }
                 }

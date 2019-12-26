@@ -34,6 +34,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.LOCALHOST_VALUE;
 class InjvmInvoker<T> extends AbstractInvoker<T> {
     /**
      * 所引用的服务
+     *  eg:org.apache.dubbo.demo.StubService
      */
     private final String key;
     /***
@@ -61,7 +62,7 @@ class InjvmInvoker<T> extends AbstractInvoker<T> {
     }
 
     /***
-     * 判断服务所引用的key
+     * 判断是否有 Exporter 对象
      * @return
      */
     @Override
