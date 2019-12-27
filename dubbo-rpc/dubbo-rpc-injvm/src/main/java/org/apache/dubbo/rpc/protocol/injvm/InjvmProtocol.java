@@ -36,7 +36,7 @@ import static org.apache.dubbo.rpc.Constants.GENERIC_KEY;
 import static org.apache.dubbo.rpc.Constants.LOCAL_PROTOCOL;
 
 /**
- * InjvmProtocol
+ * InjvmProtocol：这个协议比较特殊，不做端口打开操作，仅仅是把服务保存到内存而已。
  * 我们可以发现，服务本地注册的话，其实就是在本地维护一个hashMap内存：
  *      key：org.apache.dubbo.demo.StubService
  *      value：InjvmExporter对象，对象属性

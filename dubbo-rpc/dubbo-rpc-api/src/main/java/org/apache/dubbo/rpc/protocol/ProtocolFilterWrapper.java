@@ -180,7 +180,7 @@ public class ProtocolFilterWrapper implements Protocol {
      * @throws RpcException
      * 1、判断是registry或者service-discovery-registry的url，表示需要把自己注册到注册中心上，以便于远程服务发现自己：
      *       将自己注册到注册中心上去，RegistryProtocol的export会走到这个分支。
-     * 2、如果不是registry或者service-discovery-registry的url，则通常是真正的将注册暴露出去，便于别人调用：
+     * 2、如果不是registry或者service-discovery-registry的url，则通常是真正的将服务暴露出去，便于别人调用：
      *      如果本地暴露，也就是不需要对外暴露，这个时候协议是通过InjvmProtocol.export将自己的暴露关系维护到内存中，并不会通过网络暴露出去。
      *      如果是远程暴露的话，除了上面它会把自己地址添加到注册中心后，就需要通过NettyServer将自己真正暴露出去，这样可以保证能接收到远程服务的请求。
      */
@@ -191,7 +191,7 @@ public class ProtocolFilterWrapper implements Protocol {
             return protocol.export(invoker);
         }
         // 真正将服务暴露出去，通过本地内存(如果是本地暴露的话)或NettyServer(如果是远程暴露的话)将自己暴露出去。InjvmProtocol或DubboProtocol的export会走到这个分支:
-        //      先为Invoker绑定一个过滤链，然后暴露服务提供者
+        //      先为Invoker绑定一个过滤链（这里提供的是provider端分组），然后暴露服务提供者
         return protocol.export(buildInvokerChain(invoker, SERVICE_FILTER_KEY, CommonConstants.PROVIDER));
     }
 

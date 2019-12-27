@@ -203,7 +203,7 @@ public class RegistryProtocol implements Protocol {
      *      %26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse
      *      %26interface%3Dorg.apache.dubbo.demo.AsyncService2%26methods%3DsayHello%26pid%3D22219%26release%3D%26side%3Dprovider
      *      %26timestamp%3D1576066567127&pid=22219&qos.port=22222&timestamp=1576066538747
-     *  2、从服务的zookeeper注册地址registryUrl获得export属性值，也就是服务提供者的地址，用于DubboProtocol进行服务暴露：
+     *  2、从服务的zookeeper注册地址registryUrl获得export属性值，也就是服务提供者的地址URL，并用URL对应的协议进行服务暴露。这一步会创建NettyServer监听端口和保存服务实例：
      *      providerUrl=dubbo://192.168.44.56:20880/org.apache.dubbo.demo.AsyncService2?
      *      anyhost=true&bean.name=org.apache.dubbo.demo.AsyncService2&bind.ip=192.168.44.56&bind.port=20880
      *      &deprecated=false&dubbo=2.0.2&dynamic=true&generic=false
@@ -219,9 +219,9 @@ public class RegistryProtocol implements Protocol {
      *  5、将configurators里对应的providerUrl的配置参数合并到当前的providerUrl里，并监听configurators下对该服务的地址的配置的变化
      *  6、将originInvoker包装成一个ExporterChangeableWrapper。同时会创建一个NettyServer，用于接收客户端的地址。
      *          这里才是真正的暴露服务，会调用DubboProtocol将服务通过nettyServer暴露出去。
-     *  7、维护和注册中心的连接，返回一个注册中心对象。(这步才是真正的将自己注册到注册中心上去)
-     *  8、将当前服务originInvoker注册到注册中心上，同时订阅监听configurators路径
-     *
+     *  7、创建注册中心读写，与注册中心创建TCP连接。(这步才是真正的将自己注册到注册中心上去)
+     *  8、注册服务元数据到注册中心
+     *  9、将当前服务originInvoker注册到注册中心上，同时订阅监听configurators节点，监听服务动态属性变更事件
      *  注意：
      *      RegistryProtocol会在这里再次调用 Protocol$Adaptive 获取到的是 DubboProtocol 对象，进行服务暴露。也就是上面的第5步
      *
@@ -241,22 +241,19 @@ public class RegistryProtocol implements Protocol {
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);//为订阅地址绑定对应的监听器
         //获得服务提供者地址
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
-        //export invoker 将originInvoker包装成一个ExporterChangeableWrapper。同时为创建一个NettyServer，用于接收客户端的地址
+        //export invoker 将originInvoker包装成一个ExporterChangeableWrapper。创建NettyServer监听端口和保存服务实例
         //所以这里会调用DubboProtocol将服务通过nettyServer暴露出去
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
-        //获得注册中心对象
+        //创建注册中心实例
         final Registry registry = getRegistry(originInvoker);//zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&interface=org.apache.dubbo.registry.RegistryService&pid=22219&qos.port=22222&timestamp=1576065462096
         final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);//dubbo://192.168.44.56:20880/org.apache.dubbo.demo.EventNotifyService?anyhost=true&bean.name=org.apache.dubbo.demo.EventNotifyService&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&group=cn&interface=org.apache.dubbo.demo.EventNotifyService&methods=get&pid=22219&release=&revision=1.0.0&side=provider&timestamp=1576065463228&version=1.0.0
         //to judge if we need to delay publish
         //判断是否需要延迟暴露
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
-        if (register) {//服务提供者注册服务,会在zk上创建一个路径
-            //将当前服务originInvoker注册到注册中心上
+        if (register) {//服务暴露后，注册服务元数据服务,会在zk上创建一个路径
             register(registryUrl, registeredProviderUrl);
         }
-        //
-        // Deprecated! Subscribe to override rules in 2.6.x or before.
         //订阅监听configurators路径
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
 
