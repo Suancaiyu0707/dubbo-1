@@ -515,7 +515,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                 //consumer端可能支持多种协议，并用逗号分隔，这里会转成数组
                 String[] acceptProtocols = queryProtocols.split(",");
                 for (String acceptProtocol : acceptProtocols) {
-                    // provider提供者的协议是否属于consumer支持的多中协议种的一种，如果是，则直接返回true
+                    //根据消费方protocol配置过滤不匹配协议。provider提供者的协议是否属于consumer支持的多中协议种的一种，如果是，则直接返回true
                     if (providerUrl.getProtocol().equals(acceptProtocol)) {
                         accept = true;
                         break;
@@ -537,7 +537,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             URL url = mergeUrl(providerUrl);
             // url 参数拼接的字符串且被排序了，
             String key = url.toFullString(); // The parameter urls are sorted
-            if (keys.contains(key)) { // Repeated url
+            if (keys.contains(key)) { // 忽略重复推送的服务列表
                 // 忽略重复 key
                 continue;
             }
@@ -557,7 +557,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                         enabled = url.getParameter(ENABLED_KEY, true);
                     }
                     if (enabled) {
-                        // 调用 Protocol 的 refer 方法构建获取 Invoker，
+                        // 调用 Protocol 的 refer 方法构建获取 Invoker。会使用具体的协议创建远程连接
                         // 具体调用流程是 refer(ProtocolListenerWrapper) -> refer(ProtocolFilterWrapper) -> refer(AbstractProtocol)
                         invoker = new InvokerDelegate<>(protocol.refer(serviceType, url), url, providerUrl);
                     }

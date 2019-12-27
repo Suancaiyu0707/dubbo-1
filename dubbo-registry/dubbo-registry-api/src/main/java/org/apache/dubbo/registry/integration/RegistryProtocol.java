@@ -528,16 +528,18 @@ public class RegistryProtocol implements Protocol {
      *            eg:zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=60066&qos.port=33333&refer=dubbo%3D2.0.2%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.StubService%26lazy%3Dfalse%26methods%3DsayHello%26pid%3D60066%26register.ip%3D220.250.64.225%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1576820056821&timestamp=1576820058061
      * @param <T>
      * @return
-     * 1、根据引用接口，获得服务端引用的路径：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=63743&register.ip=220.250.64.225&side=consumer&sticky=false&timestamp=1576822403501
+     * 1、根据引用接口，获得服务端引用的RegistryDirectory：zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=63743&register.ip=220.250.64.225&side=consumer&sticky=false&timestamp=1576822403501
+     *      directory：持有实际Invoker和接收订阅通知
      * 2、根据注册中心的注册地址directory订阅的路径 subscribeUrl：
      *      这里获得subscribeUrl主要是用于消费端订阅这个服务对应的目录路径：providers、configurators、routers
      * 3、将consumer地址注册到注册中心上去
-     * 4、消费端根据subscribeUrl订阅引用服务的 providers、configurators、routers
+     * 4、消费端根据subscribeUrl地址通过注册中心订阅服务的 providers、configurators、routers
+     *      注意：客户端在第一次发起订阅时会进行一次数据拉去操作，同时出发RegistryDirectory#notify方法，这里的通知是某一个类别的全量数据，比如providers和routers列表数据。
      * 5、集群策略算法根据/dubbo/org.apache.dubbo.demo.StubService/providers/目录下的服务提供者选择一个服务，生成invoker引用对象并返回。
      */
     private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url) {
         //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=41141&register.ip=220.250.64.225&side=consumer&sticky=false&timestamp=1576810746199
-        RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);
+        RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);//directory：持有实际Invoker和接收订阅通知
         directory.setRegistry(registry);
         directory.setProtocol(protocol);
         // 创建订阅 URL
@@ -549,10 +551,11 @@ public class RegistryProtocol implements Protocol {
             registry.register(directory.getRegisteredConsumerUrl());//将服务引用者的服务地址注册到注册中心上去
         }
         directory.buildRouterChain(subscribeUrl);//为订阅者绑定路由链
-        // 向注册中心订阅服务提供者
+        // 通过注册中心订阅服务提供者、路由和动态配置
+        //注意：客户端在第一次发起订阅时会进行一次数据拉去操作，同时出发RegistryDirectory#notify方法，这里的通知是某一个类别的全量数据
         directory.subscribe(subscribeUrl.addParameter(CATEGORY_KEY,
                 PROVIDERS_CATEGORY + "," + CONFIGURATORS_CATEGORY + "," + ROUTERS_CATEGORY));//添加服务引用者需要订阅的category：providers/configurators/routers
-        // 创建 Invoker 对象
+        //通过Cluster合并Invokers
         Invoker invoker = cluster.join(directory);
         return invoker;
     }

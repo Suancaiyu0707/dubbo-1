@@ -293,7 +293,10 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
     }
 
     /**
-     * 根据服务引用信息生成指向远程服务地址的代理对象
+     * 根据服务引用信息生成指向远程服务地址的代理对象。生成的代理对象Invoker包含了网络连接、服务调用和重试等功能。和服务端不一样，在客户端，它可以一个远程的实现，也可以是一个集群的实现。
+     *      注意，如果配置了服务同时注册多个注册中心，则会在这里被合并成一个Invoker
+     *      第一步：通过持有远程服务实例生成Invoker,这个Invoker在客户端是核心的远程代理对象
+     *      第二步：Invoker通过动态代理转换成实现用户接口的动态代理引用。
      * @param map  服务引用的配置参数：
      *              0 = {HashMap$Node@3155} "init" -> "false"
      *              1 = {HashMap$Node@3156} "side" -> "consumer"
@@ -331,11 +334,12 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
      * 		c、根据选举出来的服务提供者地址，创建一个NettyClient.
      * 		c、为选举出来的服务远程服务的调用的代理调用invoker绑定相应的过滤链，便于在服务调用过程中，进行过滤等处理。
      * 	3、如果消费端配置了check属性,则会校验远程服务代理对象invoker是否可用。
+     * 	4、如果是多注册中心实例，则会通过Cluster将多个Invoker转换成一个Invoker
      * 	4、根据远程调用服务的代理对象invoker生成一个代理实例
      */
     private T createProxy(Map<String, String> map) {
         if (shouldJvmRefer(map)) {//判断是否injvm协议注册，是否内部访问
-            // 创建一个jvm内部服务引用的 URL 对象。协议：injvm ；127.0.0.1
+            // 创建一个jvm内部服务引用的 URL 对象
             URL url = new URL(LOCAL_PROTOCOL, LOCALHOST_VALUE, 0, interfaceClass.getName()).addParameters(map);
             // 引用服务，返回 Invoker 对象（协议REF_PROTOCOL或根据url参数查找匹配的InjvmProtocol并调用）
             invoker = REF_PROTOCOL.refer(interfaceClass, url);
@@ -352,10 +356,10 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                         if (StringUtils.isEmpty(url.getPath())) {
                             url = url.setPath(interfaceName);//默认的path属性是接口名
                         }
-                        if (UrlUtils.isRegistry(url)) {//如果url地址是注册中心
+                        if (UrlUtils.isRegistry(url)) {//如果url地址是注册中心,在注册中心地址后添加refer存储服务消费者元数据信息
                             urls.add(url.addParameterAndEncoded(REFER_KEY, StringUtils.toQueryString(map)));
-                        } else {//如果url地址是不是注册中心，也就是直连调用
-                            urls.add(ClusterUtils.mergeUrl(url, map));
+                        } else {//如果url地址是不是注册中心，也就是直连调用,如果多个直连服务器调用会使用负载均衡
+                            urls.add(ClusterUtils.mergeUrl(url, map));//这里没有添加refer和注册中心，默认是dubbo会直接触发dubboProtocol进行远程消费，不会经过RegistryProtocol做服务发现
                         }
                     }
                 }
@@ -379,9 +383,9 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 }
             }
             //url：registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=41141&qos.port=33333&refer=dubbo%3D2.0.2%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.StubService%26lazy%3Dfalse%26methods%3DsayHello%26pid%3D41141%26register.ip%3D220.250.64.225%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1576810746199&registry=zookeeper&timestamp=1576812247269
-            if (urls.size() == 1) {//创建消费者的代理对象，顺序：Protocol$Adaptive -> ProtocolFilterWrapper -> ProtocolListenerWrapper
+            if (urls.size() == 1) {//如果是单注册中心消费，直接创建消费者的代理对象，顺序：Protocol$Adaptive -> ProtocolFilterWrapper -> ProtocolListenerWrapper
                 invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));
-            } else {
+            } else {//如果是多个注册中心，则逐个获取注册中心的服务，并添加到Invokers列表
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
                 URL registryURL = null;
                 for (URL url : urls) {
@@ -390,7 +394,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                         registryURL = url; // use last registry url
                     }
                 }
-                if (registryURL != null) { // registry url is available
+                if (registryURL != null) { //通过Cluster将多个invoker转换成一个Invoker
                     // for multi-subscription scenario, use 'zone-aware' policy by default
                     URL u = registryURL.addParameterIfAbsent(CLUSTER_KEY, ZoneAwareCluster.NAME);
                     // The invoker wrap relation would be like: ZoneAwareClusterInvoker(StaticDirectory) -> FailoverClusterInvoker(RegistryDirectory, routing happens here) -> Invoker

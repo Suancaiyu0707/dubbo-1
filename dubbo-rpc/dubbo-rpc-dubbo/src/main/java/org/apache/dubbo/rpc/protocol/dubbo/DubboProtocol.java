@@ -644,6 +644,7 @@ public class DubboProtocol extends AbstractProtocol {
      * 2、获得网络传输的序列化方式，默认是dubbo
      * 3、设置客户端和服务端的心跳间隔
      * 4、创建一个ExchangeClient,ExchangeClient其实是一个NettyClient连接。
+     *        如果lazy=true，则延迟创建TCP连接,这样会在真实发生RPC调用时创建
      */
     private ExchangeClient initClient(URL url) {
 
@@ -663,10 +664,10 @@ public class DubboProtocol extends AbstractProtocol {
         ExchangeClient client;
         try {
             // 创建一个连接NettyServer的客户端连接
-            if (url.getParameter(LAZY_CONNECT_KEY, false)) {
+            if (url.getParameter(LAZY_CONNECT_KEY, false)) {//
                 client = new LazyConnectExchangeClient(url, requestHandler);
 
-            } else {
+            } else {//立即发起TCP连接，默认是netty传输
                 client = Exchangers.connect(url, requestHandler);
             }
 
