@@ -52,7 +52,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * RedisRegistry
+ *redis和基于 Zookeeper 实现的注册中心，也是分成 Root、Service、Type、URL 四层。
+ * 使用 Redis Map 的数据结构，聚合相同服务和类型( Root + Service + Type )。
+ * 不使用 Redis 的自动过期机制，而是通过监控中心，实现过期机制。因为，Redis Key 自动过期时，不存在相应的事件通知。
+ * 服务提供者和消费者，定时延长其注册的 URL 地址的过期时间。
  *
+ * Key:/dubbo/com.foo.BarService/providers
+ * value:是一个map类型
+ *      dubbo://127.0.0.1:1234/barService=121201...
+ *      dubbo://127.0.0.2:1234/barService=121201...
+ * Key:/dubbo/com.foo.BarService/consumers
+ * value:是一个map类型
+ *      subscribe://10.0.0.1:1234/barService=121201...
+ *      subscribe://10.0.0.2:1234/barService=121201...
  */
 public class RedisRegistry extends FailbackRegistry {
 
@@ -80,6 +92,10 @@ public class RedisRegistry extends FailbackRegistry {
 
     private boolean replicate;
 
+    /***
+     * 创建一个redis注册中心，并初始化redis配置
+     * @param url
+     */
     public RedisRegistry(URL url) {
         super(url);
         if (url.isAnyHost()) {
@@ -105,7 +121,7 @@ public class RedisRegistry extends FailbackRegistry {
             config.setTimeBetweenEvictionRunsMillis(url.getParameter("time.between.eviction.runs.millis", 0));
         if (url.getParameter("min.evictable.idle.time.millis", 0) > 0)
             config.setMinEvictableIdleTimeMillis(url.getParameter("min.evictable.idle.time.millis", 0));
-
+        //
         String cluster = url.getParameter("cluster", "failover");
         if (!"failover".equals(cluster) && !"replicate".equals(cluster)) {
             throw new IllegalArgumentException("Unsupported redis cluster: " + cluster + ". The redis cluster only supported failover or replicate.");
