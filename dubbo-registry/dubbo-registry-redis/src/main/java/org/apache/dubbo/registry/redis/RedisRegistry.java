@@ -283,10 +283,8 @@ public class RedisRegistry extends FailbackRegistry {
         }
     }
 
-    // 监控中心会清除过期的键
-
     /***
-     *
+     *监控中心会清除过期的键
      * @param jedis
      * 1、遍历所有的服务
      * 2、遍历服务下的filed对应的值，也就是失效时间
@@ -327,6 +325,10 @@ public class RedisRegistry extends FailbackRegistry {
         }
     }
 
+    /***
+     * 判断redis池是否可用
+     * @return
+     */
     @Override
     public boolean isAvailable() {
         for (JedisPool jedisPool : jedisPools.values()) {
@@ -344,17 +346,20 @@ public class RedisRegistry extends FailbackRegistry {
     public void destroy() {
         super.destroy();
         try {
+            // 关闭定时任务
             expireFuture.cancel(true);
         } catch (Throwable t) {
             logger.warn(t.getMessage(), t);
         }
         try {
+            // 关闭通知器
             for (Notifier notifier : notifiers.values()) {
                 notifier.shutdown();
             }
         } catch (Throwable t) {
             logger.warn(t.getMessage(), t);
         }
+        // 关闭连接池
         for (Map.Entry<String, JedisPool> entry : jedisPools.entrySet()) {
             JedisPool jedisPool = entry.getValue();
             try {
@@ -660,7 +665,9 @@ public class RedisRegistry extends FailbackRegistry {
 
     /***
      * 返回 root+服务名称 +'/'+category
-     *      eg: /dubbo/com.foo.BarService/providers
+     *      eg:
+     *          如果是服务提供者调用的话，返回: /dubbo/com.foo.BarService/providers
+     *          如果是服务消费者的调用的话，返回: /dubbo/com.foo.BarService/consumers
      * @param url
      * @return
      */
@@ -719,12 +726,20 @@ public class RedisRegistry extends FailbackRegistry {
 
     }
 
+    /***
+     * 继承 Thread 类，负责向 Redis 发起订阅逻辑
+     */
     private class Notifier extends Thread {
-
+        /**
+         * 该Notifier对应的服务：服务名 Root + Service
+         */
         private final String service;
         private final AtomicInteger connectSkip = new AtomicInteger();
         private final AtomicInteger connectSkipped = new AtomicInteger();
         private volatile Jedis jedis;
+        /***
+         * 表示第一次订阅
+         */
         private volatile boolean first = true;
         private volatile boolean running = true;
         private volatile int connectRandom;
@@ -741,7 +756,14 @@ public class RedisRegistry extends FailbackRegistry {
             connectRandom = 0;
         }
 
+        /**
+         * 判断是否忽略本次对 Redis 的连接
+         * @return
+         */
         private boolean isSkip() {
+            /**
+             * 获得需要忽略连接的总次数。如果超过 10 ，则加上一个 10 以内的随机数。
+             */
             int skip = connectSkip.get(); // Growth of skipping times
             if (skip >= 10) { // If the number of skipping times increases by more than 10, take the random number
                 if (connectRandom == 0) {
@@ -749,6 +771,7 @@ public class RedisRegistry extends FailbackRegistry {
                 }
                 skip = 10 + connectRandom;
             }
+            // 自增忽略次数。若忽略次数不够，则继续忽略。
             if (connectSkipped.getAndIncrement() < skip) { // Check the number of skipping times
                 return true;
             }
@@ -762,6 +785,7 @@ public class RedisRegistry extends FailbackRegistry {
         public void run() {
             while (running) {
                 try {
+                    // 是否跳过本次 Redis 连接
                     if (!isSkip()) {
                         try {
                             for (Map.Entry<String, JedisPool> entry : jedisPools.entrySet()) {
@@ -769,7 +793,8 @@ public class RedisRegistry extends FailbackRegistry {
                                 try {
                                     jedis = jedisPool.getResource();
                                     try {
-                                        if (service.endsWith(ANY_VALUE)) {
+
+                                        if (service.endsWith(ANY_VALUE)) {// 监控中心
                                             if (first) {
                                                 first = false;
                                                 Set<String> keys = jedis.keys(service);
