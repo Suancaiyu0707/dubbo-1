@@ -20,16 +20,16 @@ import org.apache.dubbo.common.extension.SPI;
 
 /**
  * Compiler. (SPI, Singleton, ThreadSafe)
+ * dubbo 编译器的实现接口
  */
-@SPI("javassist")
+@SPI("javassist")//默认是javassist实现类
 public interface Compiler {
 
     /**
-     * Compile java source code.
      *
-     * @param code        Java source code
-     * @param classLoader classloader
-     * @return Compiled class
+     * @param code 待编译的java代码
+     * @param classLoader 编译完成后，加载类的类加载器
+     * @return 加载好的类对象
      */
     Class<?> compile(String code, ClassLoader classLoader);
 
