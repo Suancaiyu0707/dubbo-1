@@ -1,1 +1,1 @@
-1、RedisRegistry.doSubscribe.keys 可优化成cursor
+1、RedisRegistry.doSubscribe.keys、RedisRegistry.clean 可优化成scan
