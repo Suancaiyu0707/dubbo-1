@@ -1464,8 +1464,11 @@ class URL implements Serializable {
     public String getServiceName() {
         return getServiceInterface();
     }
-
+    /***
+     * 根据interface属性获得接口服务全路径名称，如果没有配置interface属性，则默认返回path
+     */
     public String getServiceInterface() {
+
         return getParameter(INTERFACE_KEY, path);
     }
 
