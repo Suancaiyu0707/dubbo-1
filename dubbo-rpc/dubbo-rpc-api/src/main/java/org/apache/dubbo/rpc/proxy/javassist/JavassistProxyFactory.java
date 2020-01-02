@@ -25,9 +25,11 @@ import org.apache.dubbo.rpc.proxy.AbstractProxyInvoker;
 import org.apache.dubbo.rpc.proxy.InvokerInvocationHandler;
 
 /**
- * JavaassistRpcProxyFactory
- * Javassist在通过字节码技术生成代理对象后，调用的时候是通过直接调用，相对于反射快不少
- * 而cglib和jdk在代理调用时，走的是反射调用,所以就比较慢了
+ * 基本知识：
+ *      Javassist在通过字节码技术生成代理对象后，调用的时候是通过直接调用，相对于反射快不少
+ *      而cglib和jdk在代理调用时，走的是反射调用,所以就比较慢了
+ *
+ * JavassistProxyFactory 在调用doInvoke的时候，会通过wrapper实例交由对应的proxy实例调用，而不是走反射了(可看Wrapper1生成的实现类)，所以性能就上去了
  */
 public class JavassistProxyFactory extends AbstractProxyFactory {
     /***
@@ -38,7 +40,7 @@ public class JavassistProxyFactory extends AbstractProxyFactory {
      * @return
      * 1、根据interfaces接口映射相应的Proxy对象实例，如果没有的话则会新建一个，并缓存到内存里。
      * 2、设置这个Proxy实例的handler为对应的new InvokerInvocationHandler(invoker)
-     *      这样后面调用Proxy方法时，会交给InvokerInvocationHandler处理了。然后InvokerInvocationHandler会直接调用具体实例的方法，不用反射了
+     *      这样后面调用Proxy方法时，会交给InvokerInvocationHandler处理了。然后InvokerInvocationHandler会直接调用具体实例的方法
      */
     @Override
     @SuppressWarnings("unchecked")
@@ -57,7 +59,7 @@ public class JavassistProxyFactory extends AbstractProxyFactory {
      * @return
      * 1、根据代理对象proxy创建一个Wrapper对象
      * 2、同时创建一个AbstractProxyInvoker对象，该对象实现了doInvoke方法：
-     *      该方法保证了，在调用doInvoke的时候，会通过wrapper实例交由对应的proxy实例调用。proxy实例会通过InvokerInvocationHandler交给具体的实现对象调用方法，这样就不用走反射了
+     *      该方法保证了，在调用doInvoke的时候，会通过wrapper实例交由对应的proxy实例调用，而不是走反射了(可看Wrapper1生成的实现类)，所以性能就上去了。proxy实例会通过InvokerInvocationHandler交给具体的实现对象调用方法。
      */
     @Override
     public <T> Invoker<T> getInvoker(T proxy, Class<T> type, URL url) {
@@ -70,9 +72,9 @@ public class JavassistProxyFactory extends AbstractProxyFactory {
             protected Object doInvoke(T proxy, String methodName,
                                       Class<?>[] parameterTypes,
                                       Object[] arguments) throws Throwable {
-                //，调用 Wrapper#invokeMethod(...) 方法，从而调用 Service 的方法。
+                //，调用 Wrapper#invokeMethod(...) 方法，从而调用 Service 的方法。这是它和JDK的区别，不走反射了
                 return wrapper.invokeMethod(
-                        proxy, //这个proxy内部是会交给 InvokerInvocationHandler 处理。然后InvokerInvocationHandler会直接调用具体实例的方法，不用反射了
+                        proxy, //这个proxy内部是会交给 InvokerInvocationHandler 处理。然后InvokerInvocationHandler会直接调用具体实例的方法
                         methodName,
                         parameterTypes,
                         arguments);
