@@ -47,14 +47,25 @@ import static org.apache.dubbo.rpc.Constants.STUB_KEY;
  * 本地存根的代理工厂实现类
  * 在根据invoker生成代理对象之前，StubProxyFactoryWrapper会先把被代理的实际的接口对象封装成一个stub/local对象，再交由具体的代理对象工厂生成代理对象
  *
- *
+ * 每一个ProxyFactory有包装类型的拓展实现，因此无论是 JdkProxyFactory还是JavassistProxyFactory实例，都会被包装成StubProxyFactoryWrapper对象
+ *  所以ProxyFactory的ExtensionLoader.cachedInstances集合包含的对象是这样的：
+ *      key = "javassist"
+ *      value = {Holder@3126}
+ *          value = {StubProxyFactoryWrapper@3152}
+ *          proxyFactory = {JavassistProxyFactory@3162}
+ *          protocol = {Protocol$Adaptive@3163}
+ *      key = "jdk"
+ *      value = {Holder@3126}
+ *          value = {StubProxyFactoryWrapper@3152}
+ *          proxyFactory = {JdkProxyFactory@3163}
+ *          protocol = {Protocol$Adaptive@3163}
  */
 public class StubProxyFactoryWrapper implements ProxyFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(StubProxyFactoryWrapper.class);
     /***
      * 本质是一个ProxyFactory$Adaptive 对象
-     * 根据URL配置，使用具体的实现：JavassistProxyFactory/JdkProxyFactory
+     * 会根据URL配置，使用具体的实现：JavassistProxyFactory/JdkProxyFactory
      */
     private final ProxyFactory proxyFactory;
     /**
@@ -82,7 +93,9 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
      * @param <T>
      * @return
      * @throws RpcException
-     * 1、检查该invoker实现的接口接口不是泛化接口GenericService
+     *StubProxyFactoryWrapper->ProxyFactory$Adaptive->JavassistProxyFactory/JdkProxyFactory
+     *
+     * 1、检查该invoker实现的接口不是泛化接口GenericService
      * 2、从invoker的url里提取stub属性配置，没有的获取local属性配置
      * 3、如果配置stub或者local，则表示本地获得一个用于本地调用（stub或者local）的代理对象
      * 4、加载相应的类(本地存根STUB或者本地调用LOCAL)并检查它们是包含持有接口的构造函数
@@ -92,6 +105,7 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <T> T getProxy(Invoker<T> invoker) throws RpcException {
+        //获得被代理的接口服务
         T proxy = proxyFactory.getProxy(invoker);
         if (GenericService.class != invoker.getInterface()) {//如果不是泛化调用
             //获得调用服务的url

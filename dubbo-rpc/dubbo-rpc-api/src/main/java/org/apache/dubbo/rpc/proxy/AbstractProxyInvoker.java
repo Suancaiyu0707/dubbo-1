@@ -54,6 +54,15 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
      */
     private final URL url;
 
+    /***
+     * 创建一个 AbstractProxyInvoker实例
+     * @param proxy 代理的对象，一般是Service实现实例
+     *              eg：
+     * @param type 接口类型
+     *             eg：
+     * @param url URL 对象，一般是暴露服务的 URL 对象
+     *            eg:
+     */
     public AbstractProxyInvoker(T proxy, Class<T> type, URL url) {
         if (proxy == null) {
             throw new IllegalArgumentException("proxy == null");
@@ -93,18 +102,18 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
      * @param invocation
      * @return
      * @throws RpcException
-     * 1、
-     * 2、
-     * 3、
+     * 1、通过doInvoke调用实际对象的方法，发起请求调用，并返回结果
+     * 2、将结果集包装成一个CompletableFuture对象
+     * 3、返回一个异步结果对象
      */
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         try {
-            //
+            //通过doInvoke调用实际对象的方法，发起请求调用，并返回结果
             Object value = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
-            //
+            //将结果集包装成一个CompletableFuture对象
             CompletableFuture<Object> future = wrapWithFuture(value, invocation);
-            //
+
             CompletableFuture<AppResponse> appResponseFuture = future.handle((obj, t) -> {
                 AppResponse result = new AppResponse();
                 if (t != null) {
@@ -118,6 +127,7 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
                 }
                 return result;
             });
+            //返回一个异步结果对象
             return new AsyncRpcResult(appResponseFuture, invocation);
         } catch (InvocationTargetException e) {
             if (RpcContext.getContext().isAsyncStarted() && !RpcContext.getContext().stopAsync()) {
@@ -129,6 +139,12 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
         }
     }
 
+    /***
+     *
+     * @param value
+     * @param invocation
+     * @return
+     */
     private CompletableFuture<Object> wrapWithFuture (Object value, Invocation invocation) {
         if (RpcContext.getContext().isAsyncStarted()) {
             return ((AsyncContextImpl)(RpcContext.getContext().getAsyncContext())).getInternalFuture();

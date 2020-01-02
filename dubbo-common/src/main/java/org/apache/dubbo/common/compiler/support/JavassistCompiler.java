@@ -52,9 +52,9 @@ public class JavassistCompiler extends AbstractCompiler {
     private static final Pattern FIELD_PATTERN = Pattern.compile("[^\n]+=[^\n]+;");
 
     /***
-     *
-     * @param name 类名
-     * @param source 代码
+     *  采用直接对字节码进行增强的技术来生成对应的Class对象
+     * @param name 类名 org.apache.dubbo.rpc.Protocol$Adaptive
+     * @param source 代码 可查看生成的 Protocol$Adaptive文件
      * @return
      * @throws Throwable
      */
