@@ -27,7 +27,7 @@ import java.lang.reflect.Proxy;
 
 /**
  * JdkRpcProxyFactory
- * jdk代理对象工厂：通过反射获取真实对象的方法，然后进行调用即可
+ * JdkProxyFactory在通过字节码技术生成代理对象后，调用的时候是通过反射调用，相对于直接调用慢了不少
  */
 public class JdkProxyFactory extends AbstractProxyFactory {
 
@@ -45,6 +45,7 @@ public class JdkProxyFactory extends AbstractProxyFactory {
                                       Class<?>[] parameterTypes,
                                       Object[] arguments) throws Throwable {
                 Method method = proxy.getClass().getMethod(methodName, parameterTypes);
+                //我们可以看到它是通过代理对象反射调用
                 return method.invoke(proxy, arguments);
             }
         };

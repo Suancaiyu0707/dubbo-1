@@ -34,14 +34,24 @@ import java.util.concurrent.CompletionException;
 
 /**
  * InvokerWrapper
+ * 代理 Invoker 对象的抽象类
  */
 public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     Logger logger = LoggerFactory.getLogger(AbstractProxyInvoker.class);
-
+    /**
+     * 代理的对象，一般是Service实现实例
+     *  eg:
+     */
     private final T proxy;
-
+    /***
+     * 接口类型
+     *  eg:
+     */
     private final Class<T> type;
-
+    /**
+     * URL 对象，一般是暴露服务的 URL 对象
+     *  eg:
+     */
     private final URL url;
 
     public AbstractProxyInvoker(T proxy, Class<T> type, URL url) {
@@ -78,11 +88,23 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     public void destroy() {
     }
 
+    /***
+     * RPC远程调用
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、
+     * 2、
+     * 3、
+     */
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         try {
+            //
             Object value = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
+            //
             CompletableFuture<Object> future = wrapWithFuture(value, invocation);
+            //
             CompletableFuture<AppResponse> appResponseFuture = future.handle((obj, t) -> {
                 AppResponse result = new AppResponse();
                 if (t != null) {
@@ -116,6 +138,15 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
         return CompletableFuture.completedFuture(value);
     }
 
+    /***
+     *
+     * @param proxy 代理的对象(接口的实现实例)
+     * @param methodName 方法名
+     * @param parameterTypes 方法参数类型数组
+     * @param arguments 方法参数数组
+     * @return
+     * @throws Throwable
+     */
     protected abstract Object doInvoke(T proxy, String methodName, Class<?>[] parameterTypes, Object[] arguments) throws Throwable;
 
     @Override

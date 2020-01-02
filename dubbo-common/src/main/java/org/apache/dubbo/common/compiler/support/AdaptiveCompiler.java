@@ -47,7 +47,7 @@ public class AdaptiveCompiler implements Compiler {
      * 2、检查是否设置了默认的拓展名：
      *  设置了拓展名，则使用设置的拓展名，获得 Compiler 拓展对象
      *      可通过<dubbo:application compiler="" /> 配置
-     *  没有设置拓展名，则获得默认的 Compiler 拓展对象
+     *  没有设置拓展名，则获得默认的 Compiler 拓展对象（JavassistCompiler）
      * 3、调用真正的 Compiler 对象，动态编译代码。
      */
     @Override
@@ -56,9 +56,9 @@ public class AdaptiveCompiler implements Compiler {
         // 获得 Compiler 的 ExtensionLoader 对象。
         ExtensionLoader<Compiler> loader = ExtensionLoader.getExtensionLoader(Compiler.class);
         String name = DEFAULT_COMPILER; // copy reference
-        if (name != null && name.length() > 0) {// 使用设置的拓展名，获得 Compiler 拓展对象
+        if (name != null && name.length() > 0) {// 根据拓展名获得 Compiler 拓展对象
             compiler = loader.getExtension(name);
-        } else {//如果没有设置拓展名，则获得默认的 Compiler 拓展对象
+        } else {//如果没有设置拓展名，采用默认的 Compiler 拓展对象 ：JavassistCompiler
             compiler = loader.getDefaultExtension();
         }
         //调用真正的 Compiler 对象，动态编译代码。

@@ -37,6 +37,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.MAX_PROXY_COUNT;
 
 /**
  * Proxy.
+ * 代理抽象类，用于创建 Proxy 和 proxy 对象。
  */
 
 public abstract class Proxy {
@@ -67,11 +68,10 @@ public abstract class Proxy {
     }
 
     /**
-     * Get proxy.
-     *
-     * @param cl  class loader.
-     * @param ics interface class array.
-     * @return Proxy instance.
+     * 创建Proxy
+     * @param cl
+     * @param ics
+     * @return
      */
     public static Proxy getProxy(ClassLoader cl, Class<?>... ics) {
         if (ics.length > MAX_PROXY_COUNT) {

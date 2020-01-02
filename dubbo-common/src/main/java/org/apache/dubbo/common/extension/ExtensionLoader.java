@@ -1319,8 +1319,10 @@ public class ExtensionLoader<T> {
          */
         String code = new AdaptiveClassCodeGenerator(type, cachedDefaultName).generate();
         ClassLoader classLoader = findClassLoader();
-        //不同的编译器会把字符串编码成自适应的类并返回
-        org.apache.dubbo.common.compiler.Compiler compiler = ExtensionLoader.getExtensionLoader(org.apache.dubbo.common.compiler.Compiler.class).getAdaptiveExtension();
+        //这边会获得AdaptiveCompiler，AdaptiveCompiler在调用compile时，交给对应的javassist或jdk来编译。默认是javassist
+        org.apache.dubbo.common.compiler.Compiler compiler = ExtensionLoader
+                .getExtensionLoader(org.apache.dubbo.common.compiler.Compiler.class)
+                .getAdaptiveExtension();//返回AdaptiveCompiler，
         //反编译生成 默认的 type$Adaptive 实现类型
         return compiler.compile(code, classLoader);
     }

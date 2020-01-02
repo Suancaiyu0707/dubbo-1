@@ -23,6 +23,9 @@ import java.util.regex.Pattern;
 
 /**
  * Abstract compiler. (SPI, Prototype, ThreadSafe)
+ * 提供了实现类的基本实现方法compile，该方法主要以下作用：
+ *      1、从待编译的字节码里获取包名、类名、类的完整路径。
+ *      2、尝试根据类名检查类是否已经加载过，如果未加载，这会交给具体的编译实现来进行编译加载。
  */
 public abstract class AbstractCompiler implements Compiler {
 
@@ -31,13 +34,13 @@ public abstract class AbstractCompiler implements Compiler {
     private static final Pattern CLASS_PATTERN = Pattern.compile("class\\s+([$_a-zA-Z][$_a-zA-Z0-9]*)\\s+");
 
     /***
-     *
+     *  提供了实现类的基本实现方法compile
      * @param code 待编译的java代码
      * @param classLoader 编译完成后，加载类的类加载器
      * @return
      * 1、获得包名、类名、类的完整路径
      * 2、检查类是否已加载过，加载过则直接返回。
-     * 3、如果类未加载过，明可能未编译过，进行编译并加载。
+     * 3、如果类未加载过，明可能尚未未编译，则交给具体的编译器实现进行编译并加载。
      */
     @Override
     public Class<?> compile(String code, ClassLoader classLoader) {

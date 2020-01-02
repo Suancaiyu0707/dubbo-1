@@ -29,17 +29,32 @@ import java.lang.reflect.Method;
  */
 public class InvokerInvocationHandler implements InvocationHandler {
     private static final Logger logger = LoggerFactory.getLogger(InvokerInvocationHandler.class);
+    /***
+     * 持有invoker对象
+     */
     private final Invoker<?> invoker;
 
     public InvokerInvocationHandler(Invoker<?> handler) {
         this.invoker = handler;
     }
 
+    /***
+     *
+     * @param proxy 代理的对象，一般是Service实现实例
+     *              eg：
+     * @param method 方法
+     *               eg：
+     * @param args 方法参数
+     *             eg：
+     * @return
+     * @throws Throwable
+     */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         String methodName = method.getName();//获得调用的方法名
         Class<?>[] parameterTypes = method.getParameterTypes();//获得方法参数类型
-        if (method.getDeclaringClass() == Object.class) {//获得方法的类
+        //主要是用于执行#wait() #notify() 等方法，进行反射调用。
+        if (method.getDeclaringClass() == Object.class) {//获得方法的类，如果是Object的话，则直接调用
             return method.invoke(invoker, args);
         }
         if ("toString".equals(methodName) && parameterTypes.length == 0) {
@@ -58,6 +73,8 @@ public class InvokerInvocationHandler implements InvocationHandler {
         RpcInvocation rpcInvocation = new RpcInvocation(method, invoker.getInterface().getName(), args);
         rpcInvocation.setTargetServiceUniqueName(invoker.getUrl().getServiceKey());
         //RpcInvocation [methodName=sayHelloAsync, parameterTypes=[class java.lang.String], arguments=[world], attachments={}]
-        return invoker.invoke(rpcInvocation).recreate();
+        //开始进行 RPC 调用远程调用，并回放调用结果
+        return invoker.invoke(rpcInvocation)
+                .recreate();//回放调用结果
     }
 }

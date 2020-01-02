@@ -24,20 +24,40 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
+ * Javassist 是一个开源的分析、编辑和创建 Java 字节码的类库。通过使用Javassist 对字节码操作可以实现动态 ”AOP” 框架。
+ * Javassist 的主要的优点，在于简单，而且快速，直接使用 Java 编码的形式，而不需要了解虚拟机指令，就能动态改变类的结构，或者动态生成类。
  * JavassistCompiler. (SPI, Singleton, ThreadSafe)
+ * 负责对字符串进行具体的编译并加载
  */
 public class JavassistCompiler extends AbstractCompiler {
-
+    /**
+     * 正则 - 匹配 import
+     */
     private static final Pattern IMPORT_PATTERN = Pattern.compile("import\\s+([\\w\\.\\*]+);\n");
-
+    /**
+     * 正则 - 匹配 extends
+     */
     private static final Pattern EXTENDS_PATTERN = Pattern.compile("\\s+extends\\s+([\\w\\.]+)[^\\{]*\\{\n");
-
+    /**
+     * 正则 - 匹配 implements
+     */
     private static final Pattern IMPLEMENTS_PATTERN = Pattern.compile("\\s+implements\\s+([\\w\\.]+)\\s*\\{\n");
-
+    /**
+     * 正则 - 匹配 methods
+     */
     private static final Pattern METHODS_PATTERN = Pattern.compile("\n(private|public|protected)\\s+");
-
+    /**
+     * 正则 - 匹配 field
+     */
     private static final Pattern FIELD_PATTERN = Pattern.compile("[^\n]+=[^\n]+;");
 
+    /***
+     *
+     * @param name 类名
+     * @param source 代码
+     * @return
+     * @throws Throwable
+     */
     @Override
     public Class<?> doCompile(String name, String source) throws Throwable {
         CtClassBuilder builder = new CtClassBuilder();

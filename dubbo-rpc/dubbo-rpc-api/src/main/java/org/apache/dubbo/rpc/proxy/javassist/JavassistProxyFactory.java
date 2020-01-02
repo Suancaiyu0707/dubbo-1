@@ -26,13 +26,17 @@ import org.apache.dubbo.rpc.proxy.InvokerInvocationHandler;
 
 /**
  * JavaassistRpcProxyFactory
+ * Javassist在通过字节码技术生成代理对象后，调用的时候是通过直接调用，相对于反射快不少
+ * 而cglib和jdk在代理调用时，走的是反射调用,所以就比较慢了
  */
 public class JavassistProxyFactory extends AbstractProxyFactory {
 
     @Override
     @SuppressWarnings("unchecked")
     public <T> T getProxy(Invoker<T> invoker, Class<?>[] interfaces) {
-        return (T) Proxy.getProxy(interfaces).newInstance(new InvokerInvocationHandler(invoker));
+        return (T) Proxy
+                .getProxy(interfaces) //获得 Proxy 对象。
+                .newInstance(new InvokerInvocationHandler(invoker));//得 proxy 对象。其中传入的参数是 InvokerInvocationHandler 类，通过这样的方式，让 proxy 和真正的逻辑代码解耦。
     }
 
     /***
@@ -46,12 +50,15 @@ public class JavassistProxyFactory extends AbstractProxyFactory {
     @Override
     public <T> Invoker<T> getInvoker(T proxy, Class<T> type, URL url) {
         // TODO Wrapper cannot handle this scenario correctly: the classname contains '$'
+        //获得Wrapper对象
         final Wrapper wrapper = Wrapper.getWrapper(proxy.getClass().getName().indexOf('$') < 0 ? proxy.getClass() : type);
+        //创建 AbstractProxyInvoker 对象，实现doInvoke方法
         return new AbstractProxyInvoker<T>(proxy, type, url) {
             @Override
             protected Object doInvoke(T proxy, String methodName,
                                       Class<?>[] parameterTypes,
                                       Object[] arguments) throws Throwable {
+                //，调用 Wrapper#invokeMethod(...) 方法，从而调用 Service 的方法。
                 return wrapper.invokeMethod(proxy, methodName, parameterTypes, arguments);
             }
         };

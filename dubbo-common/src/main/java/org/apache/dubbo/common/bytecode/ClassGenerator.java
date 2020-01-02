@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * ClassGenerator
+ * 类生成器，基于Javassist实现的
  */
 public final class ClassGenerator {
 
@@ -78,7 +79,7 @@ public final class ClassGenerator {
     public static ClassGenerator newInstance(ClassLoader loader) {
         return new ClassGenerator(getClassPool(loader));
     }
-
+    // 判断是否继承 ClassGenerator.DC.class ，如果是，拿到父类，避免重复包装
     public static boolean isDynamicClass(Class<?> cl) {
         return ClassGenerator.DC.class.isAssignableFrom(cl);
     }
