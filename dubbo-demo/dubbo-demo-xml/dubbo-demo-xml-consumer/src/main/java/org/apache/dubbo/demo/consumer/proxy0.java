@@ -33,11 +33,16 @@ public class proxy0 implements ClassGenerator.DC, EchoService, DemoService {
         return (String) localObject;
     }
 
-    public Object $echo(Object paramObject) throws Throwable {
+    public Object $echo(Object paramObject){
         Object[] arrayOfObject = new Object[1];
         arrayOfObject[0] = paramObject;
 
-        Object localObject = this.handler.invoke(this, methods[2], arrayOfObject);
+        Object localObject = null;
+        try {
+            localObject = this.handler.invoke(this, methods[2], arrayOfObject);
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
 
         return (Object) localObject;
     }

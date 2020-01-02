@@ -45,8 +45,9 @@ import static org.apache.dubbo.rpc.Constants.STUB_KEY;
 /**
  * StubProxyFactoryWrapper
  * 本地存根的代理工厂实现类
- * 注意：
- *  若是泛化引用，不支持使用本地存根
+ * 在根据invoker生成代理对象之前，StubProxyFactoryWrapper会先把被代理的实际的接口对象封装成一个stub/local对象，再交由具体的代理对象工厂生成代理对象
+ *
+ *
  */
 public class StubProxyFactoryWrapper implements ProxyFactory {
 
@@ -75,13 +76,18 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
     }
 
     /***
-     *  生成存根的代理对象
+     *  在根据invoker生成代理对象之前，StubProxyFactoryWrapper会先把被代理的实际的接口对象封装成一个stub/local对象，再交由具体的代理对象工厂生成代理对象
      * @param invoker
      *      eg：
      * @param <T>
      * @return
      * @throws RpcException
-     * 1、获得 Service Proxy 对象
+     * 1、检查该invoker实现的接口接口不是泛化接口GenericService
+     * 2、从invoker的url里提取stub属性配置，没有的获取local属性配置
+     * 3、如果配置stub或者local，则表示本地获得一个用于本地调用（stub或者local）的代理对象
+     * 4、加载相应的类(本地存根STUB或者本地调用LOCAL)并检查它们是包含持有接口的构造函数
+     * 5、根据具体代理对象和存根类的构造方法生成相应的存根或者local对象(这一步实际的实例对象被封装为一个stub对象或local对象了)
+     * 6、代理工厂(默认JavassistProxyFactory)根据这个存根/local对象生成一个代理对象
      */
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -90,20 +96,20 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
         if (GenericService.class != invoker.getInterface()) {//如果不是泛化调用
             //获得调用服务的url
             URL url = invoker.getUrl();
-            //获得存根属性的配置
+            //获得存根或本地调用的属性的配置：stub优先级比local高
             String stub = url.getParameter(STUB_KEY, url.getParameter(LOCAL_KEY));
             if (ConfigUtils.isNotEmpty(stub)) {
                 Class<?> serviceType = invoker.getInterface();
                 if (ConfigUtils.isDefault(stub)) {
-                    // stub = true 的情况，使用接口 + `Stub` 字符串。
+                    // 如果配置了stub = true 的情况，使用接口 + `Stub` 字符串。
                     if (url.hasParameter(STUB_KEY)) {
                         stub = serviceType.getName() + "Stub";
-                    } else {
+                    } else {// 如果配置了local = true 的情况，使用接口 + `Local` 字符串。
                         stub = serviceType.getName() + "Local";
                     }
                 }
                 try {
-                    // 加载 Stub 类
+                    // 加载 Stub/Local 类
                     Class<?> stubClass = ReflectUtils.forName(stub);
                     if (!serviceType.isAssignableFrom(stubClass)) {
                         throw new IllegalStateException("The stub implementation class " + stubClass.getName() + " not implement interface " + serviceType.getName());
@@ -111,7 +117,7 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
                     try {
                         // 查找以接口serviceType为参数的构造方法
                         Constructor<?> constructor = ReflectUtils.findConstructor(stubClass, serviceType);
-                        //根据构造方法生成一个存根实例
+                        //根据构造方法生成一个存根或本地调用的实例
                         proxy = (T) constructor.newInstance(new Object[]{proxy});
                         //export stub service
                         URLBuilder urlBuilder = URLBuilder.from(url);
