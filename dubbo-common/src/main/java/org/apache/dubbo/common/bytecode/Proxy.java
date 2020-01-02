@@ -68,7 +68,7 @@ public abstract class Proxy {
     }
 
     /**
-     * 创建Proxy
+     * 创建Proxy，会为每个invoker都生成一个Proxy实例，并缓存到内存里
      * @param cl
      * @param ics
      * @return

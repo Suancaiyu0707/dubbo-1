@@ -30,7 +30,16 @@ import org.apache.dubbo.rpc.proxy.InvokerInvocationHandler;
  * 而cglib和jdk在代理调用时，走的是反射调用,所以就比较慢了
  */
 public class JavassistProxyFactory extends AbstractProxyFactory {
-
+    /***
+     * 获得 Proxy 对象，并绑定这个处理Proxy 对象的方法的调用交由相应的InvokerInvocationHandler处理
+     * @param invoker
+     * @param interfaces 用于生成Proxy 对象
+     * @param <T>
+     * @return
+     * 1、根据interfaces接口映射相应的Proxy对象实例，如果没有的话则会新建一个，并缓存到内存里。
+     * 2、设置这个Proxy实例的handler为对应的new InvokerInvocationHandler(invoker)
+     *      这样后面调用Proxy方法时，会交给InvokerInvocationHandler处理了。然后InvokerInvocationHandler会直接调用具体实例的方法，不用反射了
+     */
     @Override
     @SuppressWarnings("unchecked")
     public <T> T getProxy(Invoker<T> invoker, Class<?>[] interfaces) {
@@ -46,20 +55,27 @@ public class JavassistProxyFactory extends AbstractProxyFactory {
      * @param url 指定代理对象对应的注册服务信息
      * @param <T>
      * @return
+     * 1、根据代理对象proxy创建一个Wrapper对象
+     * 2、同时创建一个AbstractProxyInvoker对象，该对象实现了doInvoke方法：
+     *      该方法保证了，在调用doInvoke的时候，会通过wrapper实例交由对应的proxy实例调用。proxy实例会通过InvokerInvocationHandler交给具体的实现对象调用方法，这样就不用走反射了
      */
     @Override
     public <T> Invoker<T> getInvoker(T proxy, Class<T> type, URL url) {
         // TODO Wrapper cannot handle this scenario correctly: the classname contains '$'
         //获得Wrapper对象
         final Wrapper wrapper = Wrapper.getWrapper(proxy.getClass().getName().indexOf('$') < 0 ? proxy.getClass() : type);
-        //创建 AbstractProxyInvoker 对象，实现doInvoke方法
+        //创建 AbstractProxyInvoker 对象，实现doInvoke方法。从而调用 Service 的方法
         return new AbstractProxyInvoker<T>(proxy, type, url) {
             @Override
             protected Object doInvoke(T proxy, String methodName,
                                       Class<?>[] parameterTypes,
                                       Object[] arguments) throws Throwable {
                 //，调用 Wrapper#invokeMethod(...) 方法，从而调用 Service 的方法。
-                return wrapper.invokeMethod(proxy, methodName, parameterTypes, arguments);
+                return wrapper.invokeMethod(
+                        proxy, //这个proxy内部是会交给 InvokerInvocationHandler 处理。然后InvokerInvocationHandler会直接调用具体实例的方法，不用反射了
+                        methodName,
+                        parameterTypes,
+                        arguments);
             }
         };
     }

@@ -31,6 +31,8 @@ public class InvokerInvocationHandler implements InvocationHandler {
     private static final Logger logger = LoggerFactory.getLogger(InvokerInvocationHandler.class);
     /***
      * 持有invoker对象
+     * javassist生成的代理对象在方法调用的时候，会交给当前InvokerInvocationHandler调用
+     * InvokerInvocationHandler又会交给具体的invoker进行直接调用。这个有点像代理了
      */
     private final Invoker<?> invoker;
 
