@@ -56,7 +56,7 @@ import static org.apache.dubbo.rpc.Constants.STUB_KEY;
  *          protocol = {Protocol$Adaptive@3163}
  *      key = "jdk"
  *      value = {Holder@3126}
- *          value = {StubProxyFactoryWrapper@3152}
+ *          value = {StubProxyFactoryWrapper@3162}
  *          proxyFactory = {JdkProxyFactory@3163}
  *          protocol = {Protocol$Adaptive@3163}
  */
@@ -94,26 +94,30 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
      * @return
      * @throws RpcException
      *StubProxyFactoryWrapper->ProxyFactory$Adaptive->JavassistProxyFactory/JdkProxyFactory
-     *
-     * 1、检查该invoker实现的接口不是泛化接口GenericService
-     * 2、从invoker的url里提取stub属性配置，没有的获取local属性配置
-     * 3、如果配置stub或者local，则表示本地获得一个用于本地调用（stub或者local）的代理对象
-     * 4、加载相应的类(本地存根STUB或者本地调用LOCAL)并检查它们是包含持有接口的构造函数
-     * 5、根据具体代理对象和存根类的构造方法生成相应的存根或者local对象(这一步实际的实例对象被封装为一个stub对象或local对象了)
-     * 6、代理工厂(默认JavassistProxyFactory)根据这个存根/local对象生成一个代理对象
+     * 1、根据实际的引用的接口信息invoker由具体的代理工厂JavassistProxyFactory/JdkProxyFactory生成一个代理对象proxy
+     * 2、检查该invoker实现的接口不是泛化接口GenericService
+     * 3、检查引用的配置信息，如果是本地存根调用(也就是配置了stub或local,目前比较推荐用stub属性配置)
+     *      a、如果是本地存根调用
+     *          1）根据存根的属性获得对应的存根类信息
+     *          2）检查存根类里是否包含一个构造函数，该构造函数只有一个参数，且参数为被引用的接口
+     *          3）根据上面生成的代理对象和引用接口，构造一个存根类的实例
+     *          4）返回这个存根实例(所以后续的调用会调用存根的方法，而不是被引用接口的代理对象)
+     *      b、如果表示本地存根调用，则直接返回这个被引用接口的代理对象。
      */
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public <T> T getProxy(Invoker<T> invoker) throws RpcException {
-        //获得被代理的接口服务
+        //根据实际的引用的接口信息invoker由具体的代理工厂JavassistProxyFactory/JdkProxyFactory生成一个代理对象：proxy = {proxy0@4454}
+        //                                                                              handler = {InvokerInvocationHandler@4435}
         T proxy = proxyFactory.getProxy(invoker);
         if (GenericService.class != invoker.getInterface()) {//如果不是泛化调用
             //获得调用服务的url
             URL url = invoker.getUrl();
-            //获得存根或本地调用的属性的配置：stub优先级比local高
+            //检查引用的配置信息，如果是本地存根调用(也就是配置了stub或local,目前比较推荐用stub属性配置)
+            // eg：org.apache.dubbo.demo.StubServiceStub
             String stub = url.getParameter(STUB_KEY, url.getParameter(LOCAL_KEY));
-            if (ConfigUtils.isNotEmpty(stub)) {
-                Class<?> serviceType = invoker.getInterface();
+            if (ConfigUtils.isNotEmpty(stub)) {//如果不为空的话，则表示是一个本地存根调用
+                //开始获得存根实现类
+                Class<?> serviceType = invoker.getInterface();//获得本次引用的接口  interface org.apache.dubbo.demo.StubService
                 if (ConfigUtils.isDefault(stub)) {
                     // 如果配置了stub = true 的情况，使用接口 + `Stub` 字符串。
                     if (url.hasParameter(STUB_KEY)) {
@@ -123,17 +127,17 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
                     }
                 }
                 try {
-                    // 加载 Stub/Local 类
-                    Class<?> stubClass = ReflectUtils.forName(stub);
+                    // 加载存根类：Stub/Local
+                    Class<?> stubClass = ReflectUtils.forName(stub);//org.apache.dubbo.demo.StubServiceStub
                     if (!serviceType.isAssignableFrom(stubClass)) {
                         throw new IllegalStateException("The stub implementation class " + stubClass.getName() + " not implement interface " + serviceType.getName());
                     }
                     try {
-                        // 查找以接口serviceType为参数的构造方法
+                        // 检查存根类stubClass里是否包含一个构造函数，该构造函数只有一个参数，且参数为被引用的接口 serviceType
                         Constructor<?> constructor = ReflectUtils.findConstructor(stubClass, serviceType);
-                        //根据构造方法生成一个存根或本地调用的实例
+                        //根据上面生成的代理对象和引用接口，构造一个存根类的实例
                         proxy = (T) constructor.newInstance(new Object[]{proxy});
-                        //export stub service
+                        //
                         URLBuilder urlBuilder = URLBuilder.from(url);
                         if (url.getParameter(STUB_EVENT_KEY, DEFAULT_STUB_EVENT)) {
                             urlBuilder.addParameter(STUB_EVENT_METHODS_KEY, StringUtils.join(Wrapper.getWrapper(proxy.getClass()).getDeclaredMethodNames(), ","));
@@ -153,7 +157,7 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
                 }
             }
         }
-        return proxy;
+        return proxy;//创建一个本地存根的对象
     }
 
     @Override

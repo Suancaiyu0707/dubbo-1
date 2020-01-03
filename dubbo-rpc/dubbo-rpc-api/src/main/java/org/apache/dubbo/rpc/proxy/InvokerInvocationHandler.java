@@ -26,13 +26,16 @@ import java.lang.reflect.Method;
 
 /**
  * InvokerHandler
+ * 我们知道在调用代理对象方法的时候，实际上会交给InvocationHandler进行处理。而我们在构建服务引用的代理的对象的时候，维护的InvocationHandler正是本类的实现对象（可参考JavassistProxyFactory/JdkProxyFactory的getProxy()）。
+ *  所以，当调用服务的方法的时候，会被转发到当前对象的invoke方法
  */
 public class InvokerInvocationHandler implements InvocationHandler {
     private static final Logger logger = LoggerFactory.getLogger(InvokerInvocationHandler.class);
     /***
-     * 持有invoker对象
-     * javassist生成的代理对象在方法调用的时候，会交给当前InvokerInvocationHandler调用
-     * InvokerInvocationHandler又会交给具体的invoker进行直接调用。这个有点像代理了
+     * 实际上是一个通过RefrenceConfig.createProxy创建invoker的时候，我们发现它本质是一个MockClusterInvoker实现，为什么要这么设计呢？
+     *  主要是为了在调用之前优先判断是否是本地伪装调用。所以整个调用的链路优先级可能是：consumer端的MockClusterInvoker->consumer端的Stub->provider端的具体实现
+     *      eg：:interface org.apache.dubbo.demo.StubService ->
+     *          zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=34978&register.ip=192.168.0.102&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1578006465484
      */
     private final Invoker<?> invoker;
 
@@ -45,15 +48,15 @@ public class InvokerInvocationHandler implements InvocationHandler {
      * @param proxy 代理的对象，一般是Service实现实例
      *              eg：
      * @param method 方法
-     *               eg：
+     *               eg：public abstract java.lang.String org.apache.dubbo.demo.StubService.sayHello(java.lang.String)
      * @param args 方法参数
-     *             eg：
+     *             eg：xuzf
      * @return
      * @throws Throwable
      */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        String methodName = method.getName();//获得调用的方法名
+        String methodName = method.getName();//获得调用的方法名 eg：sayHello
         Class<?>[] parameterTypes = method.getParameterTypes();//获得方法参数类型
         //主要是用于执行#wait() #notify() 等方法，进行反射调用。
         if (method.getDeclaringClass() == Object.class) {//获得方法的类，如果是Object的话，则直接调用

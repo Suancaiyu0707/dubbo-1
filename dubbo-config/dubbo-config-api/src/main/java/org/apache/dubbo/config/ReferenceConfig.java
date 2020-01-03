@@ -326,7 +326,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
      * 			b、如果<dubbo:reference>没有配置url属性，则表示通过注册中心来进行远程调用
      * 				获取注册中心的地址列表urls
      * 				参数处理注册中心的地址url
-     * 		遍历注册中心/直连地址，根据每个注册中心/直连地址生成一个用于相应的远程服务调用的代理对象invoker。
+     * 		遍历注册中心/直连地址，根据每个注册中心/直连地址生成一个用于相应的远程服务调用的代理对象invoker（实际这是一个封装了具体的invoker的MockClusterInvoker对象）。
      *
      * 	生成invoker时候做了哪些工作了呢？
      * 		a、根据注册中心地址获得注册中心客户端实例，并向注册中心地址注册当前提供者，并订阅远程服务的configurators/providers/routers路径，用于监听消费的服务的配置变更
@@ -384,7 +384,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             }
             //url：registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-consumer&dubbo=2.0.2&pid=41141&qos.port=33333&refer=dubbo%3D2.0.2%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.StubService%26lazy%3Dfalse%26methods%3DsayHello%26pid%3D41141%26register.ip%3D220.250.64.225%26side%3Dconsumer%26sticky%3Dfalse%26timestamp%3D1576810746199&registry=zookeeper&timestamp=1576812247269
             if (urls.size() == 1) {//如果是单注册中心消费，直接创建消费者的代理对象，顺序：Protocol$Adaptive -> ProtocolFilterWrapper -> ProtocolListenerWrapper
-                invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));
+                invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));//实际这是一个封装了具体的invoker的MockClusterInvoker对象
             } else {//如果是多个注册中心，则逐个获取注册中心的服务，并添加到Invokers列表
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
                 URL registryURL = null;

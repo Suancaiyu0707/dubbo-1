@@ -98,7 +98,7 @@ public abstract class Proxy {
             sb.append(itf).append(';');
         }
 
-        // use interface class name list as key.
+        // com.alibaba.dubbo.rpc.service.EchoService;org.apache.dubbo.demo.StubService;org.apache.dubbo.rpc.service.Destroyable;
         String key = sb.toString();
 
         // get cache by class loader.
