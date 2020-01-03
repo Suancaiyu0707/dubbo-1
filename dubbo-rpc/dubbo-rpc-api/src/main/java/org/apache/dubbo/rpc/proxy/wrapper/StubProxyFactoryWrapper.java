@@ -96,7 +96,7 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
      *StubProxyFactoryWrapper->ProxyFactory$Adaptive->JavassistProxyFactory/JdkProxyFactory
      * 1、根据实际的引用的接口信息invoker由具体的代理工厂JavassistProxyFactory/JdkProxyFactory生成一个代理对象proxy
      * 2、检查该invoker实现的接口不是泛化接口GenericService
-     * 3、检查引用的配置信息，如果是本地存根调用(也就是配置了stub或local,目前比较推荐用stub属性配置)
+     * 3、检查引用的配置信息，如果是本地存根调用(也就是配置了stub或local,目前比较推荐用stub属性配置)。注意服务端的服务配置也会透传到消费端
      *      a、如果是本地存根调用
      *          1）根据存根的属性获得对应的存根类信息
      *          2）检查存根类里是否包含一个构造函数，该构造函数只有一个参数，且参数为被引用的接口

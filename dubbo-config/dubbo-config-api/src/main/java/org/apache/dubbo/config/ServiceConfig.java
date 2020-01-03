@@ -315,7 +315,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         }
         //org.apache.dubbo.demo.HelloService
         //org.apache.dubbo.demo.HelloServiceStub
-        //通过配置stub配置本地伪装，stub类也要实现对应的接口。并提供一个包含接口参数的构造方法，用来注入接口代理对象
+        //通过配置stub配置本地存根，stub类也要实现对应的接口，且和接口方法一块。并提供一个包含接口参数的构造方法，用来注入接口代理对象
         ///客户端如果配置了stub，就会把代理对象注入到这个stub实例中，并调用这个stub实例,再通过这个伪装类来调用被代理对象的方法
         if (stub != null) {
             if ("true".equals(stub)) {
@@ -331,8 +331,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 throw new IllegalStateException("The stub implementation class " + stubClass.getName() + " not implement interface " + interfaceName);
             }
         }
-        //检查当前服务对应的stub和local的合法性
-        //stub或local必须实现接口interfaceClass，且 必须存在一个只有一个参数类型为interfaceClass的构造函数
+        //检查当前服务对应的stub和local的合法性：stub或local必须实现接口interfaceClass，且 必须存在一个只有一个参数类型为interfaceClass的构造函数
         checkStubAndLocal(interfaceClass);
         //规范并校验mock属性
         ConfigValidationUtils.checkMock(interfaceClass, this);

@@ -66,7 +66,9 @@ public class ConsumerApp {
 
         StubService stubService = (StubService) context.getBean("stubService");
 
-        stubService.sayHello("xuzf");
+        String result = stubService.sayHello("zjn");
+
+        System.out.println(result);
 
     }
 }

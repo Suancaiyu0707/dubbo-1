@@ -110,7 +110,7 @@ public abstract class AbstractCluster implements Cluster {
 
         /***
          *开始调用远程服务
-         * @param invocation
+         * @param invocation RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[xuzf], attachments={}]
          * @return
          * @throws RpcException
          */

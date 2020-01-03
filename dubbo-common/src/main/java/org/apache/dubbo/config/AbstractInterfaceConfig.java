@@ -254,8 +254,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
 
 
     /**
-     * Legitimacy check of stub, note that: the local will deprecated, and replace with <code>stub</code>
-     *
+     * 本地存根可以在服务端和消费端同时配置，因为服务端会透传到消费端
      * @param interfaceClass for provider side, it is the {@link Class} of the service that will be exported; for consumer
      *                       side, it is the {@link Class} of the remote service interface
      *      // 检查接口是否配置了stub伪装属性或者local本地调用的属性，如果配置了，则检查对应的local/stub的正确性
@@ -273,7 +272,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
         /***
          *  服务端配置:
          * 		<dubbo:service interface="com.mei.oms.service.BarService" ref="barService"/>
-         * 	消费端配置:注意，消费端会直接访问这个stub，而不像mock那样要等待超时等异常后
+         * 	消费端配置:注意，当请求到达服务端后，会直接访问这个stub，而不像mock那样要等待超时等异常后
          * 		<dubbo:reference interface="com.mei.oms.service.BarService" stub="com.mei.oms.service.BarServiceStub" id="barService"/>
          * 		或
          * 		<dubbo:reference interface="com.mei.oms.service.BarService" stub="true" id="barService"/>

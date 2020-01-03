@@ -43,7 +43,7 @@
         <!--<dubbo:method name="get" async="true" onreturn = "eventNotifyCallback.onreturn" onthrow="eventNotifyCallback.onthrow" />-->
     <!--</dubbo:reference>-->
     <!--本地存根-->
-    <dubbo:reference id="stubService" interface="org.apache.dubbo.demo.StubService" />
+    <dubbo:reference id="stubService" interface="org.apache.dubbo.demo.StubService" stub="true"/>
 
 
 </beans>
