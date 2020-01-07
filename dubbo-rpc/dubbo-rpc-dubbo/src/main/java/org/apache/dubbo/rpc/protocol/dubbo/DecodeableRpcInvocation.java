@@ -48,18 +48,31 @@ import static org.apache.dubbo.common.constants.CommonConstants.PATH_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
 import static org.apache.dubbo.rpc.protocol.dubbo.CallbackServiceCodec.decodeInvocationArgument;
 
+/**
+ * 实现 Codec 和 Decodeable 接口，继承 RpcInvocation 类，可解码的 RpcInvocation 实现类。
+ */
 public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Decodeable {
 
     private static final Logger log = LoggerFactory.getLogger(DecodeableRpcInvocation.class);
-
+    /**
+     * 通道
+     */
     private Channel channel;
-
+    /**
+     * Serialization 类型编号
+     */
     private byte serializationType;
-
+    /**
+     * 输入流
+     */
     private InputStream inputStream;
-
+    /**
+     * 请求
+     */
     private Request request;
-
+    /**
+     * 是否已经解码完成
+     */
     private volatile boolean hasDecoded;
 
     public DecodeableRpcInvocation(Channel channel, Request request, InputStream is, byte id) {

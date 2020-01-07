@@ -95,9 +95,9 @@ public class DefaultFuture extends CompletableFuture<Object> {
     }
 
     /**
-     * init a DefaultFuture
-     * 1.init a DefaultFuture
-     * 2.timeout check
+     * 初始化一个DefaultFuture
+     * 1.初始化DefaultFuture
+     * 2.超时时间检查
      *
      * @param channel channel
      * @param request the request

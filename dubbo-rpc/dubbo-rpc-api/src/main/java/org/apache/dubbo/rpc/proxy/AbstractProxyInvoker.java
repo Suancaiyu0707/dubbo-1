@@ -39,8 +39,8 @@ import java.util.concurrent.CompletionException;
 public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     Logger logger = LoggerFactory.getLogger(AbstractProxyInvoker.class);
     /**
-     * 代理的对象，一般是Service实现实例
-     *  eg:
+     * 被代理的对象，一般是Service实现实例,不是代理对象哈
+     *  eg: StubServiceImpl@4650
      */
     private final T proxy;
     /***
@@ -98,8 +98,8 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     }
 
     /***
-     * RPC远程调用
-     * @param invocation
+     * 开始处理消费端请求过来的RPC远程调用
+     * @param invocation 请求信息 RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[zjn], attachments={input=196, path=org.apache.dubbo.demo.StubService, dubbo=2.0.2, interface=org.apache.dubbo.demo.StubService, version=0.0.0}]
      * @return
      * @throws RpcException
      * 1、通过doInvoke调用实际对象的方法，发起请求调用，并返回结果
@@ -109,11 +109,11 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         try {
-            //通过doInvoke调用实际对象的方法，发起请求调用，并返回结果
+            //通过doInvoke调用实际对象的方法，发起请求调用（通过JavassistProxyFactory.AbstractProxyInvoker.doInvoke），并返回结果
             Object value = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
             //将结果集包装成一个CompletableFuture对象
             CompletableFuture<Object> future = wrapWithFuture(value, invocation);
-
+            //CompletableFuture在接收到处理结果后会封装成一个 AppResponse 方法
             CompletableFuture<AppResponse> appResponseFuture = future.handle((obj, t) -> {
                 AppResponse result = new AppResponse();
                 if (t != null) {
@@ -140,18 +140,18 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     }
 
     /***
-     *
-     * @param value
-     * @param invocation
+     * 将结果集和请求信息包装成一个 CompletableFuture
+     * @param value 结果集，比如 "i am StubService"
+     * @param invocation RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[zjn], attachments={input=196, path=org.apache.dubbo.demo.StubService, dubbo=2.0.2, interface=org.apache.dubbo.demo.StubService, version=0.0.0}]
      * @return
      */
     private CompletableFuture<Object> wrapWithFuture (Object value, Invocation invocation) {
-        if (RpcContext.getContext().isAsyncStarted()) {
+        if (RpcContext.getContext().isAsyncStarted()) {//判断是否异步调用
             return ((AsyncContextImpl)(RpcContext.getContext().getAsyncContext())).getInternalFuture();
-        } else if (value instanceof CompletableFuture) {
-            return (CompletableFuture<Object>) value;
+        } else if (value instanceof CompletableFuture) {//判断是否 CompletableFuture结果集类型
+            return (CompletableFuture<Object>) value; //将结果集强转成一个CompletableFuture对象
         }
-        return CompletableFuture.completedFuture(value);
+        return CompletableFuture.completedFuture(value);//将结果集包装成一个CompletableFuture对象
     }
 
     /***

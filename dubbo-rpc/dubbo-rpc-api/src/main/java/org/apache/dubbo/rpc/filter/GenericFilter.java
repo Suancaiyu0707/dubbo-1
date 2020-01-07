@@ -59,7 +59,7 @@ public class GenericFilter implements Filter, Filter.Listener {
     /***
      * 会处理泛化调用的信息
      * @param invoker
-     * @param inv
+     * @param inv RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[zjn], attachments={input=196, path=org.apache.dubbo.demo.StubService, dubbo=2.0.2, interface=org.apache.dubbo.demo.StubService, version=0.0.0}]
      * @return
      * @throws RpcException
      * 1、从泛化参数里拿到所有的参数，重新组装一个Invocation，用于向真正的业务发起调用。

@@ -30,7 +30,7 @@
     <!--&lt;!&ndash;本地伪装&ndash;&gt;-->
     <!--<dubbo:reference id="mockService" interface="org.apache.dubbo.demo.MockService" mock="force:org.apache.dubbo.demo.consumer.MockServiceMock"/>-->
 
-    <!--<dubbo:reference id="demoService" check="false" interface="org.apache.dubbo.demo.DemoService"/>-->
+    <dubbo:reference id="demoService" interface="org.apache.dubbo.demo.DemoService"/>
 
     <!--<dubbo:reference id="asyncService" timeout="10000" interface="org.apache.dubbo.demo.AsyncService"/>-->
     <!--&lt;!&ndash;本地调用&ndash;&gt;-->
@@ -38,12 +38,12 @@
     <!--&lt;!&ndash;参数回调&ndash;&gt;-->
     <!--<dubbo:reference id="callbackService" interface="org.apache.dubbo.demo.CallbackService" />-->
     <!--&lt;!&ndash;服务消费者 Callback 配置&ndash;&gt;-->
-    <!--<bean id ="eventNotifyCallback" class = "org.apache.dubbo.demo.consumer.NotifyImpl" />-->
-    <!--<dubbo:reference id="eventNotifyService" interface="org.apache.dubbo.demo.EventNotifyService" version="1.0.0" group="cn" >-->
-        <!--<dubbo:method name="get" async="true" onreturn = "eventNotifyCallback.onreturn" onthrow="eventNotifyCallback.onthrow" />-->
-    <!--</dubbo:reference>-->
+    <bean id ="eventNotifyCallback" class = "org.apache.dubbo.demo.consumer.NotifyImpl" />
+    <dubbo:reference id="eventNotifyService" interface="org.apache.dubbo.demo.EventNotifyService" version="1.0.0" group="cn" >
+        <dubbo:method name="get" async="true" onreturn = "eventNotifyCallback.onreturn" onthrow="eventNotifyCallback.onthrow" />
+    </dubbo:reference>
     <!--本地存根-->
-    <dubbo:reference id="stubService" interface="org.apache.dubbo.demo.StubService" stub="true"/>
+    <dubbo:reference id="stubService" interface="org.apache.dubbo.demo.StubService" stub="org.apache.dubbo.demo.StubServiceStub"/>
 
 
 </beans>

@@ -109,7 +109,7 @@ public class RpcUtils {
      * @param inv
      */
     /***
-     *
+     *  如果是异步请求的话，则生成一个请求id
      * @param url
      * @param inv
      *  生成一个请求id，并传递给服务端，用于区分是哪次调用，只有同时满足以下几种情况才会生成id:
@@ -122,9 +122,9 @@ public class RpcUtils {
             ((RpcInvocation) inv).setAttachment(ID_KEY, String.valueOf(INVOKE_ID.getAndIncrement()));
         }
     }
-
+    //
     private static boolean isAttachInvocationId(URL url, Invocation invocation) {
-        String value = url.getMethodParameter(invocation.getMethodName(), AUTO_ATTACH_INVOCATIONID_KEY);
+        String value = url.getMethodParameter(invocation.getMethodName(), AUTO_ATTACH_INVOCATIONID_KEY);//获得方法的配置属性invocationid.autoattach，没有则返回null
         if (value == null) {
             // 返回是否异步调用，默认是同步
             return isAsync(url, invocation);
@@ -190,14 +190,14 @@ public class RpcUtils {
         }
         return isAsync;
     }
-
+    //返回方法调用返回类型是否Future
     public static boolean isReturnTypeFuture(Invocation inv) {
         Class<?> clazz;
         if (inv instanceof RpcInvocation) {
-            clazz = ((RpcInvocation) inv).getReturnType();
+            clazz = ((RpcInvocation) inv).getReturnType();//获得服务调用的返回类型
         } else {
             clazz = getReturnType(inv);
-        }
+        }//如果返回类型是CompletableFuture或者方法名是'$invokeAsync'，则返回true
         return (clazz != null && CompletableFuture.class.isAssignableFrom(clazz)) || isGenericAsync(inv);
     }
 
@@ -212,11 +212,11 @@ public class RpcUtils {
     public static boolean isEcho(String path, String method) {
         return $ECHO.equals(method);
     }
-
+    //获得请求方式：future/异步/同步
     public static InvokeMode getInvokeMode(URL url, Invocation inv) {
-        if (isReturnTypeFuture(inv)) {
+        if (isReturnTypeFuture(inv)) {//如果服务方法调用返回类型是否是future
             return InvokeMode.FUTURE;
-        } else if (isAsync(url, inv)) {
+        } else if (isAsync(url, inv)) {//判断方法调用是否是异步的
             return InvokeMode.ASYNC;
         } else {
             return InvokeMode.SYNC;

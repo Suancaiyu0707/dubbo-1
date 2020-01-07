@@ -43,6 +43,8 @@ import java.io.InputStream;
 
 /**
  * ExchangeCodec.
+ * 主要负责在netty传输过程中，对request和response的通用解析。
+ * 但是它是不满足在 dubbo:// 协议中，对 RpcInvocation 和 RpcResult 作为 内容体( Body ) 的编解码的需要的。
  */
 public class ExchangeCodec extends TelnetCodec {
 
@@ -63,6 +65,13 @@ public class ExchangeCodec extends TelnetCodec {
         return MAGIC;
     }
 
+    /**
+     * 编码
+     * @param channel NettyChannel [channel=[id: 0x0c18aa17, L:/192.168.0.102:60793 - R:/192.168.0.102:20880]]
+     * @param buffer
+     * @param msg Request [id=0, version=2.0.2, twoway=true, event=false, broken=false, data=RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[zjn], attachments={path=org.apache.dubbo.demo.StubService, interface=org.apache.dubbo.demo.StubService, version=0.0.0}]]
+     * @throws IOException
+     */
     @Override
     public void encode(Channel channel, ChannelBuffer buffer, Object msg) throws IOException {
         if (msg instanceof Request) {
@@ -207,16 +216,23 @@ public class ExchangeCodec extends TelnetCodec {
         return req.getData();
     }
 
+    /***
+     *
+     * @param channel NettyChannel [channel=[id: 0x0c18aa17, L:/192.168.0.102:60793 - R:/192.168.0.102:20880]]
+     * @param buffer
+     * @param req
+     * @throws IOException
+     */
     protected void encodeRequest(Channel channel, ChannelBuffer buffer, Request req) throws IOException {
         Serialization serialization = getSerialization(channel);
-        // header.
+        // header. 16位长度的消息头
         byte[] header = new byte[HEADER_LENGTH];
         // set magic number.
         Bytes.short2bytes(MAGIC, header);
 
         // set request and serialization flag.
         header[2] = (byte) (FLAG_REQUEST | serialization.getContentTypeId());
-
+        //双向传输
         if (req.isTwoWay()) {
             header[2] |= FLAG_TWOWAY;
         }

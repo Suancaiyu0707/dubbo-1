@@ -139,6 +139,18 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         return getInterface() + " -> " + (getUrl() == null ? "" : getUrl().toString());
     }
 
+    /***
+     * 开始调用引用服务
+     * @param inv
+     * @return
+     * @throws RpcException
+     * 1、整理隐式参数
+     * 2、获得请求的同步模式：future/异步/同步。设置上下文信息
+     * 3、生成代表本次异步请求的调用id
+     * 3、异步调用服务提供者服务，并返回AsyncRpcResult
+     *      这里会调用DubboInvoker.doInvoke方法(内部是异步请求)
+     * 4、将异步调用的结果占位符ResponseFuture设置到上下文Context中
+     */
     @Override
     public Result invoke(Invocation inv) throws RpcException {
         // if invoker is destroyed due to address refresh from registry, let's allow the current invoke to proceed
@@ -147,7 +159,9 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
                     + ", dubbo version is " + Version.getVersion() + ", this invoker should not be used any longer");
         }
         RpcInvocation invocation = (RpcInvocation) inv;
+        // 设置 `invoker` 属性
         invocation.setInvoker(this);
+        //添加公用的隐式参数，例如，`path` `interface` 等等，详见 RpcInvocation 类
         if (CollectionUtils.isNotEmptyMap(attachment)) {
             invocation.addAttachmentsIfAbsent(attachment);
         }
@@ -161,7 +175,7 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
              */
             invocation.addAttachments(contextAttachments);
         }
-
+        //返回服务引用调用的模式：future/异步/同步
         invocation.setInvokeMode(RpcUtils.getInvokeMode(url, invocation));
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
 
@@ -188,6 +202,7 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         } catch (Throwable e) {
             asyncResult = AsyncRpcResult.newDefaultAsyncResult(null, e, invocation);
         }
+        //将异步调用的结果占位符设置到上下文Context中
         RpcContext.getContext().setFuture(new FutureAdapter(asyncResult.getResponseFuture()));
         return asyncResult;
     }

@@ -29,6 +29,7 @@ public class ConsumerApp {
      */
     public static void main(String[] args) throws Exception {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-consumer.xml");
+//        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-demo-injvm.xml");
         context.start();
 
 
@@ -64,11 +65,29 @@ public class ConsumerApp {
 //        }
         //本地存根
 
+//        StubService stubService = (StubService) context.getBean("stubService");
+//
+//        String result = stubService.sayHello("xuzf");
+
+//        DemoService demoService = (DemoService) context.getBean("demoService");
+//
+//
+//        try {
+//            System.out.println(demoService.sayHello("xuzf"));
+//        } catch (Throwable throwable) {
+//                throwable.printStackTrace();
+//        }
+
         StubService stubService = (StubService) context.getBean("stubService");
+        try {
+            stubService.sayHello("zjn");
+                    } catch (Throwable e) {
+                e.printStackTrace();
+        }
 
-        String result = stubService.sayHello("zjn");
 
-        System.out.println(result);
 
+        EventNotifyService notifyService = (EventNotifyService) context.getBean("eventNotifyService");
+        notifyService.get(10);
     }
 }

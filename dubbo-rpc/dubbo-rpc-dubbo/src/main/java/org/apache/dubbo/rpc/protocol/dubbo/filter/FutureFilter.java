@@ -36,13 +36,29 @@ import static org.apache.dubbo.common.constants.CommonConstants.$INVOKE;
 /**
  * EventFilter
  * 使用方：服务消费者
- * 在发起invoker或得到返回值、出现异常时触发回调事件
+ *      在发起invoker或得到返回值、出现异常时触发回调事件
+ * 获得<dubbo:method>里配置的异步回调方法 oninvoke/onreturn/onthrow：
+ *          <dubbo:method name="get" async="true" onreturn = "eventNotifyCallback.onreturn" onthrow="eventNotifyCallback.onthrow" />
+ *
+ * oninvoke：服务消费者调用服务提供者之前，执行前置方法，如果配置了oninvoke属性的话，先执行oninvke方法，再调用远程的方法
+ * onreturn：设置服务消费者调用服务提供者之后，如果请求返回正常，执行后置方法onreturn
+ * onthrow：设置服务消费者调用服务提供者之后，如果请求返回异常，执行后置方法onthrow
+ *
  */
 @Activate(group = CommonConstants.CONSUMER)
 public class FutureFilter implements Filter, Filter.Listener {
 
     protected static final Logger logger = LoggerFactory.getLogger(FutureFilter.class);
 
+    /***
+     * 在调用之前，判断是否配置了 oninvoke 方法
+     * @param invoker
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、服务消费者调用服务提供者之前，执行前置方法：如果配置了oninvoke属性的话，先执行oninvke方法
+     * 2、开始远程服务调用
+     */
     @Override
     public Result invoke(final Invoker<?> invoker, final Invocation invocation) throws RpcException {
         fireInvokeCallback(invoker, invocation);
@@ -51,11 +67,22 @@ public class FutureFilter implements Filter, Filter.Listener {
         return invoker.invoke(invocation);
     }
 
+    /***
+     * 根据执行结果的异常判断是回调onThrow方法还是回调onReturn方法
+     * @param result
+     * @param invoker
+     * @param invocation
+     * 1、判断返回结果是否存在异常
+     * 2、如果存在异常信息，则回调onThrow的方法
+     * 3、如果不存在异常信息，则回调onReturn的方法
+     */
     @Override
     public void onMessage(Result result, Invoker<?> invoker, Invocation invocation) {
         if (result.hasException()) {
+            //onthrow 配置项，设置服务消费者调用服务提供者之后，如果请求返回异常，执行后置方法onthrow
             fireThrowCallback(invoker, invocation, result.getException());
         } else {
+            //onreturn 设置服务消费者调用服务提供者之后，如果请求返回正常，执行后置方法onreturn
             fireReturnCallback(invoker, invocation, result.getValue());
         }
     }
@@ -65,11 +92,23 @@ public class FutureFilter implements Filter, Filter.Listener {
 
     }
 
+    /***
+     *
+     * 服务消费者调用服务提供者之前，执行前置方法oninvoke
+     * 获得<dubbo:method>里配置的异步回调方法 oninvoke：
+     *          <dubbo:method name="get" async="true" onreturn = "eventNotifyCallback.onreturn" onthrow="eventNotifyCallback.onthrow" />
+     * @param invoker
+     * @param invocation
+     * 1、获得获得前置方法oninvoke和对象
+     * 2、调用前置方法
+     */
     private void fireInvokeCallback(final Invoker<?> invoker, final Invocation invocation) {
+        //获得获得前置方法oninvoke和对象
         final ConsumerModel.AsyncMethodInfo asyncMethodInfo = getAsyncMethodInfo(invoker, invocation);
         if (asyncMethodInfo == null) {
             return;
         }
+        //获得<dubbo:method>里配置的onthrow的值
         final Method onInvokeMethod = asyncMethodInfo.getOninvokeMethod();
         final Object onInvokeInst = asyncMethodInfo.getOninvokeInstance();
 
@@ -85,6 +124,7 @@ public class FutureFilter implements Filter, Filter.Listener {
 
         Object[] params = invocation.getArguments();
         try {
+            //调用前置方法
             onInvokeMethod.invoke(onInvokeInst, params);
         } catch (InvocationTargetException e) {
             fireThrowCallback(invoker, invocation, e.getTargetException());
@@ -92,7 +132,14 @@ public class FutureFilter implements Filter, Filter.Listener {
             fireThrowCallback(invoker, invocation, e);
         }
     }
-
+    /***
+     * 设置服务消费者调用服务提供者之后，如果请求返回正常，执行后置方法onreturn
+     *
+     * 获得<dubbo:method>里配置的异步回调方法 onReturn：
+     *          <dubbo:method name="get" async="true" onreturn = "eventNotifyCallback.onreturn" onthrow="eventNotifyCallback.onthrow" />
+     * @param invoker
+     * @param invocation
+     */
     private void fireReturnCallback(final Invoker<?> invoker, final Invocation invocation, final Object result) {
         final ConsumerModel.AsyncMethodInfo asyncMethodInfo = getAsyncMethodInfo(invoker, invocation);
         if (asyncMethodInfo == null) {
@@ -138,13 +185,20 @@ public class FutureFilter implements Filter, Filter.Listener {
             fireThrowCallback(invoker, invocation, e);
         }
     }
-
+    /***
+     * 设置服务消费者调用服务提供者之后，如果请求返回异常，执行后置方法onthrow
+     *
+     * 获得<dubbo:method>里配置的异步回调方法 onthrow：
+     *          <dubbo:method name="get" async="true" onreturn = "eventNotifyCallback.onreturn" onthrow="eventNotifyCallback.onthrow" />
+     * @param invoker
+     * @param invocation
+     */
     private void fireThrowCallback(final Invoker<?> invoker, final Invocation invocation, final Throwable exception) {
         final ConsumerModel.AsyncMethodInfo asyncMethodInfo = getAsyncMethodInfo(invoker, invocation);
         if (asyncMethodInfo == null) {
             return;
         }
-
+        //获得<dubbo:method>里配置的onthrow的值
         final Method onthrowMethod = asyncMethodInfo.getOnthrowMethod();
         final Object onthrowInst = asyncMethodInfo.getOnthrowInstance();
 
@@ -185,18 +239,28 @@ public class FutureFilter implements Filter, Filter.Listener {
             logger.error(invocation.getMethodName() + ".call back method invoke error . callback method :" + onthrowMethod + ", url:" + invoker.getUrl(), exception);
         }
     }
+    //
 
+    /***
+     * 获得异步方法信息，只在消费端配置有效
+     * @param invoker
+     * @param invocation
+     * @return
+     * 1、判断是消费端消费模式
+     * 2、判断方法里是否配置了回调onreturn = "eventNotifyCallback.onreturn" onthrow="eventNotifyCallback.onthrow"
+     */
     private ConsumerModel.AsyncMethodInfo getAsyncMethodInfo(Invoker<?> invoker, Invocation invocation) {
         final ConsumerModel consumerModel = ApplicationModel.getConsumerModel(invoker.getUrl().getServiceKey());
-        if (consumerModel == null) {
+        if (consumerModel == null) {//如果不是消费端消费服务，直接返回空
             return null;
         }
-
+        //获得本次调用的方法
         String methodName = invocation.getMethodName();
         if (methodName.equals($INVOKE)) {
             methodName = (String) invocation.getArguments()[0];
         }
-
+        //获得方法的回调信息：
+        // onreturn = "eventNotifyCallback.onreturn" onthrow="eventNotifyCallback.onthrow"
         final ConsumerModel.AsyncMethodInfo asyncMethodInfo = consumerModel.getMethodConfig(methodName);
         if (asyncMethodInfo == null) {
             return null;

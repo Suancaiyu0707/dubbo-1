@@ -52,14 +52,16 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
         super(directory);
     }
     /***
+     *  通过父类 AbstractClusterInvoker 获得服务提供者的列表和负载均衡策略后，调用当前方法进行服务调用。
      *  由 AbstractClusterInvoker 请求过来
      * @param invocation
      * @param invokers
      * @param loadbalance
-     * @return
      * @throws RpcException
-     * 1、通过父类 AbstractClusterInvoker 校验 invokers是否为空
-     * 2、
+     * 1、通过父类 AbstractClusterInvoker 获得服务提供者的列表和负载均衡策略后，调用当前方法进行服务调用
+     * 2、根据负载均衡策略选中一个服务提供者用于服务调用
+     *      注意：
+     *          如果服务失败后，会在这边进行开始重试
      */
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})

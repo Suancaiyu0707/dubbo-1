@@ -109,22 +109,35 @@ public class DubboProtocol extends AbstractProtocol {
      * servicekey-stubmethods
      */
     private final ConcurrentMap<String, String> stubServiceMethodsMap = new ConcurrentHashMap<>();
-
+    /***
+     * 这个处理器，负责将请求，转发到对应的 Invoker 对象，执行逻辑，返回结果
+     */
     private ExchangeHandler requestHandler = new ExchangeHandlerAdapter() {
-
+        /***
+         * 对于服务消费者的远程调用，通过 #reply(ExchangeChannel channel, Object message) 和 #reply(Channel channel, Object message) 方法来处理
+         * @param channel
+         * @param message
+         * @return
+         * @throws RemotingException
+         * 1、判断消息内容是一个 Invocation 引用对象
+         * 2、根据引用信息获得请求对应的 Invoker 对象
+         * 3、设置调用方的地址
+         * 3、通过invoker对象执行调用
+         */
         @Override
         public CompletableFuture<Object> reply(ExchangeChannel channel, Object message) throws RemotingException {
-
+            //如果不是远程服务调用的消息
             if (!(message instanceof Invocation)) {
                 throw new RemotingException(channel, "Unsupported request: "
                         + (message == null ? null : (message.getClass().getName() + ": " + message))
                         + ", channel: consumer: " + channel.getRemoteAddress() + " --> provider: " + channel.getLocalAddress());
             }
-
+            // 获得请求对应的 Invoker 对象
             Invocation inv = (Invocation) message;
-            Invoker<?> invoker = getInvoker(channel, inv);
+            Invoker<?> invoker = getInvoker(channel, inv);//根据请求获取暴露的服务
             // need to consider backward-compatibility if it's a callback
-            if (Boolean.TRUE.toString().equals(inv.getAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {
+            //如果是callback 需要处理高版本调用低版本的问题
+            if (Boolean.TRUE.toString().equals(inv.getAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {//如果是参数回调，校验服务消费者实际存在对应的回调方法，通过方法名判断
                 String methodsStr = invoker.getUrl().getParameters().get("methods");
                 boolean hasMethod = false;
                 if (methodsStr == null || !methodsStr.contains(",")) {
@@ -146,11 +159,18 @@ public class DubboProtocol extends AbstractProtocol {
                     return null;
                 }
             }
+            // 设置调用方的地址
             RpcContext.getContext().setRemoteAddress(channel.getRemoteAddress());
-            Result result = invoker.invoke(inv);
+            Result result = invoker.invoke(inv);//调用暴露的服务的方法
             return result.thenApply(Function.identity());
         }
 
+        /***
+         * 用于处理服务消费者的单次调用的消息，通过判断消息类型是不是 Invocation
+         * @param channel
+         * @param message
+         * @throws RemotingException
+         */
         @Override
         public void received(Channel channel, Object message) throws RemotingException {
             if (message instanceof Invocation) {
@@ -161,11 +181,21 @@ public class DubboProtocol extends AbstractProtocol {
             }
         }
 
+        /***
+         * 在服务提供者连接时，调用 Service 对应的方法
+         * @param channel
+         * @throws RemotingException
+         */
         @Override
         public void connected(Channel channel) throws RemotingException {
             invoke(channel, ON_CONNECT_KEY);
         }
 
+        /***
+         * 在服务提供者断开连接时，调用 Service 对应的方法
+         * @param channel
+         * @throws RemotingException
+         */
         @Override
         public void disconnected(Channel channel) throws RemotingException {
             if (logger.isDebugEnabled()) {
@@ -174,11 +204,17 @@ public class DubboProtocol extends AbstractProtocol {
             invoke(channel, ON_DISCONNECT_KEY);
         }
 
+        /***
+         *
+         * @param channel
+         * @param methodKey
+         */
         private void invoke(Channel channel, String methodKey) {
+            // 创建 Invocation 对象
             Invocation invocation = createInvocation(channel, channel.getUrl(), methodKey);
             if (invocation != null) {
                 try {
-                    received(channel, invocation);
+                    received(channel, invocation);// 调用 received 方法，执行对应的方法
                 } catch (Throwable t) {
                     logger.warn("Failed to invoke event method " + invocation.getMethodName() + "(), cause: " + t.getMessage(), t);
                 }
@@ -238,13 +274,25 @@ public class DubboProtocol extends AbstractProtocol {
                         .equals(NetUtils.filterLocalHost(address.getAddress().getHostAddress()));
     }
 
+    /***
+     *  根据消费端传过来的引用信息获得暴露的exporter，并获得包装的invoker
+     * @param channel NettyChannel [channel=[id: 0x07a5b227, L:/192.168.0.102:20880 ! R:/192.168.0.102:61179]]
+     * @param inv RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[zjn], attachments={input=196, path=org.apache.dubbo.demo.StubService, dubbo=2.0.2, interface=org.apache.dubbo.demo.StubService, version=0.0.0}]
+     * @return
+     * @throws RemotingException
+     * 1、获得端口号、服务名称
+     * 2、检查是否是参数回调，如果是参数回调，获得真正的服务名 `path`
+     * 3、根据引用的服务信息获得标示当前组下的某个版本的唯一key，这个key包含了以下信息group、服务名称、服务版本号、端口号
+     * 4、根据唯一的key从本地内存里查找暴露的服务DubboExporter
+     * 5、返回DubboExporter绑定的invoker
+     */
     Invoker<?> getInvoker(Channel channel, Invocation inv) throws RemotingException {
         boolean isCallBackServiceInvoke = false;
         boolean isStubServiceInvoke = false;
-        int port = channel.getLocalAddress().getPort();
-        String path = (String) inv.getAttachments().get(PATH_KEY);
+        int port = channel.getLocalAddress().getPort();//20880
+        String path = (String) inv.getAttachments().get(PATH_KEY);//org.apache.dubbo.demo.StubService
 
-        // if it's callback service on client side
+        // 检查是否是参数回调
         isStubServiceInvoke = Boolean.TRUE.toString().equals(inv.getAttachments().get(STUB_EVENT_KEY));
         if (isStubServiceInvoke) {
             port = channel.getRemoteAddress().getPort();
@@ -256,9 +304,9 @@ public class DubboProtocol extends AbstractProtocol {
             path += "." + inv.getAttachments().get(CALLBACK_SERVICE_KEY);
             inv.getAttachments().put(IS_CALLBACK_SERVICE_INVOKE, Boolean.TRUE.toString());
         }
-
-        String serviceKey = serviceKey(port, path, (String) inv.getAttachments().get(VERSION_KEY), (String) inv.getAttachments().get(GROUP_KEY));
-        DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey);
+        //根据服务信息获得标示当前组下的某个版本的唯一key，这个key包含了以下信息group、服务名称、服务版本号、端口号：org.apache.dubbo.demo.StubService:20880
+        String serviceKey = serviceKey(port, path, (String) inv.getAttachments().get(VERSION_KEY), (String) inv.getAttachments().get(GROUP_KEY));//org.apache.dubbo.demo.StubService:20880
+        DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey);//根据key从本地查找暴露的服务
 
         if (exporter == null) {
             throw new RemotingException(channel, "Not found exported service: " + serviceKey + " in " + exporterMap.keySet() + ", may be version or group mismatch " +

@@ -37,13 +37,23 @@ public class ProtocolUtils {
                 url.getParameter(GROUP_KEY));
     }
 
+    /***
+     * 根据服务信息获得标示当前组下的某个版本的唯一key，这个key包含了以下信息：
+     *      group、服务名称、服务版本号、端口号
+     * @param port 端口号，eg 20880
+     * @param serviceName 服务名称，eg org.apache.dubbo.demo.StubService
+     * @param serviceVersion 服务版本号，可通过version属性配置，默认 0.0.0
+     * @param serviceGroup 服务所属组，可通过group配置
+     * @return  group/serviceName:version:port
+     *
+     */
     public static String serviceKey(int port, String serviceName, String serviceVersion, String serviceGroup) {
         StringBuilder buf = new StringBuilder();
-        if (StringUtils.isNotEmpty(serviceGroup)) {
+        if (StringUtils.isNotEmpty(serviceGroup)) {//group
             buf.append(serviceGroup);
             buf.append("/");
         }
-        buf.append(serviceName);
+        buf.append(serviceName);//服务名称：org.apache.dubbo.demo.StubService
         if (serviceVersion != null && serviceVersion.length() > 0 && !"0.0.0".equals(serviceVersion)) {
             buf.append(":");
             buf.append(serviceVersion);

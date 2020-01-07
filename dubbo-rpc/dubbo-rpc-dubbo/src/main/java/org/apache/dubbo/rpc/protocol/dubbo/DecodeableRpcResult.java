@@ -38,6 +38,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Type;
 
+/***
+ * 实现 Codec 和 Decodeable 接口，继承 RpcResult 类，可解码的 RpcResult 实现类。
+ */
 public class DecodeableRpcResult extends AppResponse implements Codec, Decodeable {
 
     private static final Logger log = LoggerFactory.getLogger(DecodeableRpcResult.class);

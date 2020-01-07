@@ -47,6 +47,17 @@ public class AsyncToSyncInvoker<T> implements Invoker<T> {
         return invoker.getInterface();
     }
 
+    /***
+     *
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、调用AbstractInvoker.invoke方法
+     *      a、获得调用方式：future/异步/同步
+     *      b、生成一个代表本次请求的id
+     *      c、调用DubboInvoke.doInvoke方法进行远程服务调用（内部是异步的）
+     * 2、如果请求方式是同步的，则调用get阻塞等待；否则直接返回代表此次请求的占位符。
+     */
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         //调用 AbstractInvoker.invoke方法

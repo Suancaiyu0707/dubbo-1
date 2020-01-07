@@ -279,10 +279,14 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
     }
 
     /***
-     * 选中服务提供者后就开始调用远程服务
+     * 根据服务的引用信息获得提供者列表和负载均衡策略
      * @param invocation
      * @return
      * @throws RpcException
+     * 1、检查节点是否已经被销毁了
+     * 2、从注册中心获得服务提供者的列表
+     * 3、根据配置获得负载均衡策略
+     * 4、交给具体子类进行调用
      */
     @Override
     public Result invoke(final Invocation invocation) throws RpcException {
@@ -301,7 +305,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         LoadBalance loadbalance = initLoadBalance(invokers, invocation);
         //为当前的rpc请求创建一个id，用于标识当前的请求
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
-        //根据对应的实现类调用,比如：FailoverClusterInvoker
+        //交给实际的实现类调用,比如：FailoverClusterInvoker
         return doInvoke(invocation, invokers, loadbalance);
     }
 

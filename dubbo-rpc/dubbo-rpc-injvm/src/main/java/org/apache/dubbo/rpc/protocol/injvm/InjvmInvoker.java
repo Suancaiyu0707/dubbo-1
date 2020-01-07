@@ -77,10 +77,12 @@ class InjvmInvoker<T> extends AbstractInvoker<T> {
     }
 
     /***
-     *
-     * @param invocation
+     * 本地调用时，会调用这个方法
+     * @param invocation RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[xuzf], attachments={}]
      * @return
      * @throws Throwable
+     * 1、根据引用的服务的url从本地内存里获取本地暴露的服务
+     * 2、从本地内存里获得暴露的服务对象exporter直接反射调用，不需要走Netty网络调用
      */
     @Override
     public Result doInvoke(Invocation invocation) throws Throwable {

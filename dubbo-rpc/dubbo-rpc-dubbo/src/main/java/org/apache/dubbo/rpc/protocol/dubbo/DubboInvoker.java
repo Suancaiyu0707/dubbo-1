@@ -49,6 +49,7 @@ import static org.apache.dubbo.rpc.Constants.TOKEN_KEY;
 
 /**
  * DubboInvoker
+ * Dubbo协议的Invoker，用于消费者调用服务
  */
 public class DubboInvoker<T> extends AbstractInvoker<T> {
 
@@ -74,13 +75,26 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
         this.invokers = invokers;
     }
 
+    /***
+     * 进行服务调用
+     * @param invocation
+     *
+     * @return
+     * @throws Throwable
+     * 1、获得一个远程服务对象，并获得服务调用的方法
+     * 2、获得当前Invoker的客户端连接
+     * 3、根据的请求方式，向服务提供者发起请求：
+     *      oneway:
+     *      非oneway
+     */
     @Override
     protected Result doInvoke(final Invocation invocation) throws Throwable {
         RpcInvocation inv = (RpcInvocation) invocation;//RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[xuzf], attachments={path=org.apache.dubbo.demo.MockService, interface=org.apache.dubbo.demo.MockService, version=0.0.0}]
         final String methodName = RpcUtils.getMethodName(invocation);//sayHello
+        // 设置 `path`( 服务名 )，`version`
         inv.setAttachment(PATH_KEY, getUrl().getPath());
         inv.setAttachment(VERSION_KEY, version);
-
+        // 获得 ExchangeClient 对象
         ExchangeClient currentClient;
         if (clients.length == 1) {
             currentClient = clients[0];//org.apache.dubbo.remoting.transport.netty4.NettyClient [/192.168.0.104:61515 -> /192.168.0.104:20880]
@@ -88,15 +102,24 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
             currentClient = clients[index.getAndIncrement() % clients.length];
         }
         try {
-            //判断是否是isOneway，默认是false
+            // 获得是否单向调用
             boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);//false
+            // 获得超时时间
             int timeout = getUrl().getMethodPositiveParameter(methodName, TIMEOUT_KEY, DEFAULT_TIMEOUT);
-            if (isOneway) {
+            if (isOneway) {//如果是单向调用的话
+                //获得方法的'sent'属性值，默认是false
                 boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);
+                //发送请求
                 currentClient.send(inv, isSent);
+                /***
+                 * 返回一个异步响应结果AsyncRpcResult，其中AsyncRpcResult中持有一个CompletableFuture<AppResponse> responseFuture：
+                 *      可以用responseFuture获取最终执行的结果
+                 */
                 return AsyncRpcResult.newDefaultAsyncResult(invocation);
             } else {//通过观察者订阅模式进行请求
+                //获得线程池
                 ExecutorService executor = getCallbackExecutor(getUrl(), inv);
+                //丢给线程池去执行，并把结果上下文放到ThreadLocal里
                 CompletableFuture<AppResponse> appResponseFuture =
                         currentClient.request(inv, timeout, executor).thenApply(obj -> (AppResponse) obj);
                 // save for 2.6.x compatibility, for example, TraceFilter in Zipkin uses com.alibaba.xxx.FutureAdapter

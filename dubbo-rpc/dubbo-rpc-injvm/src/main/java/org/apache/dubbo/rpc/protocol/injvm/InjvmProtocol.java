@@ -69,9 +69,9 @@ public class InjvmProtocol extends AbstractProtocol implements Protocol {
      */
     static Exporter<?> getExporter(Map<String, Exporter<?>> map, URL key) {
         Exporter<?> result = null;
-
+        //获取引用url里的服务的key，并根据key从map里获取：org.apache.dubbo.demo.DemoService
         if (!key.getServiceKey().contains("*")) {
-            result = map.get(key.getServiceKey());
+            result = map.get(key.getServiceKey());//interface org.apache.dubbo.demo.DemoService -> injvm://127.0.0.1/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=220.250.64.225&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=80798&release=&scope=local&side=provider&timestamp=1578031716267
         } else {
             if (CollectionUtils.isNotEmptyMap(map)) {
                 for (Exporter<?> exporter : map.values()) {
@@ -83,12 +83,12 @@ public class InjvmProtocol extends AbstractProtocol implements Protocol {
             }
         }
 
-        if (result == null) {
+        if (result == null) {//如果本地内存里没有的话直接返回null
             return null;
-        } else if (ProtocolUtils.isGeneric(
+        } else if (ProtocolUtils.isGeneric(//如果本地内存里有，则是一个泛化调用，则直接返回null
                 result.getInvoker().getUrl().getParameter(GENERIC_KEY))) {
             return null;
-        } else {
+        } else {//直接返回暴露的服务
             return result;
         }
     }

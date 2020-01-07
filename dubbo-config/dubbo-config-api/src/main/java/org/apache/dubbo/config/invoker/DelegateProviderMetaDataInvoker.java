@@ -28,7 +28,7 @@ import org.apache.dubbo.rpc.RpcException;
  * A Invoker wrapper that wrap the invoker and all the metadata (ServiceConfig)
  */
 public class DelegateProviderMetaDataInvoker<T> implements Invoker {
-    protected final Invoker<T> invoker;
+    protected final Invoker<T> invoker;//interface org.apache.dubbo.demo.StubService -> registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.0.102%3A20880%2Forg.apache.dubbo.demo.StubService%3Fanyhost%3Dtrue%26bean.name%3Dorg.apache.dubbo.demo.StubService%26bind.ip%3D192.168.0.102%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.StubService%26methods%3DsayHello%26pid%3D38332%26release%3D%26side%3Dprovider%26timestamp%3D1578355147516&pid=38332&qos.port=22222&registry=zookeeper&timestamp=1578355147505
     private ServiceConfig<?> metadata;
 
     public DelegateProviderMetaDataInvoker(Invoker<T> invoker, ServiceConfig<?> metadata) {
@@ -51,6 +51,13 @@ public class DelegateProviderMetaDataInvoker<T> implements Invoker {
         return invoker.isAvailable();
     }
 
+    /***
+     *  开始处理消费端的服务调用
+     * @param invocation 消费端传过来的服务调用信息
+     *        eg：RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[zjn], attachments={input=196, path=org.apache.dubbo.demo.StubService, dubbo=2.0.2, interface=org.apache.dubbo.demo.StubService, version=0.0.0}]
+     * @return
+     * @throws RpcException
+     */
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         return invoker.invoke(invocation);

@@ -89,7 +89,7 @@ public class HeaderExchangeClient implements ExchangeClient {
     public CompletableFuture<Object> request(Object request, ExecutorService executor) throws RemotingException {
         return channel.request(request, executor);
     }
-
+    //调用网络连接发起请求
     @Override
     public CompletableFuture<Object> request(Object request, int timeout, ExecutorService executor) throws RemotingException {
         return channel.request(request, timeout, executor);

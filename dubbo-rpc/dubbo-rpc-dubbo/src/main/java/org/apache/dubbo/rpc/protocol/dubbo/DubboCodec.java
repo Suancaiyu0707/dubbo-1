@@ -48,27 +48,59 @@ import static org.apache.dubbo.rpc.support.RpcUtils.sieveUnnecessaryAttachments;
  * Dubbo codec.
  */
 public class DubboCodec extends ExchangeCodec {
-
+    /***
+     * 协议名称
+     */
     public static final String NAME = "dubbo";
+    /**
+     * 协议版本
+     */
     public static final String DUBBO_VERSION = Version.getProtocolVersion();
+    /**
+     * 响应 - 异常
+     */
+    /**
+     * 响应 - 异常
+     */
     public static final byte RESPONSE_WITH_EXCEPTION = 0;
+    /**
+     * 响应 - 正常（有返回）
+     */
     public static final byte RESPONSE_VALUE = 1;
+    /**
+     * 响应 - 正常（空返回）
+     */
     public static final byte RESPONSE_NULL_VALUE = 2;
     public static final byte RESPONSE_WITH_EXCEPTION_WITH_ATTACHMENTS = 3;
     public static final byte RESPONSE_VALUE_WITH_ATTACHMENTS = 4;
     public static final byte RESPONSE_NULL_VALUE_WITH_ATTACHMENTS = 5;
+    /**
+     * 方法参数 - 空（参数）
+     */
     public static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
+    /**
+     * 方法参数 - 空（类型）
+     */
     public static final Class<?>[] EMPTY_CLASS_ARRAY = new Class<?>[0];
     private static final Logger log = LoggerFactory.getLogger(DubboCodec.class);
 
+    /***
+     * 对内容进行解码
+     * @param channel
+     * @param is
+     * @param header
+     * @return
+     * @throws IOException
+     */
     @Override
     protected Object decodeBody(Channel channel, InputStream is, byte[] header) throws IOException {
         byte flag = header[2], proto = (byte) (flag & SERIALIZATION_MASK);
         // get request id.
         long id = Bytes.bytes2long(header, 4);
-        if ((flag & FLAG_REQUEST) == 0) {
+        if ((flag & FLAG_REQUEST) == 0) {//如果是解码响应消息
             // decode response.
             Response res = new Response(id);
+
             if ((flag & FLAG_EVENT) != 0) {
                 res.setEvent(true);
             }
@@ -76,18 +108,19 @@ public class DubboCodec extends ExchangeCodec {
             byte status = header[3];
             res.setStatus(status);
             try {
-                if (status == Response.OK) {
+                if (status == Response.OK) {//如果是正常响应状态
                     Object data;
-                    if (res.isEvent()) {
+                    if (res.isEvent()) {/// 解码其它事件
                         ObjectInput in = CodecSupport.deserialize(channel.getUrl(), is, proto);
                         data = decodeEventData(channel, in);
                     } else {
                         DecodeableRpcResult result;
+                        // 在通信框架（例如，Netty）的 IO 线程，解码
                         if (channel.getUrl().getParameter(DECODE_IN_IO_THREAD_KEY, DEFAULT_DECODE_IN_IO_THREAD)) {
                             result = new DecodeableRpcResult(channel, res, is,
                                     (Invocation) getRequestData(id), proto);
                             result.decode();
-                        } else {
+                        } else {// 在 Dubbo ThreadPool 线程，解码，使用 DecodeHandler
                             result = new DecodeableRpcResult(channel, res,
                                     new UnsafeByteArrayInputStream(readMessageData(is)),
                                     (Invocation) getRequestData(id), proto);
@@ -107,7 +140,7 @@ public class DubboCodec extends ExchangeCodec {
                 res.setErrorMessage(StringUtils.toString(t));
             }
             return res;
-        } else {
+        } else {//如果是解码请求消息
             // decode request.
             Request req = new Request(id);
             req.setVersion(Version.getProtocolVersion());
@@ -123,9 +156,11 @@ public class DubboCodec extends ExchangeCodec {
                 } else {
                     DecodeableRpcInvocation inv;
                     if (channel.getUrl().getParameter(DECODE_IN_IO_THREAD_KEY, DEFAULT_DECODE_IN_IO_THREAD)) {
+                        //维护一个可解码的 RpcInvocation 实现类，继承 RpcInvocation 类
                         inv = new DecodeableRpcInvocation(channel, req, is, proto);
                         inv.decode();
                     } else {
+                        //维护一个可解码的 RpcInvocation 实现类，继承 RpcInvocation 类
                         inv = new DecodeableRpcInvocation(channel, req,
                                 new UnsafeByteArrayInputStream(readMessageData(is)), proto);
                     }
@@ -164,15 +199,30 @@ public class DubboCodec extends ExchangeCodec {
         encodeResponseData(channel, out, data, DUBBO_VERSION);
     }
 
+    /***
+     * 对请求体request进行编码，消费端请求时使用
+     * @param channel
+     * @param out
+     * @param data
+     * @param version
+     * @throws IOException
+     * 1、写入版本(固定'dubbo')、path、version
+     * 2、写入请求方法名
+     * 3、写入方法参数的类型和发那个发参数值
+     * 4、写入隐式参数集合
+     */
     @Override
     protected void encodeRequestData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
         RpcInvocation inv = (RpcInvocation) data;
-
+        /**
+         * 写入版本(固定'dubbo')、path、version
+         */
         out.writeUTF(version);
         out.writeUTF((String) inv.getAttachment(PATH_KEY));
         out.writeUTF((String) inv.getAttachment(VERSION_KEY));
-
+        //写入请求方法名
         out.writeUTF(inv.getMethodName());
+        //写入方法参数的类型和发那个发参数值
         out.writeUTF(inv.getParameterTypesDesc());
         Object[] args = inv.getArguments();
         if (args != null) {
@@ -180,9 +230,22 @@ public class DubboCodec extends ExchangeCodec {
                 out.writeObject(encodeInvocationArgument(channel, inv, i));
             }
         }
+        //写入隐式参数集合
         out.writeAttachments(sieveUnnecessaryAttachments(inv));
     }
 
+    /***
+     * 对请求响应继续编码
+     * @param channel
+     * @param out
+     * @param data
+     * @param version
+     * @throws IOException
+     * 1、如果result为空，返回代表结果的正常码，且是空返回
+     * 2、如果result不为空，返回代表结果的正常码，且是有返回
+     * 3、如果异常不为空，则返回代表结果的异常码，同时写入异常信息
+     * 4、返回隐式参数集合
+     */
     @Override
     protected void encodeResponseData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
         Result result = (Result) data;

@@ -119,7 +119,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
     public CompletableFuture<Object> request(Object request, ExecutorService executor) throws RemotingException {
         return request(request, channel.getUrl().getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT), executor);
     }
-
+    //调用网络连接发起请求
     @Override
     public CompletableFuture<Object> request(Object request, int timeout, ExecutorService executor) throws RemotingException {
         if (closed) {
@@ -127,9 +127,9 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         }
         // create request.
         Request req = new Request();//RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[xuzf], attachments={path=org.apache.dubbo.demo.MockService, interface=org.apache.dubbo.demo.MockService, version=0.0.0}]
-        req.setVersion(Version.getProtocolVersion());
-        req.setTwoWay(true);
-        req.setData(request);
+        req.setVersion(Version.getProtocolVersion());//协议版本号：2。0。2
+        req.setTwoWay(true);//双向的
+        req.setData(request);//请求数据
         DefaultFuture future = DefaultFuture.newFuture(channel, req, timeout, executor);
         try {
             channel.send(req);
