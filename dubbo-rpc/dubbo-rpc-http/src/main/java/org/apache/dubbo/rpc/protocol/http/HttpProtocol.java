@@ -40,14 +40,22 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/***
+ * 为 HttpProtocol 、RestProtocol 等子类，提供公用的服务暴露、服务引用的公用方法
+ *
+ *  请求处理过程为  HttpServlet => DispatcherServlet => InternalHandler => JsonRpcServer
+ */
 public class HttpProtocol extends AbstractProxyProtocol {
 
     public static final String ACCESS_CONTROL_ALLOW_ORIGIN_HEADER = "Access-Control-Allow-Origin";
     public static final String ACCESS_CONTROL_ALLOW_METHODS_HEADER = "Access-Control-Allow-Methods";
     public static final String ACCESS_CONTROL_ALLOW_HEADERS_HEADER = "Access-Control-Allow-Headers";
-
+    /***
+     * key：暴露的服务的path
+     * value：new JsonRpcServer(impl, type)
+     */
     private final Map<String, JsonRpcServer> skeletonMap = new ConcurrentHashMap<>();
-
+    //HttpBinder$Adaptive 对象，通过 #setHttpBinder(httpBinder) 方法，Dubbo SPI 调用设置。默认是Jetty
     private HttpBinder httpBinder;
 
     public HttpProtocol() {
@@ -57,12 +65,17 @@ public class HttpProtocol extends AbstractProxyProtocol {
     public void setHttpBinder(HttpBinder httpBinder) {
         this.httpBinder = httpBinder;
     }
-
+    /**
+     * 默认服务器端口
+     */
     @Override
     public int getDefaultPort() {
         return 80;
     }
 
+    /***
+     * 用于接收请求并处理结果响应
+     */
     private class InternalHandler implements HttpHandler {
 
         private boolean cors;
@@ -76,15 +89,15 @@ public class HttpProtocol extends AbstractProxyProtocol {
                 throws ServletException {
             String uri = request.getRequestURI();
             JsonRpcServer skeleton = skeletonMap.get(uri);
-            if (cors) {
+            if (cors) {//是否跨域
                 response.setHeader(ACCESS_CONTROL_ALLOW_ORIGIN_HEADER, "*");
                 response.setHeader(ACCESS_CONTROL_ALLOW_METHODS_HEADER, "POST");
                 response.setHeader(ACCESS_CONTROL_ALLOW_HEADERS_HEADER, "*");
             }
             if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
                 response.setStatus(200);
-            } else if ("POST".equalsIgnoreCase(request.getMethod())) {
-
+            } else if ("POST".equalsIgnoreCase(request.getMethod())) {// 必须是 POST 请求
+                // 执行调用
                 RpcContext.getContext().setRemoteAddress(request.getRemoteAddr(), request.getRemotePort());
                 try {
                     skeleton.handle(request.getInputStream(), response.getOutputStream());
@@ -97,21 +110,52 @@ public class HttpProtocol extends AbstractProxyProtocol {
         }
 
     }
-
+    /**
+     * 执行暴露，并返回取消暴露的回调 Runnable
+     *
+     * @param impl 服务代理对象
+     *              eg：Proxy0@1935
+     * @param type 服务接口
+     *             eg;    interface org.apache.dubbo.rpc.protocol.http.HttpServiceTest
+     * @param url URL
+     *              eg: http://127.0.0.1:9999/org.apache.dubbo.rpc.protocol.http.HttpServiceTest?server=jetty&version=1.0.0
+     * @param <T> 服务接口
+     * @return 消暴露的回调 Runnable
+     * @throws RpcException 当发生异常
+     * 1、获得服务暴露的地址，默认是host：port
+     * 2、检查当前服务实例是否已为该暴露地址(ip:host)创建一个Server对象，有就不需要再创建了，没有则创建并绑定一个：
+     *      注意，只跟ip:host有关
+     * 3、为暴露的服务地址维护一个JsonRpcServer，并返回
+     */
     @Override
     protected <T> Runnable doExport(final T impl, Class<T> type, URL url) throws RpcException {
-        String addr = getAddr(url);
+        //获得服务器地址，默认是host：port
+        String addr = getAddr(url);//127.0.0.1:9999
+        //检查当前服务实例是否已为该暴露地址(ip:host)创建一个Server对象，有就不需要再创建了，没有则创建并绑定一个
         ProtocolServer protocolServer = serverMap.get(addr);
         if (protocolServer == null) {
             RemotingServer remotingServer = httpBinder.bind(url, new InternalHandler(url.getParameter("cors", false)));
             serverMap.put(addr, new ProxyProtocolServer(remotingServer));
         }
-        final String path = url.getAbsolutePath();
+        //为暴露的服务地址维护一个JsonRpcServer，并返回
+        final String path = url.getAbsolutePath();//http://127.0.0.1:9999/org.apache.dubbo.rpc.protocol.http.HttpServiceTest?server=jetty&version=1.0.0
         JsonRpcServer skeleton = new JsonRpcServer(impl, type);
         skeletonMap.put(path, skeleton);
+        //返回一个线程，线程只做了内存移除JsonRpcServer的操作
         return () -> skeletonMap.remove(path);
     }
-
+    /**
+     * 执行引用，并返回调用远程服务的 Service 对象
+     *
+     * @param url URL
+     *
+     * @param <T> 服务接口
+     *
+     * @return 调用远程服务的 Service 对象
+     *
+     * @throws RpcException 当发生异常
+     *
+     */
     @SuppressWarnings("unchecked")
     @Override
     protected <T> T doRefer(final Class<T> serviceType, URL url) throws RpcException {

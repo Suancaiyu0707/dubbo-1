@@ -46,6 +46,11 @@ public class JettyHttpServer extends AbstractHttpServer {
 
     private URL url;
 
+    /***
+     * 根据url的ip:host启动一个jetty容器，用于接收http请求
+     * @param url
+     * @param handler
+     */
     public JettyHttpServer(URL url, final HttpHandler handler) {
         super(url, handler);
         this.url = url;

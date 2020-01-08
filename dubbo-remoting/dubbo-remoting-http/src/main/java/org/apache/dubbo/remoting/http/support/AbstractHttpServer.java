@@ -38,6 +38,13 @@ public abstract class AbstractHttpServer implements HttpServer {
 
     private volatile boolean closed;
 
+    /**
+     *
+     * @param url
+     *         eg: http://127.0.0.1:9999/org.apache.dubbo.rpc.protocol.http.HttpServiceTest?server=jetty&version=1.0.0
+     * @param handler
+     *          eg： HttpProtocol$InternalHandler@1933
+     */
     public AbstractHttpServer(URL url, HttpHandler handler) {
         if (url == null) {
             throw new IllegalArgumentException("url == null");

@@ -25,7 +25,12 @@ import org.apache.dubbo.remoting.http.HttpServer;
  * JettyHttpTransporter
  */
 public class JettyHttpBinder implements HttpBinder {
-
+    /***
+     * 为ip:port绑定一个 JettyHttpServer
+     * @param url server url.
+     * @param handler
+     * @return
+     */
     @Override
     public HttpServer bind(URL url, HttpHandler handler) {
         return new JettyHttpServer(url, handler);
