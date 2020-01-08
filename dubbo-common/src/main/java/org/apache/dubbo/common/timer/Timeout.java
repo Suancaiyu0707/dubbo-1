@@ -19,19 +19,19 @@ package org.apache.dubbo.common.timer;
 /**
  * A handle associated with a {@link TimerTask} that is returned by a
  * {@link Timer}.
- * Timeout代表的是对一次任务的处理的抽象。
+ * Timeout代表的是对一次任务的处理
  */
 public interface Timeout {
 
     /**
      * Returns the {@link Timer} that created this handle.
-     * 返回的就是创建这个Timeout的Timer对象
+     * 返回的就是创建这个Timeout的Timer对象，也就是延迟的时间对象
      */
     Timer timer();
 
     /**
      * Returns the {@link TimerTask} which is associated with this handle.
-     * 返回的是这个Timeout处理的任务
+     * 返回的是这个Timeout要负责处理的任务
      */
     TimerTask task();
 

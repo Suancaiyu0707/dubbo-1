@@ -23,29 +23,25 @@ import java.util.concurrent.TimeUnit;
 /**
  * Schedules {@link TimerTask}s for one-time future execution in a background
  * thread.
- * 调度器
+ * 这个接口是一个调度的核心接口，从注释可以看出，它主要用于在后台执行一次性的调度。
  */
 public interface Timer {
 
-    /**
-     * Schedules the specified {@link TimerTask} for one-time execution after
-     * the specified delay.
+    /***
+     * 调度指定的TimerTask在指定的延迟之后执行一次
+     * @param task 需要执行的任务
+     * @param delay 延迟的时间
+     * @param unit 时间的单位
+     * @throws IllegalStateException 如果调度器Timer已经停止了
+     * @throws RejectedExecutionException 如果过期的超时任务Timeout太多了，则创建一个新的timeout会导致系统很不稳定，所以要拒绝
+     * @return  返回与指定任务关联的handler
      *
-     * @return a handle which is associated with the specified task
-     * @throws IllegalStateException      if this timer has been {@linkplain #stop() stopped} already
-     * @throws RejectedExecutionException if the pending timeouts are too many and creating new timeout
-     *                                    can cause instability in the system.
-     * 把一个任务交给调度器执行
      */
     Timeout newTimeout(TimerTask task, long delay, TimeUnit unit);
 
-    /**
-     * Releases all resources acquired by this {@link Timer} and cancels all
-     * tasks which were scheduled but not executed yet.
-     *
-     * @return the handles associated with the tasks which were canceled by
-     * this method
-     * 停止调度器的运行
+    /***
+     * 停止调度器的运行，会释放当前调度器获取的所有资源，并且取消被调度但是还未执行的任务
+     * @return
      */
     Set<Timeout> stop();
 

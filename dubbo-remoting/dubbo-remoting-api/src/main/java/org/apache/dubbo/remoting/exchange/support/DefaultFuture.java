@@ -51,7 +51,9 @@ public class DefaultFuture extends CompletableFuture<Object> {
     private static final Map<Long, Channel> CHANNELS = new ConcurrentHashMap<>();
 
     private static final Map<Long, DefaultFuture> FUTURES = new ConcurrentHashMap<>();
-
+    /***
+     * 通过一个定时任务，每隔一定时间间隔就扫描所有的future，逐个判断是否超时
+     */
     public static final Timer TIME_OUT_TIMER = new HashedWheelTimer(
             new NamedThreadFactory("dubbo-future-timeout", true),
             30,
