@@ -124,7 +124,7 @@ public class HashedWheelTimer implements Timer {
     private final CountDownLatch startTimeInitialized = new CountDownLatch(1);
     // 保存任务调度的队列
     private final Queue<HashedWheelTimeout> timeouts = new LinkedBlockingQueue<>();
-    // 已取消的任务调度队列
+    // 已取消的任务调度队列。当一个Timeout调用cancel方法时候，会加入到cancelledTimeouts中，加入队列的任务会直接被移除
     private final Queue<HashedWheelTimeout> cancelledTimeouts = new LinkedBlockingQueue<>();
     // 等待中的任务调度数量
     private final AtomicLong pendingTimeouts = new AtomicLong(0);
@@ -418,6 +418,8 @@ public class HashedWheelTimer implements Timer {
         }
         //计算当前的Timeout任务应该放在哪个slot里
         HashedWheelTimeout timeout = new HashedWheelTimeout(this, task, deadline);
+        //当添加一个延迟的任务的时候，会先添加到timeouts列表中，然后worker线程会不断的轮询timeouts并取出待执行的任务，
+        //计算好它们的剩余圈数和时间轮里的槽，并放到指定的时间轮的槽里
         timeouts.add(timeout);
         return timeout;
     }
@@ -436,6 +438,18 @@ public class HashedWheelTimer implements Timer {
                 "so that only a few instances are created.");
     }
 
+    /***
+     * 会不断的计算时间轮里的下一个时间槽
+     * 1、当当前时间点进入到下一个时间槽
+     *      a、计算当前时间轮对应的槽
+     *      b、移除取消队列中准备移除的任务
+     *      c、将timeouts里准备等待调度的任务，放到它们对应的时间槽里，并标记它们剩余的圈数
+     *      d、执行到时间点的槽里的任务(如果槽里的任务还没到时间点，并不会被执行)
+     * 2、如果调度器被中止
+     *      a、清理所有时间槽中的未处理任务调度，直接移除
+     *      b、清理待处理任务调度队列，将未取消的加入到未处理集合中
+     *      c、处理已取消的任务调度队列（直接移除）
+     */
     private final class Worker implements Runnable {
         //没有处理的任务调度集合
         private final Set<Timeout> unprocessedTimeouts = new HashSet<Timeout>();
@@ -458,7 +472,7 @@ public class HashedWheelTimer implements Timer {
                 if (deadline > 0) {//tick到来之后
                     //计算tick对应时间槽数组中的那个槽（这里tick&mask，就相当于对时间槽数组的长度取模运算）
                     int idx = (int) (tick & mask);
-                    //处理已取消任务调度队列
+                    //处理已取消任务调度队列(直接移除)
                     processCancelledTasks();
                     //获取当前时间槽
                     HashedWheelBucket bucket = wheel[idx];
@@ -488,6 +502,11 @@ public class HashedWheelTimer implements Timer {
             processCancelledTasks();
         }
 
+        /***
+         * 当添加一个延迟的任务的时候，会先添加到timeouts列表中，然后worker线程会不断的轮询timeouts并取出待执行的任务，
+         * 计算好它们的剩余圈数和时间轮里的槽，并放到指定的时间轮的槽里
+         *
+         */
         private void transferTimeoutsToBuckets() {
             //这里只循环有限次，是为了防止待处理队列过大，导致这一次添加到对应槽的过程太过耗时
             for (int i = 0; i < 100000; i++) {
