@@ -64,27 +64,29 @@ import static org.apache.dubbo.rpc.Constants.ACCESS_LOG_KEY;
  */
 
 /***
- * 使用方是服务提供者
- * 用于打印每一次请求的访问日志。会创建一个定时任务，每隔5秒刷新一次日志
+ * 需要在 <dubbo:protocol /> 或 <dubbo:provider /> 或 <dubbo:service /> 中，设置 "accesslog" 配置项开启
+ * 使用方：服务提供者
+ * 作用：用于向日志组件 logger 中输出访问日志。
+ *      通过创建一个定时任务，每隔5秒定时将内存的日志刷新到日志文件中，如果内存日志缓冲区满了，则会直接丢弃
  */
 @Activate(group = PROVIDER, value = ACCESS_LOG_KEY)
 public class AccessLogFilter implements Filter {
 
     private static final Logger logger = LoggerFactory.getLogger(AccessLogFilter.class);
-
+    //访问日志的日志名
     private static final String LOG_KEY = "dubbo.accesslog";
-
+    //内存缓冲区的大小
     private static final int LOG_MAX_BUFFER = 5000;
-
+    //控制定时将内存缓冲区的日志刷新到日志文件的时间
     private static final long LOG_OUTPUT_INTERVAL = 5000;
-
+    //访问日志的文件后缀
     private static final String FILE_DATE_FORMAT = "yyyyMMdd";
 
     // It's safe to declare it as singleton since it runs on single thread only
     private static final DateFormat FILE_NAME_FORMATTER = new SimpleDateFormat(FILE_DATE_FORMAT);
-
+    //
     private static final Map<String, Set<AccessLogData>> LOG_ENTRIES = new ConcurrentHashMap<String, Set<AccessLogData>>();
-
+    //定时任务线程池
     private static final ScheduledExecutorService LOG_SCHEDULED = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Dubbo-Access-Log", true));
 
     /**
@@ -103,6 +105,10 @@ public class AccessLogFilter implements Filter {
      * @param inv     Invocation service method.
      * @return Result from service method.
      * @throws RpcException
+     * 1、在调用之前，从url中获取accesslog参数，如果配置了accesslog参数。
+     * 2、如果配置了accesslog=true,则为当前访问创建一个访问日志对象
+     * 3、将当次的访问日志对象放到内存缓冲区里(后续会有一个定时线程定时刷新到磁盘里)
+     * 4、进行访问调用
      */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {

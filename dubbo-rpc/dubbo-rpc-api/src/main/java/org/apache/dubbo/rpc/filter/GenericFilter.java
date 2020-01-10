@@ -51,8 +51,8 @@ import static org.apache.dubbo.rpc.Constants.GENERIC_KEY;
 
 /**
  * GenericInvokerFilter.
- * 使用方：服务消费者
- * 用于服务消费端，实现泛化调用，实现序列化的检查和处理
+ * 使用方：服务提供者
+ * 服务提供者通过解析请求方法和请求参数，检查是否是泛化调用
  */
 @Activate(group = CommonConstants.PROVIDER, order = -20000)
 public class GenericFilter implements Filter, Filter.Listener {

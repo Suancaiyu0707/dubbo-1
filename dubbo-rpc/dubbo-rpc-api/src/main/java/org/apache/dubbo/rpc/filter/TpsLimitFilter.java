@@ -39,7 +39,8 @@ import static org.apache.dubbo.rpc.Constants.TPS_LIMIT_RATE_KEY;
 
 /***
  * 使用方：服务提供者
- * 用于服务端的限流
+ * 作用：用于服务端的限流
+ * 服务提供者，每服务的每方法最大可并行执行请求数。
  */
 @Activate(group = CommonConstants.PROVIDER, value = TPS_LIMIT_RATE_KEY)
 public class TpsLimitFilter implements Filter {

@@ -74,8 +74,9 @@ public class ProtocolFilterWrapper implements Protocol {
      * @param group CONSUMER或PROVIDER
      * @param <T>
      * @return
-     * 1、根据key从invoker的url里解析对应的属性值
+     * 1、根据key从invoker的url里解析对应的属性值side
      * 2、根据key的值和group过滤获得Filter对应的实现类(实现类在org.apache.dubbo.rpc.Filter里添加，采用SPI)
+     *      返回的是一个链表
      */
     private static <T> Invoker<T> buildInvokerChain(final Invoker<T> invoker, String key, String group) {
         Invoker<T> last = invoker;

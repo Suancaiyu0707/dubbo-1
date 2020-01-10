@@ -91,6 +91,15 @@ public class RestProtocol extends AbstractProxyProtocol {
         return DEFAULT_PORT;
     }
 
+    /****
+     * 暴露服务
+     * @param impl 代理对象
+     * @param type 接口类型
+     * @param url
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     protected <T> Runnable doExport(T impl, Class<T> type, URL url) throws RpcException {
         String addr = getAddr(url);

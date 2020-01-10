@@ -43,8 +43,10 @@ import static org.apache.dubbo.rpc.Constants.ACTIVES_KEY;
  */
 
 /***
- * 使用方：消费者
- * 用于限制消费者端对服务端的最大并行调用数
+ * 使用方：消费者。
+ *      通过 <dubbo:reference /> 的 "actives" 统一配置项开启
+ * 作用：用于限制消费者端对服务端的最大并行调用数
+ * 每服务消费者，每服务的每方法最大并发调用数。
  */
 @Activate(group = CONSUMER, value = ACTIVES_KEY)
 public class ActiveLimitFilter implements Filter, Filter.Listener {
@@ -60,17 +62,18 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
      * 1、获得url、method方法名、actives属性
      * 2、根据url和方法，获得方法调用的统计信息 RpcStatus
      * 3、判断当前服务的客户端请求是否超过限制的最大并行数
-     * 4、如果当前客户端的请求数超过客户端最大的限制，则调用wait 挂起等待，最大等待时间可以通过timeout来配置，不然不等待。直接返回
+     * 4、如果当前客户端的请求数超过客户端最大的限制，则调用wait 挂起等待，最大等待时间可以通过timeout来配置，超时则直接返回
      *   那么这个挂起的等待会在什么时候被唤醒的呢？
-     *   a、对应的url执行成功，会唤醒这个rpcStatus
-     *   b、对应的url执行错误，也会唤醒这个rpcStatus
+     *   a、对应的url方法执行成功（回调onMessage方法通知），会唤醒这个rpcStatus
+     *   b、对应的url方法执行错误（回调onError方法通知），也会唤醒这个rpcStatus
      */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         URL url = invoker.getUrl();
         String methodName = invocation.getMethodName();
         int max = invoker.getUrl().getMethodParameter(methodName, ACTIVES_KEY, 0);
-        //根据url和方法，获得方法调用的统计信息
+        //根据url和方法，获得方法调用的统计信息:
+        //      protocol://username:password@host:port/org.apache.dubbo.demo.DemoService.sayHello的统计信息
         final RpcStatus rpcStatus = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName());
         //判断当前服务的客户端请求是否超过限制的最大并行数
         if (!RpcStatus.beginCount(url, methodName, max)) {
@@ -112,10 +115,10 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
     }
 
     /***
-     * 请求正常结束后
-     * 1、会更新对应的url的RpcStatus统计信息：
+     * 请求正常结束后，会将当前服务方法的并行调用次数减去1，同时唤醒正在等待的服务调用
+     * 1、会更新对应的url方法的RpcStatus统计信息：
      *      active： 活跃数减1
-     * 2、唤醒上面url对应的被阻塞挂起等待的请求
+     * 2、唤醒上面url方法对应的被阻塞挂起等待的请求
      *
      * @param appResponse
      * @param invoker
@@ -132,10 +135,10 @@ public class ActiveLimitFilter implements Filter, Filter.Listener {
         notifyFinish(RpcStatus.getStatus(url, methodName), max);
     }
     /***
-     * 请求异常结束后
-     * 1、会更新对应的url的RpcStatus统计信息：
+     * 请求异常结束后,会将当前服务方法的并行调用次数减去1，同时唤醒正在等待的服务调用
+     * 1、会更新对应的url方法的RpcStatus统计信息：
      *      active： 活跃数减1
-     * 2、唤醒上面url对应的被阻塞挂起等待的请求
+     * 2、唤醒上面url方法对应的被阻塞挂起等待的请求
      *
      * @param invoker
      * @param invocation

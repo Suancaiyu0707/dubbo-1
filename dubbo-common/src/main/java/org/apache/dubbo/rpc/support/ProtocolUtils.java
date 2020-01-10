@@ -63,6 +63,16 @@ public class ProtocolUtils {
         return buf.toString();
     }
 
+    /***
+     *
+     * @param generic
+     * @return
+     * generic 配置项，默认为 false ，不使用配置项。目前有三种配置项的值，开启泛化引用的功能：
+     *      generic=true ，使用 com.alibaba.dubbo.common.utils.PojoUtils ，实现 POJO <=> Map 的互转。
+     *      generic=nativejava ，使用 com.alibaba.dubbo.common.serialize.support.nativejava.NativeJavaSerialization ，实现 POJO <=> byte[] 的互转。
+     *      generic=bean ，使用 com.alibaba.dubbo.common.beanutil.JavaBeanSerializeUtil ，实现 POJO <=> JavaBeanDescriptor 的互转。
+     *      generic=protobuf ，使用 org.apache.dubbo.common.serialize.protobuf.support.GenericProtobufSerialization ，实现 POJO <=> JavaBeanDescriptor 的互转。
+     */
     public static boolean isGeneric(String generic) {
         return generic != null
                 && !"".equals(generic)

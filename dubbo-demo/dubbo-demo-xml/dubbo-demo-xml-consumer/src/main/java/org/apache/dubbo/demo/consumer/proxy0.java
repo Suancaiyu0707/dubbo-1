@@ -13,14 +13,14 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 
 
-public class proxy0 implements ClassGenerator.DC, EchoService, DemoService {
+public class DemoServiceProxy0 implements ClassGenerator.DC, EchoService, DemoService {
     public static Method[] methods;
     private InvocationHandler handler;
 
-    public proxy0() {
+    public DemoServiceProxy0() {
     }
 
-    public proxy0(InvocationHandler paramInvocationHandler) {
+    public DemoServiceProxy0(InvocationHandler paramInvocationHandler) {
         this.handler = paramInvocationHandler;
     }
 

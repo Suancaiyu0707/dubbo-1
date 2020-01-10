@@ -50,8 +50,15 @@ import static org.apache.dubbo.rpc.Constants.TOKEN_KEY;
  */
 
 /***
+ *
+ * ContextFilter和ConsumerContextFilter是结合使用的
  * 使用方：服务提供者
- * 为提供者把一些上下文的信息设置到当前线程的RpcContext中
+ * 作用：负责发起调用时，初始化当前线程的RpcContext
+ *
+ * 在客户端调用Invoker.invoke方法时候，会去取当前状态记录器RpcContext中的attachments属性，然后设置到RpcInvocation对象中，
+ * 在RpcInvocation传递到provider的时候会通过另外一个过滤器ContextFilter将RpcInvocation对象重新设置回RpcContext中供服务端逻辑重新获取隐式参数。
+ * 这就是为什么RpcContext只能记录一次请求的状态信息，因为在第二次调用的时候参数已经被新的RpcInvocation覆盖掉，第一次的请求信息对于第二次执行是不可见的。
+
  */
 @Activate(group = PROVIDER, order = -10000)
 public class ContextFilter implements Filter, Filter.Listener {
@@ -60,7 +67,7 @@ public class ContextFilter implements Filter, Filter.Listener {
     /***
      *
      * @param invoker
-     * @param invocation
+     * @param invocation 是一个RpcInvocation，是一个代表客户端向服务端发起请求的在地，包含了客户端的请求信息
      * @return
      * @throws RpcException
      * 1、为提供者把一些上下文的信息设置到当前线程的RpcContext中
@@ -76,8 +83,9 @@ public class ContextFilter implements Filter, Filter.Listener {
      */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        // 获得客户端传过来的attachments
         Map<String, Object> attachments = invocation.getAttachments();
-        if (attachments != null) {
+        if (attachments != null) {//清空消费端的异步参数
             attachments = new HashMap<>(attachments);
             attachments.remove(PATH_KEY);
             attachments.remove(INTERFACE_KEY);
@@ -108,21 +116,24 @@ public class ContextFilter implements Filter, Filter.Listener {
 
         // merged from dubbox
         // we may already added some attachments into RpcContext before this filter (e.g. in rest protocol)
-        if (attachments != null) {
+        // 在此过滤器(例如rest协议)之前，我们可能已经在RpcContext中添加了一些附件
+        if (attachments != null) {//将客户端的隐式参数设置到服务端的额上下文RpcContext里
             if (RpcContext.getContext().getAttachments() != null) {
                 RpcContext.getContext().getAttachments().putAll(attachments);
             } else {
                 RpcContext.getContext().setAttachments(attachments);
             }
         }
-
-        if (invocation instanceof RpcInvocation) {
+        // 设置 RpcInvocation 对象的 `invoker` 属性
+        if (invocation instanceof RpcInvocation) {//表示消费端发过来的请求上下文对象
             ((RpcInvocation) invocation).setInvoker(invoker);
         }
         try {
+            // 服务调用
             RpcContext.getContext().clearAfterEachInvoke(false);
             return invoker.invoke(invocation);
         } finally {
+            // 移除上下文
             RpcContext.getContext().clearAfterEachInvoke(true);
             // IMPORTANT! For async scenario, we must remove context from current thread, so we always create a new RpcContext for the next invoke for the same thread.
             RpcContext.removeContext();
@@ -130,6 +141,12 @@ public class ContextFilter implements Filter, Filter.Listener {
         }
     }
 
+    /***
+     *
+     * @param appResponse
+     * @param invoker
+     * @param invocation
+     */
     @Override
     public void onMessage(Result appResponse, Invoker<?> invoker, Invocation invocation) {
         // pass attachments to result

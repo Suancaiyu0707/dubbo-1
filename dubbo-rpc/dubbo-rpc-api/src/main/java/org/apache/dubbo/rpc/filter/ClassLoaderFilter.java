@@ -40,16 +40,23 @@ public class ClassLoaderFilter implements Filter {
      * @param invocation
      * @return
      * @throws RpcException
-     * 1、设置当前线程的类加载器为调用服务的类加载器
-     * 2、服务调用完成后，加当前线程的类加载器设置回去
+     * 1、从当前上下文中获得类加载器
+     * 2、把上下文的类加载器设置为接口服务的类加载器：
+     *      切换类加载器，以便于跟同一个类加载器加载的对象互相协同交互工作
+     * 3、开始进行服务调用
+     * 4、服务调用完成后，加当前线程的类加载器设置回去
      */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        //从当前上下文中获得类加载器
         ClassLoader ocl = Thread.currentThread().getContextClassLoader();
+        //在调用invoke之前，把上下文的类加载器设置为接口服务的类加载器
         Thread.currentThread().setContextClassLoader(invoker.getInterface().getClassLoader());
         try {
+            //开始进行服务调用
             return invoker.invoke(invocation);
         } finally {
+            //服务调用完成后，加当前线程的类加载器设置回去
             Thread.currentThread().setContextClassLoader(ocl);
         }
     }

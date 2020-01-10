@@ -51,6 +51,11 @@ import static org.apache.dubbo.rpc.Constants.RETURN_KEY;
  *
  * @export
  * @see org.apache.dubbo.rpc.filter.ContextFilter
+ * RpcContext 是一个 ThreadLocal 的临时状态记录器，当接收到 RPC 请求，或发起 RPC 请求时，RpcContext 的状态都会变化。
+ *  比如：A 调 B，B 再调 C，则 B 机器上，
+ *  在 B 调 C 之前，RpcContext 记录的是 A 调 B 的信息，
+ *  在 B 调 C 之后，RpcContext 记录的是 B 调 C 的信息。
+ *
  */
 public class RpcContext {
 
@@ -72,22 +77,38 @@ public class RpcContext {
             return new RpcContext();
         }
     };
-
+    /**
+     * 隐式参数集合
+     */
     private final Map<String, Object> attachments = new HashMap<String, Object>();
     private final Map<String, Object> values = new HashMap<String, Object>();
-
+    /**
+     * 可调用服务的 URL 对象集合
+     */
     private List<URL> urls;
-
+    /**
+     * 调用服务的 URL 对象
+     */
     private URL url;
-
+    /**
+     * 方法名
+     */
     private String methodName;
-
+    /**
+     * 参数类型数组
+     */
     private Class<?>[] parameterTypes;
-
+    /**
+     * 参数值数组
+     */
     private Object[] arguments;
-
+    /***
+     * 本机地址
+     */
     private InetSocketAddress localAddress;
-
+    /**
+     * 服务提供者地址
+     */
     private InetSocketAddress remoteAddress;
 
     private String remoteApplicationName;

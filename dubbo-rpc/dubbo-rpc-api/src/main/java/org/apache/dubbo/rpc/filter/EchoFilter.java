@@ -48,7 +48,9 @@ public class EchoFilter implements Filter {
      */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {
-
+        /***
+         * 方法名( $echo ) 且方法参数数量为 1，则直接返回参数
+         */
         if (inv.getMethodName().equals($ECHO) //方法名$echo
                 && inv.getArguments() != null //参数不为空
                 && inv.getArguments().length == 1//且只有一个参数

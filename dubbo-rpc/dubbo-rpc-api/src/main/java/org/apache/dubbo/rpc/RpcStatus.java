@@ -55,13 +55,13 @@ public class RpcStatus {
      * 获得服务的统计对象 RpcStatus
      * @param url
      * @return status
-     * 1、获得服务的uri：protocol://username:password@host:port/path
+     * 1、获得服务的uri：protocol://username:password@host:port/org.apache.dubbo.demo.DemoService
      * 2、检查本地内存，获得服务的统计信息 RpcStatus
      * 3、如果本地内存不存在服务的统计对象，则新建一个，不然直接获取
      */
     public static RpcStatus getStatus(URL url) {
         /**
-         * protocol://username:password@host:port/path
+         * protocol://username:password@host:port/org.apache.dubbo.demo.DemoService
          */
         String uri = url.toIdentityString();
         //获得对应服务的统计信息
@@ -129,6 +129,9 @@ public class RpcStatus {
      * @param methodName 统计的方法名
      * @param max 允许的最大并行请求数
      * 1、根据服务，从本地内存获取服务调用状态的统计对象 RpcStatus
+     *             protocol://username:password@host:port/org.apache.dubbo.demo.DemoService
+     * 2、根据方法，从本地内存获取服务方法调用状态的统计对象 RpcStatus
+     *            protocol://username:password@host:port/org.apache.dubbo.demo.DemoService&method=sayHello
      * 2、判断保持链接的请求数是否超过指定的最大值.
      * 3、维护统计信息
      * 4、如果成功通过校验，则返回true，否则返回false

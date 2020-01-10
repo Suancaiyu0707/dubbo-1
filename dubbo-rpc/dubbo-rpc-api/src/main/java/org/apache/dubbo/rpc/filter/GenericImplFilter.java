@@ -47,8 +47,8 @@ import static org.apache.dubbo.rpc.Constants.GENERIC_KEY;
 
 /**
  * GenericImplInvokerFilter
- * 使用方：服务提供者
- * 用于服务提供端，实现泛化调用，实现序列化的检查和处理
+ * 使用方：服务消费者
+ * 服务消费者的泛化调用过滤器，用于实现泛化调用
  */
 @Activate(group = CommonConstants.CONSUMER, value = GENERIC_KEY, order = 20000)
 public class GenericImplFilter implements Filter, Filter.Listener {
@@ -61,10 +61,21 @@ public class GenericImplFilter implements Filter, Filter.Listener {
 
     private static final String GENERIC_IMPL_MARKER = DUBBO_INVOCATION_PREFIX + "GENERIC_IMPL";
 
+    /***
+     *
+     * @param invoker
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、获得generic属性值
+     * 2、获得请求的方法名、参数类型、参数值
+     * 3、获得序列化方式(用于将请求信息)
+     * 4、将请求转换成泛化调用
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         String generic = invoker.getUrl().getParameter(GENERIC_KEY);
-        // 如果是调用一个泛化服务
+        // 如果是调用的是一个GenericService的实现类
         if (isCallingGenericImpl(generic, invocation)) {
             RpcInvocation invocation2 = new RpcInvocation(invocation);
 
@@ -73,16 +84,18 @@ public class GenericImplFilter implements Filter, Filter.Listener {
              * See {@link RpcUtils#sieveUnnecessaryAttachments(Invocation)}
              */
             invocation2.setAttachment(GENERIC_IMPL_MARKER, true);
-
+            //获得调用的方法名
             String methodName = invocation2.getMethodName();
+            //获得请求参数类型
             Class<?>[] parameterTypes = invocation2.getParameterTypes();
+            //获得请求值
             Object[] arguments = invocation2.getArguments();
 
             String[] types = new String[parameterTypes.length];
             for (int i = 0; i < parameterTypes.length; i++) {
                 types[i] = ReflectUtils.getName(parameterTypes[i]);
             }
-
+            //
             Object[] args;
             if (ProtocolUtils.isBeanGenericSerialization(generic)) {
                 args = new Object[arguments.length];
@@ -92,18 +105,20 @@ public class GenericImplFilter implements Filter, Filter.Listener {
             } else {
                 args = PojoUtils.generalize(arguments);
             }
-
+            //设置请求方法 $invokeAsync或$invoke
             if (RpcUtils.isReturnTypeFuture(invocation)) {
                 invocation2.setMethodName($INVOKE_ASYNC);
             } else {
                 invocation2.setMethodName($INVOKE);
             }
+            //设置请求方法的参数类型
             invocation2.setParameterTypes(GENERIC_PARAMETER_TYPES);
             invocation2.setParameterTypesDesc(GENERIC_PARAMETER_DESC);
+            //设置请求参数：方法名、参数类型数组、参数值数组
             invocation2.setArguments(new Object[]{methodName, types, args});
             return invoker.invoke(invocation2);
         }
-        // making a generic call to a normal service
+        //如果是直接调用 GenericService.$invoke
         else if (isMakingGenericCall(generic, invocation)) {
 
             Object[] args = (Object[]) invocation.getArguments()[2];
@@ -121,7 +136,7 @@ public class GenericImplFilter implements Filter, Filter.Listener {
                     }
                 }
             }
-
+            // 通过隐式参数，传递 `generic` 配置项
             invocation.setAttachment(
                     GENERIC_KEY, invoker.getUrl().getParameter(GENERIC_KEY));
         }
@@ -203,12 +218,29 @@ public class GenericImplFilter implements Filter, Filter.Listener {
 
     }
 
+    /***
+     * 判断是否是泛化调用（就是不是直接通过调用GenericService的方法，而是通过普通方法调用，加generic标记）
+     * @param generic
+     * @param invocation
+     * @return
+     * 1、方法名不是$invoke且不是$invokeAsync
+     * 2、泛化调用
+     * 3、
+     */
     private boolean isCallingGenericImpl(String generic, Invocation invocation) {
         return ProtocolUtils.isGeneric(generic)
                 && (!$INVOKE.equals(invocation.getMethodName()) && !$INVOKE_ASYNC.equals(invocation.getMethodName()))
                 && invocation instanceof RpcInvocation;
     }
 
+    /***
+     * 标记泛化调用（就是直接调用GenericService的方法）
+     * @param generic
+     * @param invocation
+     * @return
+     * 1、方法名是$invoke或$invokeAsync
+     * 2、参数必须是3个
+     */
     private boolean isMakingGenericCall(String generic, Invocation invocation) {
         return (invocation.getMethodName().equals($INVOKE) || invocation.getMethodName().equals($INVOKE_ASYNC))
                 && invocation.getArguments() != null
