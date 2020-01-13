@@ -35,8 +35,14 @@ public abstract class AbstractValidation implements Validation {
 
     private final ConcurrentMap<String, Validator> validators = new ConcurrentHashMap<>();
 
+    /***
+     * 获
+     * @param url Invocation url
+     * @return
+     */
     @Override
     public Validator getValidator(URL url) {
+        //获得请求url
         String key = url.toFullString();
         Validator validator = validators.get(key);
         if (validator == null) {

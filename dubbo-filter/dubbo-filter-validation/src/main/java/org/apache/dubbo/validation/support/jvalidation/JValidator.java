@@ -267,33 +267,49 @@ public class JValidator implements Validator {
         return memberValue;
     }
 
+    /**
+     *
+     * @param methodName 调用方法名
+     * @param parameterTypes 参数类型
+     * @param arguments 参数值
+     * @throws Exception
+     * 1、根据方法名和参数获得调用的方法对象
+     * 2、判断方法上是否配置了@MethodValidated 注解，如果有的话获得方法的 @MethodValidated 注解的对象
+     */
     @Override
     public void validate(String methodName, Class<?>[] parameterTypes, Object[] arguments) throws Exception {
         List<Class<?>> groups = new ArrayList<>();
+        //获得方法对象
         Class<?> methodClass = methodClass(methodName);
         if (methodClass != null) {
             groups.add(methodClass);
         }
         Set<ConstraintViolation<?>> violations = new HashSet<>();
+        //根据方法名和参数获得调用的方法对象
         Method method = clazz.getMethod(methodName, parameterTypes);
         Class<?>[] methodClasses;
+        //判断方法上是否配置了MethodValidated 注解
         if (method.isAnnotationPresent(MethodValidated.class)){
+            //获得方法的 @MethodValidated 注解的对象
             methodClasses = method.getAnnotation(MethodValidated.class).value();
             groups.addAll(Arrays.asList(methodClasses));
         }
-        // add into default group
+        //添加 Default.class 类，作为验证分组。
         groups.add(0, Default.class);
+        //添加服务接口类，作为验证分组
         groups.add(1, clazz);
 
         // convert list to array
         Class<?>[] classgroups = groups.toArray(new Class[groups.size()]);
-
+        //根据方法和参数获得 Bean 对象
         Object parameterBean = getMethodParameterBean(clazz, method, arguments);
         if (parameterBean != null) {
+            //验证 Bean 对象。
             violations.addAll(validator.validate(parameterBean, classgroups ));
         }
 
         for (Object arg : arguments) {
+            //验证集合参数
             validate(violations, arg, classgroups);
         }
 

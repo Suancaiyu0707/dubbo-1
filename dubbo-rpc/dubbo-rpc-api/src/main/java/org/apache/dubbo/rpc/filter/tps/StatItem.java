@@ -42,6 +42,10 @@ class StatItem {
         this.token = buildLongAdder(rate);
     }
 
+    /***
+     * 判断对应的服务是否允许通过
+     * @return
+     */
     public boolean isAllowable() {
         long now = System.currentTimeMillis();
         if (now > lastResetTime + interval) {

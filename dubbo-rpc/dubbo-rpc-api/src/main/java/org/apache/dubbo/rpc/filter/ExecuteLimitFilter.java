@@ -39,7 +39,8 @@ import static org.apache.dubbo.rpc.Constants.EXECUTES_KEY;
 
 /***
  * 使用方：服务提供者
- * 用于限制服务端的最大并行数
+ * 作用：用于限制服务端的最大并行数
+ * 服务提供者角度下每个方法最大可并行执行请求数。
  */
 @Activate(group = CommonConstants.PROVIDER, value = EXECUTES_KEY)
 public class ExecuteLimitFilter implements Filter, Filter.Listener {
@@ -53,8 +54,10 @@ public class ExecuteLimitFilter implements Filter, Filter.Listener {
      * @return
      * @throws RpcException
      * 1、获取服务提供者的url和调用方法
-     * 2、从提供者的url里获取当前调用方法最大的并行数
+     * 2、从提供者的url里获取当前调用方法最大的并行数：executes
      * 3、开始统计当前方法的活跃的并行数是否超过限制，如果是的话，则拒绝当前请求，抛出异常。
+     * 4、记录当前调用的时间
+     * 5、进行服务调用
      */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
@@ -84,7 +87,7 @@ public class ExecuteLimitFilter implements Filter, Filter.Listener {
     }
 
     /***
-     * 如果服务调用成功，则更新活跃的并行数
+     * 如果服务调用成功，则更新活跃的并行数，会将当前服务方法的并行调用次数减去1
      * @param appResponse
      * @param invoker
      * @param invocation
@@ -95,7 +98,7 @@ public class ExecuteLimitFilter implements Filter, Filter.Listener {
     }
 
     /***
-     * 如果服务调用失败，则更新活跃的并行数
+     * 如果服务调用失败，则更新活跃的并行数，会将当前服务方法的并行调用次数减去1
      * @param t
      * @param invoker
      * @param invocation

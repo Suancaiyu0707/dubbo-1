@@ -28,12 +28,22 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @see org.apache.dubbo.rpc.filter.ActiveLimitFilter
  * @see org.apache.dubbo.rpc.filter.ExecuteLimitFilter
- * @see org.apache.dubbo.rpc.cluster.loadbalance.LeastActiveLoadBalance
+ * @see org.apache.dubbo.rpc.cluster.loadbalance.LeastActiveLoadBalanceØ
  */
 public class RpcStatus {
-
+    /**
+     * 基于服务 URL 维度的 RpcStatus 集合
+     *
+     * key1：URL
+     * key2：方法名
+     */
     private static final ConcurrentMap<String, RpcStatus> SERVICE_STATISTICS = new ConcurrentHashMap<String, RpcStatus>();
-
+    /**
+     * 基于服务 URL + 方法维度的 RpcStatus 集合
+     *
+     * key1：URL
+     * key2：方法名
+     */
     private static final ConcurrentMap<String, ConcurrentMap<String, RpcStatus>> METHOD_STATISTICS = new ConcurrentHashMap<String, ConcurrentMap<String, RpcStatus>>();
     private final ConcurrentMap<String, Object> values = new ConcurrentHashMap<String, Object>();
     //活跃数，也就是保持链接的请求数
@@ -42,10 +52,15 @@ public class RpcStatus {
     private final AtomicLong total = new AtomicLong();
     //失败数
     private final AtomicInteger failed = new AtomicInteger();
+    //总的调用时间
     private final AtomicLong totalElapsed = new AtomicLong();
+    //总调用失败的时长
     private final AtomicLong failedElapsed = new AtomicLong();
+    //最大的调用时长
     private final AtomicLong maxElapsed = new AtomicLong();
+    //最大调用失败时长
     private final AtomicLong failedMaxElapsed = new AtomicLong();
+    //最大调用成功时长
     private final AtomicLong succeededMaxElapsed = new AtomicLong();
 
     private RpcStatus() {
@@ -82,12 +97,13 @@ public class RpcStatus {
     }
 
     /**
+     * 获得服务方法的统计对象 RpcStatus
      * @param url url
      * @param methodName 方法名
      * @return status 状态
      * 1、根据返回 url获得对应uri
      *      protocol://username:password@host:port/path
-     * 2、根据uri获得当前客户端对于某个服务的条用统计信息 map
+     * 2、根据uri获得当前客户端对于某个服务的调用统计信息 map
      * 3、根据方法名从map获得指定方法的统计状态 RpcStatus
      */
     public static RpcStatus getStatus(URL url, String methodName) {
@@ -164,12 +180,15 @@ public class RpcStatus {
     }
 
     private static void endCount(RpcStatus status, long elapsed, boolean succeeded) {
+        //统计次数
         status.active.decrementAndGet();
         status.total.incrementAndGet();
         status.totalElapsed.addAndGet(elapsed);
+        //记录最大时长
         if (status.maxElapsed.get() < elapsed) {
             status.maxElapsed.set(elapsed);
         }
+        //如果调用成功了，记录成功的最大调用时长
         if (succeeded) {
             if (status.succeededMaxElapsed.get() < elapsed) {
                 status.succeededMaxElapsed.set(elapsed);

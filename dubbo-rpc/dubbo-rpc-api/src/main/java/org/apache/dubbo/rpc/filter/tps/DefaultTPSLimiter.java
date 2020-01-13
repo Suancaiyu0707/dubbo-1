@@ -33,7 +33,10 @@ import static org.apache.dubbo.rpc.Constants.DEFAULT_TPS_LIMIT_INTERVAL;
  * @see org.apache.dubbo.rpc.filter.TpsLimitFilter
  */
 public class DefaultTPSLimiter implements TPSLimiter {
-
+    /**
+     * key：服务名称
+     *
+     */
     private final ConcurrentMap<String, StatItem> stats = new ConcurrentHashMap<String, StatItem>();
 
     /***
@@ -42,17 +45,21 @@ public class DefaultTPSLimiter implements TPSLimiter {
      * @param invocation invocation
      * @return
      * 1、获取服务设置参数tps，默认-1
-     * 2、获取限流华东窗口时间，默认60s
+     * 2、获取限流滑动窗口时间，默认60s
      * 3、根据服务名称获取统计信息对象 StatItem
      * 4、从 StatItem 中尝试获取信号量，获取成功，则返回true，获取失败，则返回false
      */
     @Override
     public boolean isAllowable(URL url, Invocation invocation) {
         int rate = url.getParameter(TPS_LIMIT_RATE_KEY, -1);
+        //获取限流滑动窗口时间，默认60s
         long interval = url.getParameter(TPS_LIMIT_INTERVAL_KEY, DEFAULT_TPS_LIMIT_INTERVAL);
+        //获得服务名
         String serviceKey = url.getServiceKey();
-        if (rate > 0) {
+
+        if (rate > 0) { //如果rate>0，表示需要限流
             StatItem statItem = stats.get(serviceKey);
+            //为每个服务维护一个对应的StatItem
             if (statItem == null) {
                 stats.putIfAbsent(serviceKey, new StatItem(serviceKey, rate, interval));
                 statItem = stats.get(serviceKey);
@@ -63,10 +70,11 @@ public class DefaultTPSLimiter implements TPSLimiter {
                     statItem = stats.get(serviceKey);
                 }
             }
+            //尝试服务的限流
             return statItem.isAllowable();
-        } else {
+        } else {//如果不限流的话
             StatItem statItem = stats.get(serviceKey);
-            if (statItem != null) {
+            if (statItem != null) {//移除对应的StatItem对象
                 stats.remove(serviceKey);
             }
         }

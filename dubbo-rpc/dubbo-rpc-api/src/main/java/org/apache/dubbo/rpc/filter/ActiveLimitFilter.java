@@ -46,7 +46,7 @@ import static org.apache.dubbo.rpc.Constants.ACTIVES_KEY;
  * 使用方：消费者。
  *      通过 <dubbo:reference /> 的 "actives" 统一配置项开启
  * 作用：用于限制消费者端对服务端的最大并行调用数
- * 每服务消费者，每服务的每方法最大并发调用数。
+ * 消费者角度下每服务的每方法最大并发调用数。
  */
 @Activate(group = CONSUMER, value = ACTIVES_KEY)
 public class ActiveLimitFilter implements Filter, Filter.Listener {

@@ -57,6 +57,9 @@ import static org.apache.dubbo.common.constants.FilterConstants.VALIDATION_KEY;
  * @see Validator
  * @see Filter
  * @see org.apache.dubbo.validation.support.AbstractValidation
+ *
+ * 作用方：提供方和消费方
+ * 用于进行对请求参数验证
  */
 @Activate(group = {CONSUMER, PROVIDER}, value = VALIDATION_KEY, order = 10000)
 public class ValidationFilter implements Filter {
@@ -83,6 +86,7 @@ public class ValidationFilter implements Filter {
         if (validation != null && !invocation.getMethodName().startsWith("$")
                 && ConfigUtils.isNotEmpty(invoker.getUrl().getMethodParameter(invocation.getMethodName(), VALIDATION_KEY))) {
             try {
+                //获得 JValidator
                 Validator validator = validation.getValidator(invoker.getUrl());
                 if (validator != null) {
                     validator.validate(invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());

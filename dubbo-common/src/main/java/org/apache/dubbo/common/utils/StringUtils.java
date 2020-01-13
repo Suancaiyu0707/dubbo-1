@@ -789,17 +789,22 @@ public final class StringUtils {
         return buf == null ? camelName : buf.toString();
     }
 
+    /**
+     * 将参数数组，拼接成字符串。
+     * @param args
+     * @return
+     */
     public static String toArgumentString(Object[] args) {
         StringBuilder buf = new StringBuilder();
-        for (Object arg : args) {
-            if (buf.length() > 0) {
+        for (Object arg : args) {//遍历所有的请求擦参数
+            if (buf.length() > 0) {//使用逗号分隔
                 buf.append(COMMA_SEPARATOR);
             }
             if (arg == null || ReflectUtils.isPrimitives(arg.getClass())) {
                 buf.append(arg);
             } else {
                 try {
-                    buf.append(JSON.toJSONString(arg));
+                    buf.append(JSON.toJSONString(arg));//使用 JSON 格式化对象
                 } catch (Exception e) {
                     logger.warn(e.getMessage(), e);
                     buf.append(arg);

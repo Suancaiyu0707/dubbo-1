@@ -15,6 +15,7 @@ import java.lang.reflect.Method;
 
 public class DemoServiceProxy0 implements ClassGenerator.DC, EchoService, DemoService {
     public static Method[] methods;
+
     private InvocationHandler handler;
 
     public DemoServiceProxy0() {

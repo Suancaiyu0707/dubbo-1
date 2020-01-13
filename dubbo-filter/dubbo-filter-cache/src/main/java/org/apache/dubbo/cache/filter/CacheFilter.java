@@ -63,6 +63,7 @@ import static org.apache.dubbo.common.constants.FilterConstants.CACHE_KEY;
  * @see org.apache.dubbo.cache.support.expiring.ExpiringCacheFactory
  * @see org.apache.dubbo.cache.support.expiring.ExpiringCache
  *
+ * 作用方：服务端和消费端都可以使用，可通过cache来指定缓存实现
  */
 @Activate(group = {CONSUMER, PROVIDER}, value = CACHE_KEY)
 public class CacheFilter implements Filter {
@@ -88,11 +89,11 @@ public class CacheFilter implements Filter {
      * @param invocation invocation.
      * @return Cache returned value if found by the underlying cache store. If cache miss it will call target method.
      * @throws RpcException
-     * 1、判断请求参数里包含：cache。为空的话不走缓存
+     * 1、检查方法的请求参数里包含：cache。为空的话不走缓存
      * 2、缓存对象Cache是一个接口一个对象，这个Cache有点类似于map
      *      检查某个请求是否存在缓存，首先会先根据服务找到Cache对象，再通过请求参数从Cache对象中查找对应的话缓存。
      * 3、如果存在缓存，则直接返回。如果缓存里不存在，则调用远程服务，并把返回结果进行缓存。
-     * 4、如果不存在cache参数，直接调用远程服务
+     * 4、如果不存在cache参数，也就是未走缓存，则直接调用远程服务
      */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {

@@ -40,6 +40,8 @@ import static org.apache.dubbo.rpc.Constants.TOKEN_KEY;
 /***
  * 使用方：服务提供者
  * 服务提供者下发令牌给消费者，通常用于防止消费者绕过注册中心直接调用服务提供者
+ *
+ * 通过令牌验证在注册中心控制权限，以决定要不要下发令牌给消费者，可以防止消费者绕过注册中心访问提供者
  */
 @Activate(group = CommonConstants.PROVIDER, value = TOKEN_KEY)
 public class TokenFilter implements Filter {
@@ -55,15 +57,19 @@ public class TokenFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv)
             throws RpcException {
+        //获得服务提供者配置的 Token 值
         String token = invoker.getUrl().getParameter(TOKEN_KEY);
         if (ConfigUtils.isNotEmpty(token)) {
             Class<?> serviceType = invoker.getInterface();
             Map<String, Object> attachments = inv.getAttachments();
+            // 从隐式参数中，获得 Token 值。
             String remoteToken = (String) (attachments == null ? null : attachments.get(TOKEN_KEY));
+            // 对比，若不一致，抛出 RpcException 异常
             if (!token.equals(remoteToken)) {
                 throw new RpcException("Invalid token! Forbid invoke remote service " + serviceType + " method " + inv.getMethodName() + "() from consumer " + RpcContext.getContext().getRemoteHost() + " to provider " + RpcContext.getContext().getLocalHost());
             }
         }
+        // 服务调用
         return invoker.invoke(inv);
     }
 

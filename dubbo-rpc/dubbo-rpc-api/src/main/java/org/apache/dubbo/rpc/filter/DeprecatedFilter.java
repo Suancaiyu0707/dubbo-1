@@ -36,6 +36,8 @@ import static org.apache.dubbo.rpc.Constants.DEPRECATED_KEY;
  * is deprecated or not it looks for <b>deprecated</b> attribute value and consider it is deprecated it value is <b>true</b>
  *
  * @see Filter
+ * 使用方：服务消费者
+ * 作用：检查调用方法是否废弃，如果废弃的话，打印一行错误日志提醒
  */
 @Activate(group = CommonConstants.CONSUMER, value = DEPRECATED_KEY)
 public class DeprecatedFilter implements Filter {
@@ -44,6 +46,16 @@ public class DeprecatedFilter implements Filter {
 
     private static final Set<String> logged = new ConcurrentHashSet<String>();
 
+    /***
+     *
+     * @param invoker
+     * @param invocation
+     * @return
+     * @throws RpcException
+     * 1、获得服务方法方法名
+     * 2、判断是否已记录该废弃方法，如果没有记录的话，则记录并打印一行错误日志提醒
+     * 3、方法调用
+     */
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         String key = invoker.getInterface().getName() + "." + invocation.getMethodName();
