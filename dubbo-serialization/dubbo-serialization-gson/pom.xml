@@ -19,7 +19,7 @@ Licensed to the Apache Software Foundation (ASF) under one or more
     <parent>
         <artifactId>dubbo-serialization</artifactId>
         <groupId>org.apache.dubbo</groupId>
-        <version>${revision}</version>
+        <version>2.7.5-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>dubbo-serialization-gson</artifactId>
