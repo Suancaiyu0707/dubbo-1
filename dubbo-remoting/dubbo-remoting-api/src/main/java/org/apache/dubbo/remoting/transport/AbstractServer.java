@@ -43,32 +43,65 @@ import static org.apache.dubbo.remoting.Constants.IDLE_TIMEOUT_KEY;
 
 /**
  * AbstractServer
+ * 代表一个服务端
  */
 public abstract class AbstractServer extends AbstractEndpoint implements RemotingServer {
 
     protected static final String SERVER_THREAD_POOL_NAME = "DubboServerHandler";
     private static final Logger logger = LoggerFactory.getLogger(AbstractServer.class);
+    /***
+     * 线程池，用于接收客户端连接，默认是cached的连接池，可通过url的threadpool配置修改
+     */
     ExecutorService executor;
+    /***
+     * 本地地址
+     */
     private InetSocketAddress localAddress;
+    /***
+     * 绑定的服务端地址
+     */
     private InetSocketAddress bindAddress;
+    /***
+     * 可接受的客户端的连接数，请与execute、active、tps等区分开
+     * 每个客户端会创建一个Channel，该参数就是用于控制最大的Channel数
+     */
     private int accepts;
+    /***
+     * 最大的空闲时间
+     */
     private int idleTimeout;
 
     private ExecutorRepository executorRepository = ExtensionLoader.getExtensionLoader(ExecutorRepository.class).getDefaultExtension();
 
+    /***
+     * 初始化一个服务端，并绑定指定的端口
+     * @param url
+     * @param handler
+     * @throws RemotingException
+     * 1、获得本地地址
+     * 2、获取绑定的端口和ip，可分别通过bind.ip、bind.port配置
+     * 3、获得最大的可连接的客户端channel数，可通过accepts 配置
+     * 4、获得空闲时间
+     * 5、绑定端口并创建一个服务端对象
+     * 6、初始化一个用于接收客户端请求的连接池，默认是cached
+     */
     public AbstractServer(URL url, ChannelHandler handler) throws RemotingException {
         super(url, handler);
+        //获得本地地址
         localAddress = getUrl().toInetSocketAddress();
-
+        //获取绑定的端口和ip，可分别通过bind.ip、bind.port配置
         String bindIp = getUrl().getParameter(Constants.BIND_IP_KEY, getUrl().getHost());
         int bindPort = getUrl().getParameter(Constants.BIND_PORT_KEY, getUrl().getPort());
         if (url.getParameter(ANYHOST_KEY, false) || NetUtils.isInvalidLocalHost(bindIp)) {
             bindIp = ANYHOST_VALUE;
         }
         bindAddress = new InetSocketAddress(bindIp, bindPort);
+        //获得最大的可连接的客户端channel数，可通过accepts 配置
         this.accepts = url.getParameter(ACCEPTS_KEY, DEFAULT_ACCEPTS);
+        //获得空闲时间
         this.idleTimeout = url.getParameter(IDLE_TIMEOUT_KEY, DEFAULT_IDLE_TIMEOUT);
         try {
+            //绑定端口并创建一个服务端
             doOpen();
             if (logger.isInfoEnabled()) {
                 logger.info("Start " + getClass().getSimpleName() + " bind " + getBindAddress() + ", export " + getLocalAddress());
@@ -77,6 +110,7 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
             throw new RemotingException(url.toInetSocketAddress(), null, "Failed to bind " + getClass().getSimpleName()
                     + " on " + getLocalAddress() + ", cause: " + t.getMessage(), t);
         }
+        //初始化一个用于接收客户端请求的连接池，默认是cached
         executor = executorRepository.createExecutorIfAbsent(url);
     }
 
@@ -164,6 +198,15 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
         return idleTimeout;
     }
 
+    /***
+     * 被客户端连接(如果接收到客户端连接，会调用该方法)
+     * @param ch
+     * @throws RemotingException
+     * 1、判断当前服务对象是否打开
+     * 2、获得连接到当前Server的channel的总数
+     * 3、判断连接的channel是否超过限制了
+     * 4、创建连接
+     */
     @Override
     public void connected(Channel ch) throws RemotingException {
         // If the server has entered the shutdown process, reject any new connection
@@ -182,6 +225,13 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
         super.connected(ch);
     }
 
+    /***
+     * 当客户端发来和Server断开连接时，调用该方法
+     * @param ch
+     * @throws RemotingException
+     * 1、获得客户端的channel列表
+     * 2、断开客户端的连接
+     */
     @Override
     public void disconnected(Channel ch) throws RemotingException {
         Collection<Channel> channels = getChannels();

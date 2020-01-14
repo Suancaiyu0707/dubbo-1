@@ -22,6 +22,8 @@ import org.apache.dubbo.remoting.RemotingException;
 
 /**
  * ChannelHandlerAdapter.
+ * 这是一个通道处理器适配器，每个方法为空实现
+ * 子类可以根据自己的需要继承该类，并实现自己需要的方法
  */
 public class ChannelHandlerAdapter implements ChannelHandler {
 

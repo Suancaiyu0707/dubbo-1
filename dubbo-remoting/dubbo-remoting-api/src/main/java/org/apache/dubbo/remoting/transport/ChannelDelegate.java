@@ -25,6 +25,7 @@ import java.net.InetSocketAddress;
 
 /**
  * ChannelDelegate
+ * channel的代理对象，所有对channel的请求都会由 ChannelDelegate 转发给对应的 Channel进行处理
  */
 public class ChannelDelegate implements Channel {
 

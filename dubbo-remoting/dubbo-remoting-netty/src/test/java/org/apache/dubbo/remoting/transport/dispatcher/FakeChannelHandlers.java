@@ -36,6 +36,12 @@ public class FakeChannelHandlers extends ChannelHandlers {
         ChannelHandlers.setTestingChannelHandlers(new ChannelHandlers());
     }
 
+    /***
+     * 根据url中的dispather配置获得相应的ChannelHandler
+     * @param handler
+     * @param url
+     * @return
+     */
     @Override
     protected ChannelHandler wrapInternal(ChannelHandler handler, URL url) {
         return ExtensionLoader.getExtensionLoader(Dispatcher.class)

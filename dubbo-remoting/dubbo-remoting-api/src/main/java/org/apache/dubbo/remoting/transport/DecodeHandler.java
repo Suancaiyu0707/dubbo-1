@@ -57,7 +57,7 @@ public class DecodeHandler extends AbstractChannelHandlerDelegate {
         if (message instanceof Response) {
             decode(((Response) message).getResult());
         }
-        //解码之后交给HeaderExchangeHandler来处理
+        //解码之后交给对应的ChannelHandler来处理（比如HeaderExchangeHandler）
         handler.received(channel, message);
     }
 

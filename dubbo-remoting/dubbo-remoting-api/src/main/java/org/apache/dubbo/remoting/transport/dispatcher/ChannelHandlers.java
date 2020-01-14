@@ -23,6 +23,9 @@ import org.apache.dubbo.remoting.Dispatcher;
 import org.apache.dubbo.remoting.exchange.support.header.HeartbeatHandler;
 import org.apache.dubbo.remoting.transport.MultiMessageHandler;
 
+/***
+ * 通道处理器工厂
+ */
 public class ChannelHandlers {
 
     private static ChannelHandlers INSTANCE = new ChannelHandlers();
@@ -30,6 +33,18 @@ public class ChannelHandlers {
     protected ChannelHandlers() {
     }
 
+    /**
+     * 根据url中的dispather配置获得相应的ChannelHandler
+     * @param handler
+     * @param url
+     * @return
+     *  all->AllDispatcher->AllChannelHandler
+     *  direct->DirectDispatcher->DirectChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  execution->ExecutionDispatcher->ExecutionChannelHandler
+     *  message->MessageOnlyDispatcher->MessageOnlyChannelHandler
+     */
     public static ChannelHandler wrap(ChannelHandler handler, URL url) {
         return ChannelHandlers.getInstance().wrapInternal(handler, url);
     }
@@ -42,6 +57,22 @@ public class ChannelHandlers {
         INSTANCE = instance;
     }
 
+    /***
+     *
+     * @param handler
+     * @param url
+     * @return
+     * 1、根据 url 中的 dispatcher属性初始化一个Dispatcher实现类对象
+     * 2、根据不同的 Dispatcher 实现类创建一个对应的ChannelHandler
+     *  all->AllDispatcher->AllChannelHandler
+     *  direct->DirectDispatcher->DirectChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  execution->ExecutionDispatcher->ExecutionChannelHandler
+     *  message->MessageOnlyDispatcher->MessageOnlyChannelHandler
+     * 3、将ChannelHandler包装成一个HeartbeatHandler
+     * 4、将HeartbeatHandler包装成MultiMessageHandler
+     */
     protected ChannelHandler wrapInternal(ChannelHandler handler, URL url) {
         return new MultiMessageHandler(new HeartbeatHandler(ExtensionLoader.getExtensionLoader(Dispatcher.class)
                 .getAdaptiveExtension().dispatch(handler, url)));

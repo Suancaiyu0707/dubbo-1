@@ -32,6 +32,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.SIDE_KEY;
 
 /**
  * AbstractCodec
+ * 这是编解码器的一个抽象类
  */
 public abstract class AbstractCodec implements Codec2 {
 

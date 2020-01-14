@@ -41,24 +41,38 @@ import static org.apache.dubbo.common.constants.CommonConstants.THREADPOOL_KEY;
 
 /**
  * AbstractClient
+ * AbstractClient->AbstractEndpoint->AbstractPeer->ChannelHandler
+ * 客户端连接，每个客户端连接都绑定一个channel，用于发送消息
  */
 public abstract class AbstractClient extends AbstractEndpoint implements Client {
 
     protected static final String CLIENT_THREAD_POOL_NAME = "DubboClientHandler";
     private static final Logger logger = LoggerFactory.getLogger(AbstractClient.class);
     private final Lock connectLock = new ReentrantLock();
+    /**
+     * 发送消息时，若断开，是否重连
+     */
     private final boolean needReconnect;
     protected volatile ExecutorService executor;
+    //初始化绑定一个 DefaultExecutorRepository
     private ExecutorRepository executorRepository = ExtensionLoader.getExtensionLoader(ExecutorRepository.class).getDefaultExtension();
 
+    /***
+     * 创建一个指向url地址的客户端连接
+     * @param url
+     * @param handler
+     * @throws RemotingException
+     */
     public AbstractClient(URL url, ChannelHandler handler) throws RemotingException {
         super(url, handler);
-
+        /***
+         * 从url中获取 send.reconnect
+         */
         needReconnect = url.getParameter(Constants.SEND_RECONNECT_KEY, false);
-
+        //初始化一个客户端线程池
         initExecutor(url);
 
-        try {
+        try {//初始化客户端
             doOpen();
         } catch (Throwable t) {
             close();
@@ -68,7 +82,7 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         }
         try {
             // connect.
-            connect();
+            connect();// 连接服务器
             if (logger.isInfoEnabled()) {
                 logger.info("Start " + getClass().getSimpleName() + " " + NetUtils.getLocalAddress() + " connect to the server " + getRemoteAddress());
             }
@@ -81,19 +95,30 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
                         + " connect to the server " + getRemoteAddress() + " (check == false, ignore and retry later!), cause: " + t.getMessage(), t);
             }
         } catch (Throwable t) {
-            close();
+            close();// 失败，则关闭
             throw new RemotingException(url.toInetSocketAddress(), null,
                     "Failed to start " + getClass().getSimpleName() + " " + NetUtils.getLocalAddress()
                             + " connect to the server " + getRemoteAddress() + ", cause: " + t.getMessage(), t);
         }
     }
 
+    /***
+     * 初始化一个连接池
+     * 可通过threadpool配置，默认是 cached
+     * @param url
+     */
     private void initExecutor(URL url) {
         url = ExecutorUtil.setThreadName(url, CLIENT_THREAD_POOL_NAME);
         url = url.addParameterIfAbsent(THREADPOOL_KEY, DEFAULT_CLIENT_THREADPOOL);
         executor = executorRepository.createExecutorIfAbsent(url);
     }
 
+    /***
+     * 包装channel的处理器
+     * @param url
+     * @param handler
+     * @return
+     */
     protected static ChannelHandler wrapChannelHandler(URL url, ChannelHandler handler) {
         return ChannelHandlers.wrap(handler, url);
     }
@@ -120,6 +145,10 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         return channel.getLocalAddress();
     }
 
+    /***
+     * 判断当前channel的连接状态
+     * @return
+     */
     @Override
     public boolean isConnected() {
         Channel channel = getChannel();
@@ -165,6 +194,15 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         return channel.hasAttribute(key);
     }
 
+    /**
+     * 发送消息
+     * @param message
+     * @param sent 是否阻塞发送
+     * @throws RemotingException
+     * 1、如果当前连接还未连接，且配置了重连，则重新连接服务端
+     * 2、如果客户端的channel还是关闭或为空，则抛出异常
+     * 3、用过channel发送消息
+     */
     @Override
     public void send(Object message, boolean sent) throws RemotingException {
         if (needReconnect && !isConnected()) {
@@ -178,16 +216,21 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         channel.send(message, sent);
     }
 
+    /***
+     * 连接服务器
+     * @throws RemotingException
+     *
+     */
     protected void connect() throws RemotingException {
 
         connectLock.lock();
 
         try {
-
+            //如果当前客户端已连接，则直接返回
             if (isConnected()) {
                 return;
             }
-
+            //向客户端发起连接，交给具体的实现类来实现
             doConnect();
 
             if (!isConnected()) {
@@ -216,10 +259,14 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         }
     }
 
+    /***
+     * 断开连接
+     */
     public void disconnect() {
         connectLock.lock();
         try {
             try {
+                //关闭连接对应的channel
                 Channel channel = getChannel();
                 if (channel != null) {
                     channel.close();
@@ -228,6 +275,7 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
                 logger.warn(e.getMessage(), e);
             }
             try {
+                //断开连接，交给具体的子类实现
                 doDisConnect();
             } catch (Throwable e) {
                 logger.warn(e.getMessage(), e);
@@ -237,9 +285,14 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         }
     }
 
+    /***
+     * 重连
+     * @throws RemotingException
+     */
     @Override
     public void reconnect() throws RemotingException {
-        if (!isConnected()) {
+        //判断是否已经连接
+        if (!isConnected()) {//如果channel还未连接到服务端(中途可能断开了)，则开始向服务端发起连接
             connectLock.lock();
             try {
                 if (!isConnected()) {
@@ -252,6 +305,9 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         }
     }
 
+    /***
+     * 关闭客户端连接
+     */
     @Override
     public void close() {
 

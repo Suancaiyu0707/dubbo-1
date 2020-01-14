@@ -36,6 +36,13 @@ public class Transporters {
     private Transporters() {
     }
 
+    /***
+     * 绑定到指定的url并创建一个服务器
+     * @param url 绑定的服务端的url
+     * @param handler 用于处理绑定服务器成功的事件的处理器
+     * @return
+     * @throws RemotingException
+     */
     public static RemotingServer bind(String url, ChannelHandler... handler) throws RemotingException {
         return bind(URL.valueOf(url), handler);
     }
@@ -53,6 +60,7 @@ public class Transporters {
         } else {
             handler = new ChannelHandlerDispatcher(handlers);
         }
+        // 创建 Server 对象
         return getTransporter().bind(url, handler);
     }
 
@@ -69,10 +77,12 @@ public class Transporters {
             handler = new ChannelHandlerAdapter();
         } else if (handlers.length == 1) {
             handler = handlers[0];
-        } else {
+        } else {//若 handlers 是多个，使用 ChannelHandlerDispatcher 进行封装
+            //在 ChannelHandlerDispatcher 中，会循环调用 handlers
             handler = new ChannelHandlerDispatcher(handlers);
         }
-        return getTransporter().connect(url, handler);
+        return getTransporter()//基于 Dubbo SPI 机制，获得 Transporter$Adaptive 对象
+                .connect(url, handler);
     }
 
     public static Transporter getTransporter() {

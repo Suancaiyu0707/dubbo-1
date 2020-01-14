@@ -59,11 +59,10 @@ public interface Endpoint {
      */
     void send(Object message) throws RemotingException;
 
-    /**
-     * send message.
-     *
-     * @param message
-     * @param sent    already sent to socket?
+    /***
+     * 发送消息，可配置 sent 属性；
+     *  true：等待消息发出，消息发送失败将抛出异常。
+     *  false：不等待消息发出，将消息放入 IO 队列，即刻返回。
      */
     void send(Object message, boolean sent) throws RemotingException;
 

@@ -25,6 +25,7 @@ import java.net.InetSocketAddress;
 
 /**
  * ClientDelegate
+ * Client的代理类，所有的client请求都会由ClientDelegate转发给 Client。所以在每个实现的方法里，直接调用被装饰的 client 属性的方法。
  */
 public class ClientDelegate implements Client {
 

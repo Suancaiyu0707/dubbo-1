@@ -33,9 +33,9 @@ public interface Transporter {
 
     /**
      * Bind a server.
-     *
-     * @param url     server url
-     * @param handler
+     *  绑定一个服务器
+     * @param url   服务器地址
+     * @param handler 对服务器事件响应的处理器
      * @return server
      * @throws RemotingException
      * @see org.apache.dubbo.remoting.Transporters#bind(URL, ChannelHandler...)
@@ -45,9 +45,9 @@ public interface Transporter {
 
     /**
      * Connect to a server.
-     *
+     *  连接一个服务器
      * @param url     server url
-     * @param handler
+     * @param handler  对连接事件响应的处理器
      * @return client
      * @throws RemotingException
      * @see org.apache.dubbo.remoting.Transporters#connect(URL, ChannelHandler...)

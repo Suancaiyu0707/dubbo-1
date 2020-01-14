@@ -24,6 +24,7 @@ import org.apache.dubbo.remoting.exchange.support.MultiMessage;
 /**
  *
  * @see MultiMessage
+ * 多消息处理器，处理一次性接收到多条消息的情况
  */
 public class MultiMessageHandler extends AbstractChannelHandlerDelegate {
 
@@ -31,6 +32,12 @@ public class MultiMessageHandler extends AbstractChannelHandlerDelegate {
         super(handler);
     }
 
+    /**
+     * 遍历所有的消息列表，一条条的进行处理
+     * @param channel
+     * @param message
+     * @throws RemotingException
+     */
     @SuppressWarnings("unchecked")
     @Override
     public void received(Channel channel, Object message) throws RemotingException {

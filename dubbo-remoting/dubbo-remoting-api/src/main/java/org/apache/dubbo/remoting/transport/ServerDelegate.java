@@ -28,7 +28,7 @@ import java.util.Collection;
 /**
  * ServerDelegate
  *
- *
+ * Server的代理类，所有的server请求都会由ServerDelegate转发给 Server。所以在每个实现的方法里，直接调用被装饰的 server 属性的方法。
  */
 public class ServerDelegate implements RemotingServer {
 

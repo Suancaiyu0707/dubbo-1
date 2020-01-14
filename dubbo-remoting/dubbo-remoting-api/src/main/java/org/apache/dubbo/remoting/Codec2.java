@@ -24,10 +24,23 @@ import java.io.IOException;
 
 @SPI
 public interface Codec2 {
-
+    /***
+     * 编码，可通过codec来指定编码方式
+     * @param channel 传输通道
+     * @param buffer 通道的缓冲区
+     * @param message 消息对象
+     * @throws IOException
+     */
     @Adaptive({Constants.CODEC_KEY})
     void encode(Channel channel, ChannelBuffer buffer, Object message) throws IOException;
 
+    /***
+     * 解码，可通过codec来指定解码方式
+     * @param channel 传输通道
+     * @param buffer 通道的缓冲区
+     * @return
+     * @throws IOException
+     */
     @Adaptive({Constants.CODEC_KEY})
     Object decode(Channel channel, ChannelBuffer buffer) throws IOException;
 

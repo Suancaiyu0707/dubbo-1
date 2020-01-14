@@ -28,11 +28,15 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * ChannelListenerDispatcher
+ * 实现 ChannelHandler 接口，通道处理器调度器。在它内部，有一个通道处理器数组 channelHandlers 属性
+ * 每个实现的方法，都会循环调用 channelHandlers 的方法
  */
 public class ChannelHandlerDispatcher implements ChannelHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(ChannelHandlerDispatcher.class);
-
+    /**
+     * 每个实现的方法，都会循环调用 channelHandlers 的方法
+     */
     private final Collection<ChannelHandler> channelHandlers = new CopyOnWriteArraySet<ChannelHandler>();
 
     public ChannelHandlerDispatcher() {

@@ -21,6 +21,10 @@ import org.apache.dubbo.remoting.Channel;
 import org.apache.dubbo.remoting.ChannelHandler;
 import org.apache.dubbo.remoting.RemotingException;
 
+/***
+ * 每个AbstractChannelHandlerDelegate都会绑定一个 ChannelHandler
+ * 所有的事件处理，都会通过 AbstractChannelHandlerDelegate 最终都会转发给 ChannelHandler
+ */
 public abstract class AbstractChannelHandlerDelegate implements ChannelHandlerDelegate {
 
     protected ChannelHandler handler;

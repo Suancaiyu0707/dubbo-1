@@ -31,18 +31,33 @@ import static org.apache.dubbo.common.constants.CommonConstants.DEFAULT_TIMEOUT;
 import static org.apache.dubbo.common.constants.CommonConstants.TIMEOUT_KEY;
 
 /**
- * AbstractEndpoint
+ * AbstractEndpoint->AbstractPeer->ChannelHandler
  */
 public abstract class AbstractEndpoint extends AbstractPeer implements Resetable {
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractEndpoint.class);
-
+    /***
+     * 编解码器
+     */
     private Codec2 codec;
-
+    /***
+     * 超时时间
+     */
     private int timeout;
-
+    /***
+     * 连接超时时间
+     */
     private int connectTimeout;
 
+    /***
+     * 构建一个AbstractEndpoint
+     * @param url
+     * @param handler
+     * 1、绑定一个AbstractPeer
+     * 2、根据url的codec配置，绑定一个编解码器
+     * 3、根据url的timeout配置，设置超时时间
+     * 4、
+     */
     public AbstractEndpoint(URL url, ChannelHandler handler) {
         super(url, handler);
         this.codec = getChannelCodec(url);
@@ -50,6 +65,12 @@ public abstract class AbstractEndpoint extends AbstractPeer implements Resetable
         this.connectTimeout = url.getPositiveParameter(Constants.CONNECT_TIMEOUT_KEY, Constants.DEFAULT_CONNECT_TIMEOUT);
     }
 
+    /***
+     * 根据url里的codec配置，使用Dubbo SPI创建一个 Codec2的实现类
+     * 例如在DubboProtocol中会获得DubboCodec对象
+     * @param url
+     * @return
+     */
     protected static Codec2 getChannelCodec(URL url) {
         String codecName = url.getParameter(Constants.CODEC_KEY, "telnet");
         if (ExtensionLoader.getExtensionLoader(Codec2.class).hasExtension(codecName)) {
