@@ -27,6 +27,8 @@ import org.apache.dubbo.common.extension.SPI;
  * <a href="http://en.wikipedia.org/wiki/Client%E2%80%93server_model">Client/Server</a>
  *
  * @see org.apache.dubbo.remoting.Transporters
+ *
+ * 网络传输接口，默认是netty实现，根据url的transporter来配置
  */
 @SPI("netty")
 public interface Transporter {

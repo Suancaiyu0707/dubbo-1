@@ -24,6 +24,7 @@ import org.apache.dubbo.remoting.transport.ChannelHandlerDispatcher;
 
 /**
  * Transporter facade. (API, Static, ThreadSafe)
+ *
  */
 public class Transporters {
 
@@ -47,6 +48,13 @@ public class Transporters {
         return bind(URL.valueOf(url), handler);
     }
 
+    /***
+     * 绑定一个服务器
+     * @param url
+     * @param handlers
+     * @return
+     * @throws RemotingException
+     */
     public static RemotingServer bind(URL url, ChannelHandler... handlers) throws RemotingException {
         if (url == null) {//dubbo://192.168.0.108:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&channel.readonly.sent=true&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&heartbeat=60000&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
             throw new IllegalArgumentException("url == null");
@@ -58,6 +66,7 @@ public class Transporters {
         if (handlers.length == 1) {
             handler = handlers[0];
         } else {
+            //若 handlers 是多个，使用 ChannelHandlerDispatcher 进行封装
             handler = new ChannelHandlerDispatcher(handlers);
         }
         // 创建 Server 对象
