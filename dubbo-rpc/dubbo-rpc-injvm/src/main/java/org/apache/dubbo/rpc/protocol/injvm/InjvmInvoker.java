@@ -59,7 +59,7 @@ class InjvmInvoker<T> extends AbstractInvoker<T> {
         super(type, url);
         this.key = key;
         this.exporterMap = exporterMap;
-
+    }
 
 
     /***
@@ -67,7 +67,7 @@ class InjvmInvoker<T> extends AbstractInvoker<T> {
      * @return
      */
     @Override
-    public boolean isAvailable() {
+    public boolean isAvailable(){
         //如果
         InjvmExporter<?> exporter = (InjvmExporter<?>) exporterMap.get(key);
         if (exporter == null) {
