@@ -59,7 +59,8 @@ class InjvmInvoker<T> extends AbstractInvoker<T> {
         super(type, url);
         this.key = key;
         this.exporterMap = exporterMap;
-    }
+
+
 
     /***
      * 判断是否有 Exporter 对象
