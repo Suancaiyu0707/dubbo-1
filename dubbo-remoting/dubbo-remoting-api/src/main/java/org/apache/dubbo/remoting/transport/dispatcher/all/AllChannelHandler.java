@@ -74,9 +74,9 @@ public class AllChannelHandler extends WrappedChannelHandler {
      * @param message
      * @throws RemotingException
      * 1、获得共享线程池
-     *      默认一个channelhandler对应一个线程池。也就是一个服务一个
-     *      如果channelHandler不存在共享线程池，则返回公共的
-     * 2、
+     * 2、根据接收到的消息创建一个可执行的任务ChannelEventRunnable
+     * 3、线程池执行任务ChannelEventRunnable
+     * 4、如果返回异常，且是一个请求消息被拒绝，则向请求方发送响应，该响应信息的status：SERVER_THREADPOOL_EXHAUSTED_ERROR
      */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {

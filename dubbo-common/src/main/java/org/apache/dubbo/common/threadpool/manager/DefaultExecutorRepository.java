@@ -68,6 +68,9 @@ public class DefaultExecutorRepository implements ExecutorRepository {
      * 初始化一个连接池对象
      * @param url
      * @return
+     * 1、判断是CONSUMER端还是PROVIDER端
+     * 2、判断这个CONSUMER/PROVIDER端是否有包含当前端口的线程池
+     * 3、创建这个CONSUMER/PROVIDER端下对应端口的线程池
      */
     public synchronized ExecutorService createExecutorIfAbsent(URL url) {
         String componentKey = EXECUTOR_SERVICE_COMPONENT_KEY;
@@ -163,9 +166,16 @@ public class DefaultExecutorRepository implements ExecutorRepository {
     }
 
     /***
-     * 创建一个连接池，默认是cached
+     * 创建一个连接池，默认是fixed
      * @param url
      * @return
+     * 1、创建一个线程池，会根据url中的threadpool配置来决定创建哪种线程池：
+     *      fixed 固定大小线程池，启动时建立线程，不关闭，一直持有。(缺省)
+     *      cached 缓存线程池，空闲一分钟自动删除，需要时重建。
+     *      limited 可伸缩线程池，但池中的线程数只会增长不会收缩。只增长不收缩的目的是为了避免收缩时突然来了大流量引起的性能问题。
+     *      eager 优先创建Worker线程池。在任务数量大于corePoolSize但是小于maximumPoolSize时，优先创建Worker来处理任务。
+     *          当任务数量大于maximumPoolSize时，将任务放入阻塞队列中。阻塞队列充满时抛出RejectedExecutionException。
+     *          (相比于cached:cached在任务数量超过maximumPoolSize时直接抛出异常而不是将任务放入阻塞队列)
      */
     private ExecutorService createExecutor(URL url) {
         return (ExecutorService) ExtensionLoader.getExtensionLoader(ThreadPool.class).getAdaptiveExtension().getExecutor(url);

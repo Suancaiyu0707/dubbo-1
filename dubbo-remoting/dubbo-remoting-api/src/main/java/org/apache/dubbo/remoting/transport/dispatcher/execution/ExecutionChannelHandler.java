@@ -46,6 +46,18 @@ public class ExecutionChannelHandler extends WrappedChannelHandler {
         super(handler, url);
     }
 
+    /***
+     * 只有请求消息派发到线程池，不含响应，响应和其它连接断开事件，心跳等消息，直接在 IO 线程上执行。
+     * @param channel channel.
+     * @param message message.
+     * @throws RemotingException
+     * 1、获得请求共享线程池
+     * 2、如果接收到的是一个来自于消费端的请求消息，则会根据请求消息创建一个可执行的任务ChannelEventRunnable，并丢给线程池处理。
+     *      对请求处理的结果异常进行响应：
+     *          如果返回异常，且是一个请求消息被拒绝，则向请求方发送响应，该响应信息的status：SERVER_THREADPOOL_EXHAUSTED_ERROR
+     * 3、如果是一个ThreadlessExecutor线程池，则直接丢给线程池处理，请求异常
+     * 4、如果不是一个request请求信息，则直接在 IO 线程上执行
+     */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
         ExecutorService executor = getPreferredExecutorService(message);
@@ -66,7 +78,7 @@ public class ExecutionChannelHandler extends WrappedChannelHandler {
             }
         } else if (executor instanceof ThreadlessExecutor) {
             executor.execute(new ChannelEventRunnable(channel, handler, ChannelState.RECEIVED, message));
-        } else {//Direct io直接处理
+        } else {//如果不是一个request请求信息，则直接在 IO 线程上执行
             handler.received(channel, message);
         }
     }

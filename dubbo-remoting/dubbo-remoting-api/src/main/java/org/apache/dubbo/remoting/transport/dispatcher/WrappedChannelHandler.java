@@ -120,7 +120,18 @@ public class WrappedChannelHandler implements ChannelHandlerDelegate {
      *
      * @param msg
      * @return
-     * 一个客户端NettyChannel一个线程池
+     *
+     * 1、如果消息是一个响应消息(消费端收到响应)
+     *      a、在消费端获得该响应对应的请求
+     *      b、如果responseFuture为null，那可能是响应在请求超时之后返回过来，则直接返回共享线程池
+     *      c、如果responseFuture不为null，则获得当初发起请求队医ing的线程池，如果线程池还在，则直接返回，不然就使用共享线程池
+     * 2、如果消息不是一个响应消息，则直接返回共享线程池。
+     * 3、共享线程池的粒度，在内存里的结构：
+     *      ConcurrentMap<String, ConcurrentMap<Integer, ExecutorService>> data = new ConcurrentHashMap<>();
+     *      外层key：PROVIDER或CONSUMER
+     *      内层：
+     *          key：port端口号
+     *          value：线程池(具体类型可配置)
      */
     public ExecutorService getPreferredExecutorService(Object msg) {
         //如果该消息是一条响应消息(说明此时当前是一个发起最初请求的consumer)
@@ -150,8 +161,12 @@ public class WrappedChannelHandler implements ChannelHandlerDelegate {
      * get the shared executor for current Server or Client
      *
      * @return
-     * 获得共享线程池.（2019-11-8日对这个共享线程池进行修改了：
-     *      粒度改为根据端口号、Consumer/service 来共享线程池）
+     * 获得共享线程池.（2019-11-8日对这个共享线程池进行修改了，内存结构：
+     *      ConcurrentMap<String, ConcurrentMap<Integer, ExecutorService>> data = new ConcurrentHashMap<>();
+     *      外层key：PROVIDER或CONSUMER
+     *      内层：
+     *          key：port端口号
+     *          value：线程池(具体类型可配置)
      */
     public ExecutorService getSharedExecutorService() {
         ExecutorRepository executorRepository =

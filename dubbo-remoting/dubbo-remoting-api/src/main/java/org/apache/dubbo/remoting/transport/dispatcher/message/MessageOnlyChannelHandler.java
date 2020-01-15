@@ -36,6 +36,16 @@ public class MessageOnlyChannelHandler extends WrappedChannelHandler {
         super(handler, url);
     }
 
+    /***
+     *
+     * @param channel channel.
+     * @param message message.
+     * @throws RemotingException
+     * 1、获得共享线程池
+     * 2、根据接收到的消息创建一个可执行的任务ChannelEventRunnable
+     * 3、线程池执行任务ChannelEventRunnable
+     * 4、如果处理返回异常，则直接往外抛
+     */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
         /***

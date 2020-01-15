@@ -65,6 +65,11 @@ public class ConnectionOrderedChannelHandler extends WrappedChannelHandler {
         queuewarninglimit = url.getParameter(CONNECT_QUEUE_WARNING_SIZE, DEFAULT_CONNECT_QUEUE_WARNING_SIZE);
     }
 
+    /***
+     * 在 IO 线程上，将连接事件放入队列，有序逐个执行，其它消息派发到线程池。
+     * @param channel
+     * @throws RemotingException
+     */
     @Override
     public void connected(Channel channel) throws RemotingException {
         try {
@@ -75,6 +80,11 @@ public class ConnectionOrderedChannelHandler extends WrappedChannelHandler {
         }
     }
 
+    /**
+     * 在 IO 线程上，将连接断开事件放入队列，有序逐个执行，其它消息派发到线程池。
+     * @param channel
+     * @throws RemotingException
+     */
     @Override
     public void disconnected(Channel channel) throws RemotingException {
         try {
@@ -85,6 +95,16 @@ public class ConnectionOrderedChannelHandler extends WrappedChannelHandler {
         }
     }
 
+    /***
+     *  收到的消息都会被派发到线程池上处理，断开连接的事件会交给disconnected处理
+     * @param channel channel.
+     * @param message message.
+     * @throws RemotingException
+     * 1、获得共享线程池
+     * 2、根据接收到的消息创建一个可执行的任务ChannelEventRunnable
+     * 3、线程池执行任务ChannelEventRunnable
+     * 4、如果返回异常，且是一个请求消息被拒绝，则向请求方发送响应，该响应信息的status：SERVER_THREADPOOL_EXHAUSTED_ERROR
+     */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
         ExecutorService executor = getPreferredExecutorService(message);
