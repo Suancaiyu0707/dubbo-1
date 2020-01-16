@@ -39,7 +39,7 @@ public interface ExchangeChannel extends Channel {
 
     /**
      * send request.
-     *
+     * 发送请求
      * @param request
      * @param timeout
      * @return response future
@@ -50,7 +50,7 @@ public interface ExchangeChannel extends Channel {
 
     /**
      * send request.
-     *
+     * 发送请求
      * @param request
      * @return response future
      * @throws RemotingException
@@ -59,7 +59,7 @@ public interface ExchangeChannel extends Channel {
 
     /**
      * send request.
-     *
+     * 发送请求
      * @param request
      * @param timeout
      * @return response future
@@ -69,14 +69,14 @@ public interface ExchangeChannel extends Channel {
 
     /**
      * get message handler.
-     *
+     *  获得信息交换处理器
      * @return message handler
      */
     ExchangeHandler getExchangeHandler();
 
     /**
      * graceful close.
-     *
+     *  优雅关闭
      * @param timeout
      */
     @Override

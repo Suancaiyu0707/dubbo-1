@@ -42,23 +42,33 @@ import static org.apache.dubbo.remoting.utils.UrlUtils.getIdleTimeout;
 
 /**
  * DefaultMessageClient
+ * 实现 ExchangeClient 接口，基于消息头部( Header )的信息交换客户端实现类
  */
 public class HeaderExchangeClient implements ExchangeClient {
 
     private final Client client;
     private final ExchangeChannel channel;
-
+    /***
+     * 时间轮定时器
+     */
     private static final HashedWheelTimer IDLE_CHECK_TIMER = new HashedWheelTimer(
             new NamedThreadFactory("dubbo-client-idleCheck", true), 1, TimeUnit.SECONDS, TICKS_PER_WHEEL);
+    /**
+     * 心跳的定时任务
+     */
     private HeartbeatTimerTask heartBeatTimerTask;
+    /***
+     * 重连的定时任务
+     */
     private ReconnectTimerTask reconnectTimerTask;
 
     public HeaderExchangeClient(Client client, boolean startTimer) {
         Assert.notNull(client, "Client can't be null");
         this.client = client;
+        // 创建 HeaderExchangeChannel 对象
         this.channel = new HeaderExchangeChannel(client);
 
-        if (startTimer) {
+        if (startTimer) {//如果startTimer=true，则开启心跳的定时任务和重连的定时任务
             URL url = client.getUrl();
             startReconnectTask(url);
             startHeartBeatTask(url);

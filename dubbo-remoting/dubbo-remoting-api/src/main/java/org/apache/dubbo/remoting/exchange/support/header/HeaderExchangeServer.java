@@ -53,10 +53,17 @@ import static org.apache.dubbo.remoting.utils.UrlUtils.getIdleTimeout;
 public class HeaderExchangeServer implements ExchangeServer {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
-
+    /***
+     * 服务器
+     */
     private final RemotingServer server;
+    /***
+     * 是否关闭
+     */
     private AtomicBoolean closed = new AtomicBoolean(false);
-
+    /***
+     * 空闲心跳检查的定时器
+     */
     private static final HashedWheelTimer IDLE_CHECK_TIMER = new HashedWheelTimer(new NamedThreadFactory("dubbo-server-idleCheck", true), 1,
             TimeUnit.SECONDS, TICKS_PER_WHEEL);
 
@@ -258,6 +265,10 @@ public class HeaderExchangeServer implements ExchangeServer {
         }
     }
 
+    /***
+     * 开启定时心跳检查的任务
+     * @param url
+     */
     private void startIdleCheckTask(URL url) {
         if (!server.canHandleIdle()) {
             AbstractTimerTask.ChannelProvider cp = () -> unmodifiableCollection(HeaderExchangeServer.this.getChannels());

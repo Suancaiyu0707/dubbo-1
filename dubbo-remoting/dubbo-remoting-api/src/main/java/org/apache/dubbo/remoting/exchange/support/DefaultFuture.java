@@ -181,6 +181,11 @@ public class DefaultFuture extends CompletableFuture<Object> {
         }
     }
 
+    /**
+     * 取消某次请求，U会从内存FUTURES里删除请求对应的占位符对象
+     * @param mayInterruptIfRunning
+     * @return
+     */
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
         Response errorResult = new Response(id);
