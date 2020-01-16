@@ -50,10 +50,19 @@ public class Transporters {
 
     /***
      * 绑定一个服务器
-     * @param url
+     * @param url dubbo://192.168.3.4:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&bind.ip=192.168.3.4&bind.port=20880&channel.readonly.sent=true&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&heartbeat=60000&interface=org.apache.dubbo.demo.StubService&methods=sayHello&pid=52107&release=&side=provider&timestamp=1579130697532
      * @param handlers
      * @return
      * @throws RemotingException
+     * 1、根据url的server 属性配置获得一个用于网络传输的 Transporter，默认是NettyTransporter实现。
+     * 2、调用Transporter返回一个RemotingServer对象，默认是NettyServer，并绑定相应的channelHandler
+     * 会把handlers根据url中的dispatcher配置包装成对应的handler
+     *  all->AllDispatcher->AllChannelHandler
+     *  direct->DirectDispatcher->DirectChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  execution->ExecutionDispatcher->ExecutionChannelHandler
+     *  message->MessageOnlyDispatcher->MessageOnlyChannelHandler
      */
     public static RemotingServer bind(URL url, ChannelHandler... handlers) throws RemotingException {
         if (url == null) {//dubbo://192.168.0.108:20880/org.apache.dubbo.demo.DemoService?anyhost=true&bean.name=org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.108&bind.port=20880&channel.readonly.sent=true&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&heartbeat=60000&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=5410&release=&side=provider&timestamp=1575332340328
@@ -69,7 +78,7 @@ public class Transporters {
             //若 handlers 是多个，使用 ChannelHandlerDispatcher 进行封装
             handler = new ChannelHandlerDispatcher(handlers);
         }
-        // 创建 Server 对象
+        // 先根据 server 属性配置获得一个用于网络传输的Transporter，默认是NettyTransporter实现。然后调用Transporter的bind方法返回一个remotingServer
         return getTransporter().bind(url, handler);
     }
 
@@ -94,6 +103,10 @@ public class Transporters {
                 .connect(url, handler);
     }
 
+    /***
+     * 根据 server 属性配置获得一个用于网络传输的Transporter，默认是NettyTransporter实现
+     * @return
+     */
     public static Transporter getTransporter() {
         return ExtensionLoader.getExtensionLoader(Transporter.class).getAdaptiveExtension();
     }

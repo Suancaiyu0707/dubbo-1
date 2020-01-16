@@ -40,7 +40,7 @@ public class HeartbeatHandler extends AbstractChannelHandlerDelegate {
     public HeartbeatHandler(ChannelHandler handler) {
         super(handler);
     }
-
+    //记录读写时间
     @Override
     public void connected(Channel channel) throws RemotingException {
         setReadTimestamp(channel);

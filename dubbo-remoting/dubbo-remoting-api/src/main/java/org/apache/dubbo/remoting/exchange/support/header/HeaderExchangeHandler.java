@@ -164,7 +164,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
     }
 
     /**
-     * 接收到消息开始做吹
+     * 接收到消息开始做处理
      * @param channel channel.
      * @param message message.
      * @throws RemotingException

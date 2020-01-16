@@ -37,7 +37,8 @@ import static org.apache.dubbo.remoting.Constants.CHARSET_KEY;
 import static org.apache.dubbo.remoting.Constants.DEFAULT_CHARSET;
 
 /**
- * TelnetCodec
+ * TelnetCodec 负责编解码 Telnet 命令与结果。
+ * Dubbo 支持通过 telnet 命令，用来服务治理。其中，clear exit help log status 通用指令，通过 telnet 包实现
  */
 public class TelnetCodec extends TransportCodec {
 

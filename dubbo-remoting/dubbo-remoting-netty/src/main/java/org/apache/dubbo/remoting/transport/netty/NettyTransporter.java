@@ -23,10 +23,28 @@ import org.apache.dubbo.remoting.RemotingException;
 import org.apache.dubbo.remoting.RemotingServer;
 import org.apache.dubbo.remoting.Transporter;
 
+/***
+ * 通过netty进行网络传输
+ */
 public class NettyTransporter implements Transporter {
 
     public static final String NAME = "netty3";
 
+    /***
+     *
+     * @param url   服务器地址
+     * @param listener
+     * @return
+     * @throws RemotingException
+     * 会把handlers根据url中的dispatcher配置包装成对应的handler
+     *  all->AllDispatcher->AllChannelHandler
+     *  direct->DirectDispatcher->DirectChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  execution->ExecutionDispatcher->ExecutionChannelHandler
+     *  message->MessageOnlyDispatcher->MessageOnlyChannelHandler
+     *
+     */
     @Override
     public RemotingServer bind(URL url, ChannelHandler listener) throws RemotingException {
         return new NettyServer(url, listener);

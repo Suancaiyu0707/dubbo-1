@@ -146,10 +146,10 @@ public abstract class AbstractPeer implements Endpoint, ChannelHandler {
 
     @Override
     public void connected(Channel ch) throws RemotingException {
-        if (closed) {
+        if (closed) {//判断当前NettyServer是否关闭状态
             return;
-        }
-        handler.connected(ch);
+        }//AbstractChannelHandlerDelegate->HeartbeatHandler->AllChannelHandler/DirectChannelHandler等
+        handler.connected(ch);//交给Handler处理，也就是Transporters.bind方法绑定的channelHandler
     }
 
     @Override

@@ -63,7 +63,7 @@ public class NettyServerHandler extends ChannelDuplexHandler {
     public Map<String, Channel> getChannels() {
         return channels;
     }
-
+    //客户端和服务端创建连接成功，调用该方法
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
