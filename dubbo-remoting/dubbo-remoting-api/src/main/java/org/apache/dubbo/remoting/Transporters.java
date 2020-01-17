@@ -86,8 +86,24 @@ public class Transporters {
         return connect(URL.valueOf(url), handler);
     }
 
+    /***
+     * 创建一个客户端连接
+     * @param url 服务器的地址
+     * @param handlers
+     * @return
+     * @throws RemotingException
+     * 1、根据url的server 属性配置获得一个用于网络传输的 Transporter，默认是NettyTransporter实现。
+     * 2、调用Transporter返回一个RemotingServer对象，默认是NettyServer，并绑定相应的channelHandler
+     * 会把handlers根据url中的dispatcher配置包装成对应的handler
+     *  all->AllDispatcher->AllChannelHandler
+     *  direct->DirectDispatcher->DirectChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  execution->ExecutionDispatcher->ExecutionChannelHandler
+     *  message->MessageOnlyDispatcher->MessageOnlyChannelHandler
+     */
     public static Client connect(URL url, ChannelHandler... handlers) throws RemotingException {
-        if (url == null) {
+        if (url == null) {//dubbo://192.168.3.4:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&heartbeat=60000&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=74030&register.ip=192.168.3.4&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1579222853145
             throw new IllegalArgumentException("url == null");
         }
         ChannelHandler handler;

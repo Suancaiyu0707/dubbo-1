@@ -34,6 +34,24 @@ public class HeaderExchanger implements Exchanger {
 
     public static final String NAME = "header";
 
+    /***
+     * 创建一个服务端的客户端连接
+     * @param url
+     * @param handler
+     * @return
+     * @throws RemotingException
+     * 1、将handler包装成一个HeaderExchangeHandler，提供对接收到的消息进行分类：请求、响应、事件、心跳等消息，然后决定是否需要交给下一个handler处理
+     * 2、将HeaderExchangeHandler包装成一个DecodeHandler，对接收到的消息提供了解码功能，解析成Request/Response对象
+     * 3、根据服务器的url绑定一个RemotingServer(默认是NettyServer实现)，解析并处理DecodeHandler解码后的消息，在处理接收到的消息的时候，RemotingServer会根据配置交给对应的线程池处理：
+     *      all->AllDispatcher->AllChannelHandler
+     *      direct->DirectDispatcher->DirectChannelHandler
+     *      connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *      connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *      execution->ExecutionDispatcher->ExecutionChannelHandler
+     *      message->MessageOnlyDispatcher->MessageOnlyChannelHandler
+     * 4、将RemotingServer包装成HeaderExchangeServer进行返回：
+     *      添加了一个用于心跳的检查并剔除过期channel的任务，同时添加了channel的管理
+     */
     @Override
     public ExchangeClient connect(URL url, ExchangeHandler handler) throws RemotingException {
         return new HeaderExchangeClient(Transporters.connect(url, new DecodeHandler(new HeaderExchangeHandler(handler))), true);
@@ -46,10 +64,18 @@ public class HeaderExchanger implements Exchanger {
      * @param handler
      * @return
      * @throws RemotingException
-     * 1、将handler包装成一个HeaderExchangeHandler，提供了对具体的请求/响应等消息进行处理
-     * 2、将HeaderExchangeHandler包装成一个DecodeHandler，提供了编解码功能
-     * 3、根据服务器的url绑定一个RemotingServer(默认是NettyServer实现)，并绑定了一个具有编解码功能的Handler
-     * 4、将RemotingServer包装成HeaderExchangeServer进行返回。
+     *
+     * 1、将handler包装成一个HeaderExchangeHandler，提供对接收到的消息进行分类：请求、响应、事件、心跳等消息，然后决定是否需要交给下一个handler处理
+     * 2、将HeaderExchangeHandler包装成一个DecodeHandler，对接收到的消息提供了解码功能，解析成Request/Response对象
+     * 3、根据服务器的url绑定一个RemotingServer(默认是NettyServer实现)，解析并处理DecodeHandler解码后的消息，在处理接收到的消息的时候，RemotingServer会根据配置交给对应的线程池处理：
+     *      all->AllDispatcher->AllChannelHandler
+     *      direct->DirectDispatcher->DirectChannelHandler
+     *      connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *      connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *      execution->ExecutionDispatcher->ExecutionChannelHandler
+     *      message->MessageOnlyDispatcher->MessageOnlyChannelHandler
+     * 4、将RemotingServer包装成HeaderExchangeServer进行返回：
+     *      添加了一个用于心跳的检查并剔除过期channel的任务，同时添加了channel的管理
      */
     @Override
     public ExchangeServer bind(URL url, ExchangeHandler handler) throws RemotingException {

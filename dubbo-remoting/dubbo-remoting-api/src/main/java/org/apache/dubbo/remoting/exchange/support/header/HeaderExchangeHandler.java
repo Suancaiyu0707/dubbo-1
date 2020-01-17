@@ -41,6 +41,10 @@ import static org.apache.dubbo.common.constants.CommonConstants.READONLY_EVENT;
 
 /**
  * ExchangeReceiver
+ * 提供了对接收到的请求/响应进行处理
+ * 1、提供对接收到的消息进行分类：
+ *      请求、响应、事件、心跳等消息，然后决定是否需要交给下一个handler处理
+ *
  */
 public class HeaderExchangeHandler implements ChannelHandlerDelegate {
 
@@ -55,6 +59,19 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         this.handler = handler;
     }
 
+    /***
+     *
+     * @param channel
+     * @param response
+     * @throws RemotingException
+     * 1、如果是对心跳消息的响应，则不做处理了。
+     * 2、如果不是心跳消息，则开始处理响应消息：
+     *   a、根据responseId从内存里获得在之前对应的请求时的占位符DefaultFuture
+     *   b、如果DefaultFuture存在，则检查该 DefaultFuture是否已等待超时：
+     *      如果请求等待响应超时了，则取消这个DefaultFuture
+     *      如果请求等待响应未超时，则交给这个占位符DefaultFuture进行处理接收到的响应。
+     *   c、从内存里移除当前的请求等待的占位符缓存
+     */
     static void handleResponse(Channel channel, Response response) throws RemotingException {
         //再次判断不是心跳消息
         if (response != null && !response.isHeartbeat()) {
@@ -62,6 +79,11 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         }
     }
 
+    /***
+     * 判断渠道是否是客户端连接
+     * @param channel
+     * @return
+     */
     private static boolean isClientSide(Channel channel) {
         InetSocketAddress address = channel.getRemoteAddress();
         URL url = channel.getUrl();
@@ -70,15 +92,29 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                         .equals(NetUtils.filterLocalHost(address.getAddress().getHostAddress()));
     }
 
+    /***
+     * 客户端接收到 READONLY_EVENT 事件请求，进行记录到通道。后续，不再向该服务器，发送新的请求
+     * @param channel 发送事件消息的客户端通道
+     * @param req 事件请求
+     * @throws RemotingException
+     */
     void handlerEvent(Channel channel, Request req) throws RemotingException {
         if (req.getData() != null && req.getData().equals(READONLY_EVENT)) {
             channel.setAttribute(Constants.CHANNEL_ATTRIBUTE_READONLY_KEY, Boolean.TRUE);
         }
     }
-    //处理请求消息
+
+    /***
+     * 对双向请求的话，调用该方法处理channel发来的请求消息
+     * @param channel 发送事件消息的客户端通道
+     * @param req 事件请求
+     * @throws RemotingException
+     * 1、如果请求是损坏的，也就是无法解析，则返回 BAD_REQUEST 响应
+     * 2、处理正常的请求消息，会交给channel的reply进行处理，并最终返回响应
+     */
     void handleRequest(final ExchangeChannel channel, Request req) throws RemotingException {
         Response res = new Response(req.getId(), req.getVersion());//根据reqeust id 初始化一个对应的response
-        if (req.isBroken()) {
+        if (req.isBroken()) {//如果请求是损坏的，也就是无法解析，则返回 BAD_REQUEST 响应
             Object data = req.getData();
 
             String msg;
@@ -98,7 +134,9 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         // find handler by message class.
         Object msg = req.getData();//获得请求信息
         try {
+            //返回结果，并设置到响应( Response) 最终返回。
             CompletionStage<Object> future = handler.reply(channel, msg);
+            //请求消息执行结束后，会向请求端发送响应
             future.whenComplete((appResult, t) -> {
                 try {
                     if (t == null) {
@@ -168,6 +206,20 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
      * @param channel channel.
      * @param message message.
      * @throws RemotingException
+     * 1、如果消息是一条request消息，也就是客户端发来的请求消息
+     *      a、如果是一条处理事件请求，则只是记录，并不做任何事
+     *      b、如果是普通消息的话(我们平常看到的消费端发起的服务请求都属于这一种)
+     *          如果是双向需要响应的：则开始处理请求，并将响应写回请求方。
+     *          如果不需要向请求方返回响应的：则直接交给包装的handler进行处理(也就是交给DecodeHandler进行解码，并继续往下传递)
+     * 2、如果消息是一条响应消息的话，则直接调用handleResponse进行响应
+     *      如果是对心跳消息的响应，则不做处理了。
+     *      如果不是心跳消息：
+     *          a、根据responseId从内存里获得在之前对应的请求时的占位符DefaultFuture
+     *          b、根据DefaultFuture判断是否对应的请求已超时，如果超时了，则直接取消；如果未超时，则交给DefaultFuture处理响应的结果
+     * 3、如果是一条string
+     *    如果当前channel端是客户端连接，则报错，因为客户端侧，不支持 String
+     *    如果是服务端测，则当成一条telnet命令处理。
+     * 4、其它消息，直接交给下一个Handler处理
      */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
@@ -177,17 +229,17 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
             Request request = (Request) message;
             if (request.isEvent()) {
                 handlerEvent(channel, request);
-            } else {
-                if (request.isTwoWay()) {
+            } else {//如果是普通消息的话(我们平常看到的消费端发起的服务请求都属于这一种)
+                if (request.isTwoWay()) {//如果是双向需要响应的
                     handleRequest(exchangeChannel, request);
-                } else {
+                } else {//如果不需要向请求方返回响应的
                     handler.received(exchangeChannel, request.getData());
                 }
             }
         } else if (message instanceof Response) {
             //处理响应结果，移除本地内存中对应的占位符
             handleResponse(channel, (Response) message);
-        } else if (message instanceof String) {
+        } else if (message instanceof String) {// 客户端侧，不支持 String
             if (isClientSide(channel)) {
                 Exception e = new Exception("Dubbo client can not supported string message: " + message + " in channel: " + channel + ", url: " + channel.getUrl());
                 logger.error(e.getMessage(), e);

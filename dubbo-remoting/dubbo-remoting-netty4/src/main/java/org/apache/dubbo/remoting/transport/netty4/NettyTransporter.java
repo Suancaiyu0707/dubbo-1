@@ -50,6 +50,21 @@ public class NettyTransporter implements Transporter {
         return new NettyServer(url, listener);
     }
 
+    /**
+     * 创建一个 NettyClient
+     * @param url     server url
+     * @param listener
+     * @return
+     * @throws RemotingException
+     * 1、创建一个NettyClient，会把listener根据url中的dispatcher包装成对应的handler
+     *  all->AllDispatcher->AllChannelHandler
+     *  direct->DirectDispatcher->DirectChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  connection->ConnectionOrderedDispatcher->ConnectionOrderedChannelHandler
+     *  execution->ExecutionDispatcher->ExecutionChannelHandler
+     *  message->MessageOnlyDispatcher->MessageOnlyChannelHandler
+     *
+     */
     @Override
     public Client connect(URL url, ChannelHandler listener) throws RemotingException {
         return new NettyClient(url, listener);

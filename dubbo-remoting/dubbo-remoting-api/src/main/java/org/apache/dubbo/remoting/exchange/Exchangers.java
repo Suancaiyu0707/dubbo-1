@@ -105,6 +105,13 @@ public class Exchangers {
         return connect(URL.valueOf(url), handler);
     }
 
+    /***
+     * 根据服务提供者的地址，创建一个连接到服务端的ExchangeClient
+     * @param url dubbo://192.168.3.4:20880/org.apache.dubbo.demo.StubService?anyhost=true&bean.name=org.apache.dubbo.demo.StubService&check=false&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&heartbeat=60000&init=false&interface=org.apache.dubbo.demo.StubService&lazy=false&methods=sayHello&pid=74030&register.ip=192.168.3.4&release=&remote.application=&side=consumer&sticky=false&stub=org.apache.dubbo.demo.StubServiceStub&timestamp=1579222853145
+     * @param handler DubboProtocol@3216
+     * @return
+     * @throws RemotingException
+     */
     public static ExchangeClient connect(URL url, ExchangeHandler handler) throws RemotingException {
         if (url == null) {
             throw new IllegalArgumentException("url == null");

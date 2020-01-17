@@ -28,6 +28,7 @@ import org.apache.dubbo.remoting.exchange.Response;
 
 /***
  * 对消息进行解码
+ * 对handler进行装饰，提供了对接收到的消息进行解码的功能，解码完后交给下一个handler处理
  */
 public class DecodeHandler extends AbstractChannelHandlerDelegate {
 

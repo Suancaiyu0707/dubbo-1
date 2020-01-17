@@ -156,6 +156,18 @@ public class DefaultFuture extends CompletableFuture<Object> {
         received(channel, response, false);
     }
 
+    /***
+     *
+     * @param channel
+     * @param response
+     * @param timeout
+     *开始处理响应消息：
+     *   1、根据responseId从内存里获得在之前对应的请求时的占位符DefaultFuture
+     *   2、如果DefaultFuture存在，则检查该 DefaultFuture是否已等待超时：
+     *      如果请求等待响应超时了，则取消这个DefaultFuture
+     *      如果请求等待响应未超时，则交给这个占位符DefaultFuture进行处理接收到的响应。
+     *   3、从内存里移除当前的请求等待的占位符缓存
+     */
     public static void received(Channel channel, Response response, boolean timeout) {
         try {
             //根据响应id从本地内存里找到对应的占位符并移除

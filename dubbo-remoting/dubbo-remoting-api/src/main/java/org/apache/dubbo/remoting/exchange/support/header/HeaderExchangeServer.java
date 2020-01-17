@@ -49,12 +49,13 @@ import static org.apache.dubbo.remoting.utils.UrlUtils.getIdleTimeout;
 
 /**
  * ExchangeServerImpl
+ * 主要是提供了跟连接到当前服务器保持心跳的功能，并添加了对channel的本地管理
  */
 public class HeaderExchangeServer implements ExchangeServer {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     /***
-     * 服务器
+     * 服务器(用于提供服务）
      */
     private final RemotingServer server;
     /***
@@ -69,6 +70,10 @@ public class HeaderExchangeServer implements ExchangeServer {
 
     private CloseTimerTask closeTimerTask;
 
+    /****
+     * 将服务端RemotingServer封装成一个HeaderExchangeServer，并为服务端提供了一个空闲心跳检查的定时器
+     * @param server
+     */
     public HeaderExchangeServer(RemotingServer server) {
         Assert.notNull(server, "server == null");
         this.server = server;
@@ -176,6 +181,11 @@ public class HeaderExchangeServer implements ExchangeServer {
         return exchangeChannels;
     }
 
+    /***
+     * 提供了根据远程地址查询连接到当前服务端的Channel
+     * @param remoteAddress
+     * @return
+     */
     @Override
     public ExchangeChannel getExchangeChannel(InetSocketAddress remoteAddress) {
         Channel channel = server.getChannel(remoteAddress);
@@ -188,6 +198,11 @@ public class HeaderExchangeServer implements ExchangeServer {
         return (Collection) getExchangeChannels();
     }
 
+    /**
+     * 提供了根据远程地址查询连接到当前服务端的Channel
+     * @param remoteAddress
+     * @return
+     */
     @Override
     public Channel getChannel(InetSocketAddress remoteAddress) {
         return getExchangeChannel(remoteAddress);
@@ -236,6 +251,11 @@ public class HeaderExchangeServer implements ExchangeServer {
         reset(getUrl().addParameters(parameters.getParameters()));
     }
 
+    /***
+     * 消息发送，交给真正的server进行发送
+     * @param message
+     * @throws RemotingException
+     */
     @Override
     public void send(Object message) throws RemotingException {
         if (closed.get()) {
@@ -245,6 +265,12 @@ public class HeaderExchangeServer implements ExchangeServer {
         server.send(message);
     }
 
+    /***
+     * 消息发送，交给真正的server进行发送
+     * @param message
+     * @param sent
+     * @throws RemotingException
+     */
     @Override
     public void send(Object message, boolean sent) throws RemotingException {
         if (closed.get()) {
@@ -256,6 +282,7 @@ public class HeaderExchangeServer implements ExchangeServer {
 
     /**
      * Each interval cannot be less than 1000ms.
+     * 计算心跳时间，最少每隔1s
      */
     private long calculateLeastDuration(int time) {
         if (time / HEARTBEAT_CHECK_TICK <= 0) {
@@ -268,6 +295,12 @@ public class HeaderExchangeServer implements ExchangeServer {
     /***
      * 开启定时心跳检查的任务
      * @param url
+     * 1、获取连接到这个Server端的所有的channel渠道
+     * 2、获得服务端的定时心跳的时间的配置heartbeat值，默认是60s
+     * 3、将空闲超时的心跳时间转换成秒，最少1s
+     * 4、创建一个定时任务：
+     *      遍历每个channel，如果渠道的最后ping的时间或最后pong的时间都超过设置的超时时间，则关闭这个渠道
+     * 5、启动定时任务
      */
     private void startIdleCheckTask(URL url) {
         if (!server.canHandleIdle()) {

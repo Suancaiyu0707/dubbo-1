@@ -24,6 +24,7 @@ import org.apache.dubbo.remoting.Client;
 
 /**
  * ReconnectTimerTask
+ * 用于重连的定时任务
  */
 public class ReconnectTimerTask extends AbstractTimerTask {
 
@@ -36,6 +37,11 @@ public class ReconnectTimerTask extends AbstractTimerTask {
         this.idleTimeout = idleTimeout;
     }
 
+    /**
+     * 1、获得channel的最新pong的时间
+     * 2、检查channel的最新pong，如果超时了，则判断channel是否断开连接，如果是的话进行重连
+     * @param channel
+     */
     @Override
     protected void doTask(Channel channel) {
         try {
