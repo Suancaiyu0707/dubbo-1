@@ -43,10 +43,16 @@ import static org.apache.dubbo.remoting.utils.UrlUtils.getIdleTimeout;
 /**
  * DefaultMessageClient
  * 实现 ExchangeClient 接口，基于消息头部( Header )的信息交换客户端实现类
+ * 会维护一个向服务端发送心跳的任务(这样可以保证channel不会被服务端因为长时间没通信而被关闭)
  */
 public class HeaderExchangeClient implements ExchangeClient {
-
+    /***
+     * 网络传输的客户端
+     */
     private final Client client;
+    /***
+     * 被装饰的网络传输的通道
+     */
     private final ExchangeChannel channel;
     /***
      * 时间轮定时器
@@ -62,6 +68,13 @@ public class HeaderExchangeClient implements ExchangeClient {
      */
     private ReconnectTimerTask reconnectTimerTask;
 
+    /***
+     * 创建一个 网络传输的client端
+     * @param client
+     * @param startTimer
+     * 1、创建一个 网络传输的HeaderExchangeClient，装饰了客户端client
+     * 2、开启心跳的定时任务和重连的定时任务
+     */
     public HeaderExchangeClient(Client client, boolean startTimer) {
         Assert.notNull(client, "Client can't be null");
         this.client = client;
@@ -196,6 +209,14 @@ public class HeaderExchangeClient implements ExchangeClient {
         return channel.hasAttribute(key);
     }
 
+    /***
+     * 会维护一个向服务端发送心跳的任务(这样可以保证channel不会被服务端因为长时间没通信而被关闭)
+     * @param url 服务端地址
+     * 1、创建一个定时任务 AbstractTimerTask
+     * 2、获取心跳的时间间隔，可通过 heartbeat 配置
+     * 3、计算心跳时间在时间轮里每个单元格的间隔
+     * 4、创建一个心跳的定时任务，并用时间轮维护
+     */
     private void startHeartBeatTask(URL url) {
         if (!client.canHandleIdle()) {
             AbstractTimerTask.ChannelProvider cp = () -> Collections.singletonList(HeaderExchangeClient.this);
@@ -228,6 +249,7 @@ public class HeaderExchangeClient implements ExchangeClient {
 
     /**
      * Each interval cannot be less than 1000ms.
+     * 计算心跳时间在时间轮里每个单元格的间隔
      */
     private long calculateLeastDuration(int time) {
         if (time / HEARTBEAT_CHECK_TICK <= 0) {

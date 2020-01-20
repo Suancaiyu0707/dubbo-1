@@ -43,13 +43,22 @@ import static org.apache.dubbo.common.constants.CommonConstants.TIMEOUT_KEY;
 
 /**
  * DefaultFuture.
+ * 作为某一次请求的响应的占位符，代表了一次请求
  */
 public class DefaultFuture extends CompletableFuture<Object> {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultFuture.class);
-
+    /***
+     * 【静态变量，所以类的】
+     * key：某次请求的请求id
+     * value:某次请求使用的通道channel
+     */
     private static final Map<Long, Channel> CHANNELS = new ConcurrentHashMap<>();
-
+    /***
+     * 【静态变量，所以类的】
+     * key：某次请求的请求id
+     * value:某次请求结果占位符(响应到达时，可根据id找到对应的占位符，并进行回调)
+     */
     private static final Map<Long, DefaultFuture> FUTURES = new ConcurrentHashMap<>();
     /***
      * 通过一个定时任务，每隔一定时间间隔就扫描所有的future，逐个判断是否超时
@@ -59,12 +68,29 @@ public class DefaultFuture extends CompletableFuture<Object> {
             30,
             TimeUnit.MILLISECONDS);
 
-    // invoke id.
+    /***
+     * 某次请求的请求编号
+     */
     private final Long id;
+    /***
+     * 某次请求使用的通道
+     */
     private final Channel channel;
+    /***
+     * 某次请求
+     */
     private final Request request;
+    /***
+     * 某次请求设置的超时时间
+     */
     private final int timeout;
+    /**
+     * 请求创建的开始时间
+     */
     private final long start = System.currentTimeMillis();
+    /***
+     * 请求发送到的时间
+     */
     private volatile long sent;
     private Timeout timeoutCheckTask;
 
@@ -89,7 +115,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
     }
 
     /**
-     * check time out of the future
+     * 检查占位符代表的请求是否超时
      */
     private static void timeoutCheck(DefaultFuture future) {
         TimeoutCheckTask task = new TimeoutCheckTask(future.getId());
@@ -118,13 +144,23 @@ public class DefaultFuture extends CompletableFuture<Object> {
         return FUTURES.get(id);
     }
 
+    /***
+     * 判断某个通道下是否还有请求等待响应（也就是是否还有未结束的请求）
+     * @param channel
+     * @return
+     */
     public static boolean hasFuture(Channel channel) {
         return CHANNELS.containsValue(channel);
     }
 
+    /***
+     * 使用某个通道发送某次请求
+     * @param channel
+     * @param request
+     */
     public static void sent(Channel channel, Request request) {
         DefaultFuture future = FUTURES.get(request.getId());
-        if (future != null) {
+        if (future != null) {//记录发送请求的时间
             future.doSent();
         }
     }
@@ -135,10 +171,19 @@ public class DefaultFuture extends CompletableFuture<Object> {
      *
      * @param channel channel to close
      */
+    /***
+     *
+     * @param channel
+     * 1、遍历DefaultFuture中本地维护的所有的 请求占位符 DefaultFuture对象
+     * 2、检查DefaultFuture，如果是采用该channel请求传输的request,如果请求还没响应，则直接返回错误，不等待了
+     */
     public static void closeChannel(Channel channel) {
+        //遍历DefaultFuture中本地维护的所有的 请求占位符 DefaultFuture对象
         for (Map.Entry<Long, Channel> entry : CHANNELS.entrySet()) {
+            //检查DefaultFuture，如果是采用该channel请求传输的request,则全部返回错误
             if (channel.equals(entry.getValue())) {
                 DefaultFuture future = getFuture(entry.getKey());
+                //如果请求还没响应，则直接返回错误，不等待了
                 if (future != null && !future.isDone()) {
                     Response disconnectResponse = new Response(future.getId());
                     disconnectResponse.setStatus(Response.CHANNEL_INACTIVE);
@@ -213,10 +258,20 @@ public class DefaultFuture extends CompletableFuture<Object> {
         this.cancel(true);
     }
 
+    /***
+     * 处理接收到的响应结果
+     * @param res
+     * 1、
+     *      如果响应状态码为成功，设置DefaultFuture返回值，并设置Future执行完成
+     *      如果响应状态码为超时，设置DefaultFuture返回值为超时异常，并设置Future执行完成
+     *      其它状态码，设置DefaultFuture返回值为远程调用异常，并设置Future执行完成
+     * 2、如果DefaultFuture由指定的线程池（不是默认的共享吃）执行,请求的线程线程可能还在等待，未了避免无谓的等待，所以需要通知请求方返回（可参考下面的TimeoutCheckTask.run方法）
+     */
     private void doReceived(Response res) {
         if (res == null) {
             throw new IllegalStateException("response cannot be null");
         }
+        //如果响应状态为成功
         if (res.getStatus() == Response.OK) {
             this.complete(res.getResult());
         } else if (res.getStatus() == Response.CLIENT_TIMEOUT || res.getStatus() == Response.SERVER_TIMEOUT) {
@@ -227,6 +282,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
 
         // the result is returning, but the caller thread may still waiting
         // to avoid endless waiting for whatever reason, notify caller thread to return.
+        //当响应返回时，请求的线程线程可能还在等待，未了避免无谓的等待，所以需要通知请求方返回
         if (executor != null && executor instanceof ThreadlessExecutor) {
             ThreadlessExecutor threadlessExecutor = (ThreadlessExecutor) executor;
             if (threadlessExecutor.isWaiting()) {
@@ -286,6 +342,12 @@ public class DefaultFuture extends CompletableFuture<Object> {
             this.requestID = requestID;
         }
 
+        /***
+         *
+         * @param timeout 是指被指派用于在指定时间后执行指定任务的对象
+         *  1、如果某次请求指定了线程池
+         *  2、使用指定线程池调度并执行请求任务
+         */
         @Override
         public void run(Timeout timeout) {
             DefaultFuture future = DefaultFuture.getFuture(requestID);
@@ -299,7 +361,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
                     // set timeout status.
                     timeoutResponse.setStatus(future.isSent() ? Response.SERVER_TIMEOUT : Response.CLIENT_TIMEOUT);
                     timeoutResponse.setErrorMessage(future.getTimeoutMessage(true));
-                    // handle response.
+                    // 处理接收到的响应
                     DefaultFuture.received(future.getChannel(), timeoutResponse, true);
                 });
             }

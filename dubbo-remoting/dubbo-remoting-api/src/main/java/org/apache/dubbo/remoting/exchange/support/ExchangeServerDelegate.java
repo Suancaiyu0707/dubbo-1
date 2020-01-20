@@ -28,6 +28,8 @@ import java.util.Collection;
 
 /**
  * ExchangeServerDelegate
+ * 它是 ExchangeServer 的装饰器
+ * 它持有一个 ExchangeServer 对象，这样对 ExchangeServerDelegate的调用都会传递到绑定的ExchangeServer上面
  */
 public class ExchangeServerDelegate implements ExchangeServer {
 
@@ -36,6 +38,10 @@ public class ExchangeServerDelegate implements ExchangeServer {
     public ExchangeServerDelegate() {
     }
 
+    /***
+     * 构造函数的参数是同一个接口，所以是一个装饰器
+     * @param server
+     */
     public ExchangeServerDelegate(ExchangeServer server) {
         setServer(server);
     }

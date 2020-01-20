@@ -111,6 +111,7 @@ public class DubboProtocol extends AbstractProtocol {
     private final ConcurrentMap<String, String> stubServiceMethodsMap = new ConcurrentHashMap<>();
     /***
      * 这个处理器，负责将请求，转发到对应的 Invoker 对象，执行逻辑，返回结果
+     * 这边返回结果用CompletableFuture占位符，当请求响应返回，通过CompletableFuture则可以获得值
      */
     private ExchangeHandler requestHandler = new ExchangeHandlerAdapter() {
         /***

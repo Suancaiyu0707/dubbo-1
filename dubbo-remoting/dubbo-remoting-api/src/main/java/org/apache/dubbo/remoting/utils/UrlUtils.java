@@ -21,6 +21,11 @@ import org.apache.dubbo.common.URL;
 import org.apache.dubbo.remoting.Constants;
 
 public class UrlUtils {
+    /***
+     * 获取空闲超时的时间
+     * @param url
+     * @return
+     */
     public static int getIdleTimeout(URL url) {
         int heartBeat = getHeartbeat(url);
         // idleTimeout should be at least more than twice heartBeat because possible retries of client.
@@ -31,6 +36,11 @@ public class UrlUtils {
         return idleTimeout;
     }
 
+    /***
+     * 获取心跳的时间间隔
+     * @param url
+     * @return
+     */
     public static int getHeartbeat(URL url) {
         return url.getParameter(Constants.HEARTBEAT_KEY, Constants.DEFAULT_HEARTBEAT);
     }

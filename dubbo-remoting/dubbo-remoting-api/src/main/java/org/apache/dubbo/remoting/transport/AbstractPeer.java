@@ -89,6 +89,9 @@ public abstract class AbstractPeer implements Endpoint, ChannelHandler {
         close();
     }
 
+    /***
+     *  标记正在关闭
+     */
     @Override
     public void startClose() {
         if (isClosed()) {

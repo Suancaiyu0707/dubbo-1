@@ -24,21 +24,35 @@ import static org.apache.dubbo.common.constants.CommonConstants.HEARTBEAT_EVENT;
 
 /**
  * Request.
+ * 代表一条请求信息
  */
 public class Request {
 
     private static final AtomicLong INVOKE_ID = new AtomicLong(0);
-
+    /***
+     * 请求编号
+     */
     private final long mId;
-
+    /***
+     * Dubbo 版本
+     */
     private String mVersion;
-
+    /***
+     * 是否需要响应
+     */
     private boolean mTwoWay = true;
-
+    /***
+     * 是否事件消息
+     */
     private boolean mEvent = false;
-
+    /**
+     * 是否异常的请求。
+     * 在消息解析的时候，会出现。
+     */
     private boolean mBroken = false;
-
+    /***
+     * 消息内容
+     */
     private Object mData;
 
     public Request() {
@@ -49,6 +63,10 @@ public class Request {
         mId = id;
     }
 
+    /***
+     * 生成一个请求编号
+     * @return
+     */
     private static long newId() {
         // getAndIncrement() When it grows to MAX_VALUE, it will grow to MIN_VALUE, and the negative can be used as ID
         return INVOKE_ID.getAndIncrement();
@@ -117,6 +135,10 @@ public class Request {
         mData = msg;
     }
 
+    /***
+     * 消息是否是心跳消息
+     * @return
+     */
     public boolean isHeartbeat() {
         return mEvent && HEARTBEAT_EVENT == mData;
     }

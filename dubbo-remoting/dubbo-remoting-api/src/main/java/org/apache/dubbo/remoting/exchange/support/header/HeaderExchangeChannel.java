@@ -38,6 +38,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.TIMEOUT_KEY;
 
 /**
  * ExchangeReceiver
+ * HeaderExchangeChannel是 ExchangeChannel 的一个实现类
  * 基于消息头部( Header )的信息交换通道实现类。HeaderExchangeChannel 是传入 channel 属性的装饰器
  */
 final class HeaderExchangeChannel implements ExchangeChannel {
@@ -47,6 +48,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
     private static final String CHANNEL_KEY = HeaderExchangeChannel.class.getName() + ".CHANNEL";
     /***
      * 具体绑定的通道
+     * HeaderExchangeChannel 是 channel 属性的装饰器
      */
     private final Channel channel;
 
@@ -63,18 +65,24 @@ final class HeaderExchangeChannel implements ExchangeChannel {
      * 创建 HeaderExchangeChannel 对象，并绑定channel
      * @param ch
      * @return
+     * 1、检查channel是否绑定了HeaderExchangeChannel
+     * 2、如果未绑定，则新建一个并绑定(互相引用)
+     * 3、返回绑定的 HeaderExchangeChannel
      */
     static HeaderExchangeChannel getOrAddChannel(Channel ch) {
         if (ch == null) {
             return null;
         }
+        //检查channel是否绑定了HeaderExchangeChannel
         HeaderExchangeChannel ret = (HeaderExchangeChannel) ch.getAttribute(CHANNEL_KEY);
+        //如果未绑定，则新建一个并绑定(互相引用)
         if (ret == null) {
             ret = new HeaderExchangeChannel(ch);
             if (ch.isConnected()) {
                 ch.setAttribute(CHANNEL_KEY, ret);
             }
         }
+        //返回绑定的 HeaderExchangeChannel
         return ret;
     }
 
@@ -117,16 +125,36 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         }
     }
 
+    /***
+     * 发送请求
+     * @param request
+     * @return
+     * @throws RemotingException
+     */
     @Override
     public CompletableFuture<Object> request(Object request) throws RemotingException {
         return request(request, null);
     }
 
+    /**
+     * 发送请求
+     * @param request
+     * @param timeout 请求的超时时间
+     * @return
+     * @throws RemotingException
+     */
     @Override
     public CompletableFuture<Object> request(Object request, int timeout) throws RemotingException {
         return request(request, timeout, null);
     }
 
+    /***
+     * 发送请求
+     * @param request
+     * @param executor 自定义的用于发送请求的线程池
+     * @return
+     * @throws RemotingException
+     */
     @Override
     public CompletableFuture<Object> request(Object request, ExecutorService executor) throws RemotingException {
         return request(request, channel.getUrl().getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT), executor);
@@ -134,7 +162,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
 
     /***
      * 调用网络连接发起请求
-     * @param request
+     * @param request RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[xuzf], attachments={path=org.apache.dubbo.demo.MockService, interface=org.apache.dubbo.demo.MockService, version=0.0.0}]
      * @param timeout
      * @param executor
      * @return
@@ -143,14 +171,15 @@ final class HeaderExchangeChannel implements ExchangeChannel {
      * 2、设置请求是双向的，表示需要响应
      * 3、根据通道和请求创建 DefaultFuture 对象
      * 4、向通道发起请求
+     * 5、如果发生了异常，则调用DefaultFuture进行取消
      */
     @Override
     public CompletableFuture<Object> request(Object request, int timeout, ExecutorService executor) throws RemotingException {
-        if (closed) {
+        if (closed) {//如果该通道已经关闭了，则肯定不允许再发送请求了
             throw new RemotingException(this.getLocalAddress(), null, "Failed to send request " + request + ", cause: The channel " + this + " is closed!");
         }
         // create request.
-        Request req = new Request();//RpcInvocation [methodName=sayHello, parameterTypes=[class java.lang.String], arguments=[xuzf], attachments={path=org.apache.dubbo.demo.MockService, interface=org.apache.dubbo.demo.MockService, version=0.0.0}]
+        Request req = new Request();
         req.setVersion(Version.getProtocolVersion());//协议版本号：2。0。2
         req.setTwoWay(true);//双向的
         req.setData(request);//请求数据
@@ -169,6 +198,11 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         return closed;
     }
 
+    /***
+     * 1、遍历DefaultFuture中本地维护的所有的 请求占位符 DefaultFuture对象
+     * 2、检查DefaultFuture，如果是采用该channel请求传输的request,则全部返回错误
+     * 3、关闭channel
+     */
     @Override
     public void close() {
         try {
@@ -181,11 +215,14 @@ final class HeaderExchangeChannel implements ExchangeChannel {
     }
 
     /***
-     * 优雅的关闭该通道
+     * 优雅的关闭该通道（和close()唯一区别是多了一个等待channel下的请求执行完成，只等待一定的时间）
      * @param timeout
      * 1、如果通道已经关闭，则直接返回
-     * 2、判断已发起的已经是否已经都响应了。若否，等待完成或超时再关闭这个通道。
-     *      和close()唯一区别是多了一个等待
+     * 2、修改closed状态，这样不会接收新的请求。
+     * 3、如果设置了超时等待关闭的时间，则在超时时间内竟然等待和该channel相关的request尽量响应完成。该channel下可能存在多个request
+     *      如果和该channel相关的request响应都完成了，则可以开始关闭channel了
+     * 4、超时时间过后，开始调用close()关闭channel
+     *
      */
     @Override
     public void close(int timeout) {

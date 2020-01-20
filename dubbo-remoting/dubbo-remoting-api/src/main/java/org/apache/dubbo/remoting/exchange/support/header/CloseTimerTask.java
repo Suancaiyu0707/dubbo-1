@@ -23,6 +23,7 @@ import org.apache.dubbo.remoting.Channel;
 
 /**
  * CloseTimerTask
+ * 服务端用于检查长时间未进行通信的channel，这些channel对应的客户端可能已经关闭了，所以需要关掉，节省资源
  */
 public class CloseTimerTask extends AbstractTimerTask {
 
@@ -35,6 +36,10 @@ public class CloseTimerTask extends AbstractTimerTask {
         this.idleTimeout = idleTimeout;
     }
 
+    /***
+     * 服务端用于检查长时间未进行通信的channel，这些channel对应的客户端可能已经关闭了，所以需要关掉，节省资源
+     * @param channel
+     */
     @Override
     protected void doTask(Channel channel) {
         try {

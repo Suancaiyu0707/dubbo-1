@@ -49,7 +49,8 @@ import static org.apache.dubbo.remoting.utils.UrlUtils.getIdleTimeout;
 
 /**
  * ExchangeServerImpl
- * 主要是提供了跟连接到当前服务器保持心跳的功能，并添加了对channel的本地管理
+ * 1、服务端提供了一个定时任务，用于检查长时间未进行通信的channel，这些channel对应的客户端可能已经关闭了，所以需要关掉，节省资源
+ * 2、添加了对channel的本地管理
  */
 public class HeaderExchangeServer implements ExchangeServer {
 
@@ -71,8 +72,10 @@ public class HeaderExchangeServer implements ExchangeServer {
     private CloseTimerTask closeTimerTask;
 
     /****
-     * 将服务端RemotingServer封装成一个HeaderExchangeServer，并为服务端提供了一个空闲心跳检查的定时器
      * @param server
+     * 1、将服务端RemotingServer封装成一个HeaderExchangeServer
+     * 2、为服务端提供了一个检查空闲客户端的定时器：
+     *      服务端用于检查长时间未进行通信的channel，这些channel对应的客户端可能已经关闭了，所以需要关掉，节省资源
      */
     public HeaderExchangeServer(RemotingServer server) {
         Assert.notNull(server, "server == null");
@@ -89,6 +92,10 @@ public class HeaderExchangeServer implements ExchangeServer {
         return server.isClosed();
     }
 
+    /***
+     * 如果跟当前服务端关联的客户端channel，只要还有一个channel是连接状态，则返回true
+     * @return
+     */
     private boolean isRunning() {
         Collection<Channel> channels = getChannels();
         for (Channel channel : channels) {
@@ -111,15 +118,27 @@ public class HeaderExchangeServer implements ExchangeServer {
         server.close();
     }
 
+    /***
+     * 关闭服务器
+     * @param timeout
+     * 1、设置服务器状态为closed，不接受新的请求
+     * 2、关闭所有的客户端连接channel，不接受新的请求
+     * 3、检查所有的channel是否完成关闭
+     * 4、等所有的channel都关闭好，或者超时了，则关闭当前服务器
+     */
     @Override
     public void close(final int timeout) {
+        //1、设置服务器状态为closed，不接受新的请求
         startClose();
+
         if (timeout > 0) {
             final long max = (long) timeout;
             final long start = System.currentTimeMillis();
             if (getUrl().getParameter(Constants.CHANNEL_SEND_READONLYEVENT_KEY, true)) {
+                //广播客户端，READONLY_EVENT 事件
                 sendChannelReadOnlyEvent();
             }
+            //等所有的channel都关闭好，或者超时了
             while (HeaderExchangeServer.this.isRunning()
                     && System.currentTimeMillis() - start < max) {
                 try {
@@ -129,15 +148,26 @@ public class HeaderExchangeServer implements ExchangeServer {
                 }
             }
         }
+        //关闭当前服务器
         doClose();
         server.close(timeout);
     }
 
+    /****
+     * Server 关闭的过程，分成两个阶段：正在关闭和已经关闭
+     * startClose：标记正在关闭
+     */
     @Override
     public void startClose() {
         server.startClose();
     }
 
+    /***
+     * 遍历广播所有的客户端，发起READONLY_EVENT 事件，
+     * 客户端收到READONLY_EVENT，会修改自己channel的状态为只读，不接受新的连接
+     * 1、初始化一个只读事件READONLY_EVENT
+     * 2、遍历所有的连接状态是已连接的(断开的不管)，设置这些连接为只读
+     */
     private void sendChannelReadOnlyEvent() {
         Request request = new Request();
         request.setEvent(READONLY_EVENT);
@@ -156,6 +186,10 @@ public class HeaderExchangeServer implements ExchangeServer {
         }
     }
 
+    /***
+     * 1、设置关闭状态为已关闭
+     * 2、关闭心跳定时器
+     */
     private void doClose() {
         if (!closed.compareAndSet(false, true)) {
             return;
@@ -163,6 +197,9 @@ public class HeaderExchangeServer implements ExchangeServer {
         cancelCloseTask();
     }
 
+    /***
+     * 关闭心跳定时器
+     */
     private void cancelCloseTask() {
         if (closeTimerTask != null) {
             closeTimerTask.cancel();

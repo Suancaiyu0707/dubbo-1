@@ -27,12 +27,14 @@ import static org.apache.dubbo.common.constants.CommonConstants.HEARTBEAT_EVENT;
 
 /**
  * HeartbeatTimerTask
- * 用于跟连接到当前服务器的客户端发送心跳的定时任务
+ * 客户端用于向服务端发送心跳，保持连接的定时任务
  */
 public class HeartbeatTimerTask extends AbstractTimerTask {
 
     private static final Logger logger = LoggerFactory.getLogger(HeartbeatTimerTask.class);
-
+    /**
+     * 心跳间隔，单位：毫秒
+     */
     private final int heartbeat;
 
     HeartbeatTimerTask(ChannelProvider channelProvider, Long heartbeatTick, int heartbeat) {
@@ -44,7 +46,7 @@ public class HeartbeatTimerTask extends AbstractTimerTask {
      *
      * @param channel
      * 1、获得channel的最新ping和pong的时间
-     * 2、检查channel的最新ping或pong，如果超时了，则直接剔除当前超时的客户端
+     * 2、检查channel的最新ping或pong，如果超时了，则重新发起心跳
      */
     @Override
     protected void doTask(Channel channel) {

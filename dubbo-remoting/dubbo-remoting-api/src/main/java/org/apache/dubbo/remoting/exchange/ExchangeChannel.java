@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 
 /**
  * ExchangeChannel. (API/SPI, Prototype, ThreadSafe)
+ * 用于网络传输过程中，作为消息传输通道
  */
 public interface ExchangeChannel extends Channel {
 
@@ -33,6 +34,7 @@ public interface ExchangeChannel extends Channel {
      * @param request
      * @return response future
      * @throws RemotingException
+     * 发送请求信息。并返回结果占位符对象
      */
     @Deprecated
     CompletableFuture<Object> request(Object request) throws RemotingException;
@@ -41,28 +43,30 @@ public interface ExchangeChannel extends Channel {
      * send request.
      * 发送请求
      * @param request
-     * @param timeout
+     * @param timeout 请求的超时时间
      * @return response future
      * @throws RemotingException
+     * 发送请求信息。并返回结果占位符对象
      */
     @Deprecated
     CompletableFuture<Object> request(Object request, int timeout) throws RemotingException;
 
-    /**
-     * send request.
-     * 发送请求
+    /***
+     *
      * @param request
-     * @return response future
+     * @param executor 自定义的用于发送请求的线程池
+     * @return
      * @throws RemotingException
+     * 发送请求信息。并返回结果占位符对象
      */
     CompletableFuture<Object> request(Object request, ExecutorService executor) throws RemotingException;
 
-    /**
-     * send request.
-     * 发送请求
+    /***
+     *
      * @param request
-     * @param timeout
-     * @return response future
+     * @param timeout 请求的超时时间
+     * @param executor 自定义的用于发送请求的线程池
+     * @return
      * @throws RemotingException
      */
     CompletableFuture<Object> request(Object request, int timeout, ExecutorService executor) throws RemotingException;

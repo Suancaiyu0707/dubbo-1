@@ -31,12 +31,13 @@ public interface ExchangeServer extends RemotingServer {
      * get channels.
      *
      * @return channels
+     * 获得连接到该服务端的客户端通道数组
      */
     Collection<ExchangeChannel> getExchangeChannels();
 
     /**
      * get channel.
-     *
+     * 根据远程的客户端地址，获得指定地址对应的客户端的通道
      * @param remoteAddress
      * @return channel
      */

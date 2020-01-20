@@ -45,10 +45,12 @@ import java.io.InputStream;
  * ExchangeCodec.
  * 主要负责在netty传输过程中，对request和response的通用解析。
  * 但是它是不满足在 dubbo:// 协议中，对 RpcInvocation 和 RpcResult 作为 内容体( Body ) 的编解码的需要的。
+ *
+ * 基于消息长度的方式
  */
 public class ExchangeCodec extends TelnetCodec {
 
-    // header length.
+    // header length. Header 总长度，16 Bytes = 128 Bits
     protected static final int HEADER_LENGTH = 16;
     // magic header.
     protected static final short MAGIC = (short) 0xdabb;
@@ -83,6 +85,13 @@ public class ExchangeCodec extends TelnetCodec {
         }
     }
 
+    /***
+     * 解码消息
+     * @param channel
+     * @param buffer
+     * @return
+     * @throws IOException
+     */
     @Override
     public Object decode(Channel channel, ChannelBuffer buffer) throws IOException {
         int readable = buffer.readableBytes();
@@ -91,6 +100,15 @@ public class ExchangeCodec extends TelnetCodec {
         return decode(channel, buffer, readable, header);
     }
 
+    /***
+     * 解码消息，跟编码处理正好相反
+     * @param channel
+     * @param buffer
+     * @param readable
+     * @param header
+     * @return
+     * @throws IOException
+     */
     @Override
     protected Object decode(Channel channel, ChannelBuffer buffer, int readable, byte[] header) throws IOException {
         // check magic number.
@@ -217,52 +235,68 @@ public class ExchangeCodec extends TelnetCodec {
     }
 
     /***
-     *
+     * 对请求进行编码，总长128位+消息体
      * @param channel NettyChannel [channel=[id: 0x0c18aa17, L:/192.168.0.102:60793 - R:/192.168.0.102:20880]]
      * @param buffer
      * @param req
      * @throws IOException
+     * Header 部分，协议头，通过 Codec 编解码。Bits 位如下：
+        [0, 15]：Magic Number
+        [16, 20]：Serialization 编号。
+        [21]：event 是否为事件。
+        [22]：twoWay 是否需要响应。
+        [23]：是请求还是响应。
+        [24 - 31]：status 状态。
+        [32 - 95]：id 编号，Long 型。
      */
     protected void encodeRequest(Channel channel, ChannelBuffer buffer, Request req) throws IOException {
         Serialization serialization = getSerialization(channel);
         // header. 16位长度的消息头
         byte[] header = new byte[HEADER_LENGTH];
-        // set magic number.
+        // `[0, 15]`：Magic Number
         Bytes.short2bytes(MAGIC, header);
 
         // set request and serialization flag.
+        // `[16, 20]`：Serialization 编号 && `[23]`：请求。
         header[2] = (byte) (FLAG_REQUEST | serialization.getContentTypeId());
-        //双向传输
+        // `[21]`：`twoWay` 是否需要响应。
         if (req.isTwoWay()) {
             header[2] |= FLAG_TWOWAY;
         }
+        // `[22]`：`event` 是否为事件。
         if (req.isEvent()) {
             header[2] |= FLAG_EVENT;
         }
 
-        // set request id.
+        // `[32 - 95]`：`id` 编号，Long 型。
         Bytes.long2bytes(req.getId(), header, 4);
 
-        // encode request data.
+        // 编码 `Request.data` 到 Body ，并写入到 Buffer
         int savedWriteIndex = buffer.writerIndex();
         buffer.writerIndex(savedWriteIndex + HEADER_LENGTH);
         ChannelBufferOutputStream bos = new ChannelBufferOutputStream(buffer);
+        //创建一个ObjectOutput用于写入消息体到bos，也就是到缓冲区buffer
         ObjectOutput out = serialization.serialize(channel.getUrl(), bos);
+        //处理消息体
         if (req.isEvent()) {
             encodeEventData(channel, out, req.getData());
         } else {
             encodeRequestData(channel, out, req.getData(), req.getVersion());
         }
+        // 释放资源
         out.flushBuffer();
         if (out instanceof Cleanable) {
             ((Cleanable) out).cleanup();
         }
         bos.flush();
         bos.close();
+        // 检查 Body 长度，是否超过消息上限。
         int len = bos.writtenBytes();
+        //校验 Body 内容的长度，因为每次 ChannelBuffer 都是新创建的，所以抛出异常也无需重置
         checkPayload(channel, len);
+        // `[96 - 127]`：Body 的**长度**。
         Bytes.int2bytes(len, header, 12);
-
+        // 写入 Header 到 Buffer
         // write
         buffer.writerIndex(savedWriteIndex);
         buffer.writeBytes(header); // write header.
@@ -398,6 +432,12 @@ public class ExchangeCodec extends TelnetCodec {
         encodeEventData(out, data);
     }
 
+    /***
+     * 写入消息体
+     * @param out
+     * @param data
+     * @throws IOException
+     */
     protected void encodeRequestData(ObjectOutput out, Object data) throws IOException {
         out.writeObject(data);
     }
@@ -458,6 +498,14 @@ public class ExchangeCodec extends TelnetCodec {
         encodeResponseData(out, data);
     }
 
+    /***
+     * 处理消息体
+     * @param channel
+     * @param out
+     * @param data
+     * @param version
+     * @throws IOException
+     */
     protected void encodeRequestData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
         encodeRequestData(out, data);
     }

@@ -20,6 +20,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.HEARTBEAT_EVENT;
 
 /**
  * Response
+ * 响应消息
  */
 public class Response {
 
@@ -77,17 +78,29 @@ public class Response {
      * server side threadpool exhausted and quick return.
      */
     public static final byte SERVER_THREADPOOL_EXHAUSTED_ERROR = 100;
-
+    /***
+     * 请求编号
+     */
     private long mId = 0;
-
+    /***
+     * dubbo 版本
+     */
     private String mVersion;
-
+    /**
+     * 消息状态
+     */
     private byte mStatus = OK;
-
+    /***
+     * 是否事件
+     */
     private boolean mEvent = false;
-
+    /***
+     * 错误的消息
+     */
     private String mErrorMsg;
-
+    /***
+     * 响应结果
+     */
     private Object mResult;
 
     public Response() {
