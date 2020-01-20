@@ -58,20 +58,26 @@ public class NettyServer extends AbstractServer implements RemotingServer {
 
     private static final Logger logger = LoggerFactory.getLogger(NettyServer.class);
     /**
-     * the cache for alive worker channel.
-     * <ip:port, dubbo channel>
+     * 某个服务端下的dubbo channel的集合
+     * key：ip:port
+     * value：dubbo channel
      */
     private Map<String, Channel> channels;
     /**
-     * netty server bootstrap.
+     * netty server的启动类
      */
     private ServerBootstrap bootstrap;
     /**
-     * the boss channel that receive connections and dispatch these to worker channel.
+     * Netty的NioServerSocketChannel，用于接收客户端创立连接的请求
      */
 	private io.netty.channel.Channel channel;
-
+    /***
+     * 为ServerSocketChannel分配线程，用于接收客户端创立连接的请求
+     */
     private EventLoopGroup bossGroup;
+    /***
+     * 为创建的客户端连接绑定线程，用于接收对应客户端的读写请求
+     */
     private EventLoopGroup workerGroup;
 
     public NettyServer(URL url, ChannelHandler handler) throws RemotingException {
@@ -82,25 +88,37 @@ public class NettyServer extends AbstractServer implements RemotingServer {
 
     /**
      * Init and start netty server
-     *
      * @throws Throwable
+     */
+    /***
+     * 初始化并启动一个netty 服务
+     * @throws Throwable
+     * 1、创建Netty Server的启动类，以及为ServerSocketChannel和SocketChannel分配线程的group组
+     * 2、创建一个NettyServerHandler。当一个新的客户端连接被创刊成功后，会被添加到新建的channel的ChannelPipeline上
+     * 3、初始化启动类ServerBootstrap
+     * 4、绑定端口并创建服务Netty Server，并返回绑定响应的占位符
+     *
      */
     @Override
     protected void doOpen() throws Throwable {
         bootstrap = new ServerBootstrap();
-
+        //为ServerSocketChannel创建用于分配接收客户端连接的线程的group(可以看到这边的线程池的大小只有一个线程)
         bossGroup = new NioEventLoopGroup(1, new DefaultThreadFactory("NettyServerBoss", true));
+        //为SocketChannel创建用于分配接收读写请求的线程的group
         workerGroup = new NioEventLoopGroup(getUrl().getPositiveParameter(IO_THREADS_KEY, Constants.DEFAULT_IO_THREADS),
                 new DefaultThreadFactory("NettyServerWorker", true));
-
+        //创建一个NettyServerHandler。当一个新的客户端连接被创刊成功后，会被添加到新建的channel的ChannelPipeline上
         final NettyServerHandler nettyServerHandler = new NettyServerHandler(getUrl(), this);
         channels = nettyServerHandler.getChannels();
-
+        //初始化
         bootstrap.group(bossGroup, workerGroup)
+                // 设置 Channel类型,是一个服务端的channel，会接收客户端的连接请求
                 .channel(NioServerSocketChannel.class)
+                // 设置可选项
                 .childOption(ChannelOption.TCP_NODELAY, Boolean.TRUE)
                 .childOption(ChannelOption.SO_REUSEADDR, Boolean.TRUE)
                 .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
+                // 为新建的SocketChannel绑定一个ChannelPipeline,并添加默认的ChannelHandler
                 .childHandler(new ChannelInitializer<NioSocketChannel>() {
                     @Override
                     protected void initChannel(NioSocketChannel ch) throws Exception {
@@ -118,13 +136,21 @@ public class NettyServer extends AbstractServer implements RemotingServer {
                                 .addLast("handler", nettyServerHandler);
                     }
                 });
-        // bind
+        // 绑定端口并创建服务Netty Server，并返回绑定响应的占位符
         ChannelFuture channelFuture = bootstrap.bind(getBindAddress());
         channelFuture.syncUninterruptibly();
         channel = channelFuture.channel();
 
     }
 
+    /***
+     * 关闭这个netty server服务器
+     * @throws Throwable
+     * 1、先关闭NioServerSocketChannel，拒绝新的客户端连接。
+     * 2、遍历所有的客户端连接Dubbo channel，并一个个的进行关闭
+     * 3、优雅关闭bossGroup和workerGroup，释放资源
+     * 4、清空本地缓存
+     */
     @Override
     protected void doClose() throws Throwable {
         try {
@@ -136,10 +162,12 @@ public class NettyServer extends AbstractServer implements RemotingServer {
             logger.warn(e.getMessage(), e);
         }
         try {
+            //遍历所有的客户端连接Dubbo channel，并一个个的进行关闭
             Collection<org.apache.dubbo.remoting.Channel> channels = getChannels();
             if (channels != null && channels.size() > 0) {
                 for (org.apache.dubbo.remoting.Channel channel : channels) {
                     try {
+                        //关闭Dubbo channel的时候，内部会先关闭绑定的SocketChannel
                         channel.close();
                     } catch (Throwable e) {
                         logger.warn(e.getMessage(), e);
@@ -166,13 +194,18 @@ public class NettyServer extends AbstractServer implements RemotingServer {
         }
     }
 
+    /***
+     * 获得连接到这个Netty server上的所有通道(会移除已关闭的客户端)
+     * @return
+     */
     @Override
     public Collection<Channel> getChannels() {
         Collection<Channel> chs = new HashSet<Channel>();
+        //获得连接到这个Netty server上的所有通道
         for (Channel channel : this.channels.values()) {
             if (channel.isConnected()) {
                 chs.add(channel);
-            } else {
+            } else {//移除已关闭的客户端
                 channels.remove(NetUtils.toAddressString(channel.getRemoteAddress()));
             }
         }

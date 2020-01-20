@@ -69,6 +69,9 @@ public class NettyClient extends AbstractClient {
      * replace this with new channel and close old channel.
      * <b>volatile, please copy reference to use.</b>
      */
+    /***
+     * 代表客户端连接的 NettyChannel,在doConnect()方法里创建
+     */
     private volatile Channel channel;
 
     /**
@@ -81,10 +84,13 @@ public class NettyClient extends AbstractClient {
     	super(url, wrapChannelHandler(url, handler));
     }
 
-    /**
-     * Init bootstrap
-     *
+    /***
+     * 向服务端创建一个客户端连接
      * @throws Throwable
+     * 1、创建Netty Client的启动类、以及为SocketChannel分配线程的group组
+     * 2、创建一个NettyClientHandler。当一个新的客户端连接被创建成功后，会被添加到新建的Socketchannel的ChannelPipeline上
+     * 3、初始化启动类Bootstrap
+     * 4、为新建的客户端连接绑定ChannelHandler
      */
     @Override
     protected void doOpen() throws Throwable {
@@ -98,6 +104,7 @@ public class NettyClient extends AbstractClient {
                 .channel(NioSocketChannel.class);
 
         bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, Math.max(3000, getConnectTimeout()));
+        //为新建的客户端连接绑定ChannelHandler：编解码的handler、空闲状态检查的handler
         bootstrap.handler(new ChannelInitializer() {
 
             @Override
@@ -107,7 +114,6 @@ public class NettyClient extends AbstractClient {
                 if (getUrl().getParameter(SSL_ENABLED_KEY, false)) {
                     ch.pipeline().addLast("negotiation", SslHandlerInitializer.sslClientHandler(getUrl(), nettyClientHandler));
                 }
-
                 NettyCodecAdapter adapter = new NettyCodecAdapter(getCodec(), getUrl(), NettyClient.this);
                 ch.pipeline()//.addLast("logging",new LoggingHandler(LogLevel.INFO))//for debug
                         .addLast("decoder", adapter.getDecoder())
@@ -125,9 +131,14 @@ public class NettyClient extends AbstractClient {
         });
     }
 
+    /***
+     * 创建客户端的连接，并返回一个连接的channel
+     * @throws Throwable
+     */
     @Override
     protected void doConnect() throws Throwable {
         long start = System.currentTimeMillis();
+        //获得客户端连接，并获得channel，这个channel是一个NettyChannel
         ChannelFuture future = bootstrap.connect(getConnectAddress());
         try {
             boolean ret = future.awaitUninterruptibly(getConnectTimeout(), MILLISECONDS);

@@ -41,14 +41,20 @@ import static org.apache.dubbo.remoting.Constants.MIN_BUFFER_SIZE;
 
 /**
  * NettyCodecAdapter.
- * 提供端请求解码
+ * Netty 编解码适配器，将 Dubbo 编解码器 适配成 Netty4 的编码器和解码器。提供端请求解码
  */
 final class NettyCodecAdapter {
-
+    /**
+     * Netty 编码器
+     */
     private final ChannelHandler encoder = new InternalEncoder();
-
+    /**
+     * Netty 解码器
+     */
     private final ChannelHandler decoder = new InternalDecoder();
-
+    /**
+     * Dubbo 编解码器
+     */
     private final Codec2 codec;
 
     private final URL url;

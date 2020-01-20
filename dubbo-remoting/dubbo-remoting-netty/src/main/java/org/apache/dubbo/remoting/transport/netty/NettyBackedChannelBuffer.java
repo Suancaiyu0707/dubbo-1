@@ -26,6 +26,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
+/**
+ * 实现 ChannelBuffer 接口，基于 Netty ByteBuf 的 ChannelBuffer 实现类。
+ * 做了一些基本校验
+ *
+ */
 public class NettyBackedChannelBuffer implements ChannelBuffer {
 
     private org.jboss.netty.buffer.ChannelBuffer buffer;

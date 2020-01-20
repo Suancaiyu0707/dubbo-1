@@ -35,18 +35,24 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * NettyServerHandler.
+ * NettyServer 的处理器
  */
 @io.netty.channel.ChannelHandler.Sharable
 public class NettyServerHandler extends ChannelDuplexHandler {
     private static final Logger logger = LoggerFactory.getLogger(NettyServerHandler.class);
     /**
-     * the cache for alive worker channel.
-     * <ip:port, dubbo channel>
+     * dubbo channel的本地缓存，可能多个dubbo chanel的ChannelPipeline会持有同一个NettyServerHandler
+     * key：ip:port
+     * value：dubbo channel
      */
     private final Map<String, Channel> channels = new ConcurrentHashMap<String, Channel>();
-
+    /***
+     * 服务端地址
+     */
     private final URL url;
-
+    /**
+     * 内部绑定的netty 的channelHandler
+     */
     private final ChannelHandler handler;
 
     public NettyServerHandler(URL url, ChannelHandler handler) {
@@ -63,7 +69,14 @@ public class NettyServerHandler extends ChannelDuplexHandler {
     public Map<String, Channel> getChannels() {
         return channels;
     }
-    //客户端和服务端创建连接成功，调用该方法
+    /***
+     * 如果一个Channel被创建成功并激活，则触发该方法
+     * @param ctx
+     * @throws Exception
+     * 1、本地创建一个Netty channel，且内存维护Netty channel和dubbo channel的映射关闭
+     * 2、更新绑定到服务器的客户端连接通道（添加）
+     * 3、传递给ChannelHandler继续处理
+     */
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
@@ -77,6 +90,14 @@ public class NettyServerHandler extends ChannelDuplexHandler {
         }
     }
 
+    /***
+     * 如果一个Channel失效，则触发该方法
+     * @param ctx
+     * @throws Exception
+     * 1、更新绑定到服务器的客户端连接通道（移除）
+     * 2、传递给ChannelHandler继续处理
+     * 3、关闭对应的Dubbo channel，并更新维护Netty channel和dubbo channel的映射关系
+     */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);

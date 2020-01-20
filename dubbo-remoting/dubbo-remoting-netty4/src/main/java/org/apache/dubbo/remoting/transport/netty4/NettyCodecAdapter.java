@@ -63,9 +63,12 @@ final public class NettyCodecAdapter {
 
         @Override
         protected void encode(ChannelHandlerContext ctx, Object msg, ByteBuf out) throws Exception {
+            // 创建 NettyBackedChannelBuffer 对象
             org.apache.dubbo.remoting.buffer.ChannelBuffer buffer = new NettyBackedChannelBuffer(out);
+            // 获得 NettyChannel 对象
             Channel ch = ctx.channel();
             NettyChannel channel = NettyChannel.getOrAddChannel(ch, url, handler);
+            // 编码
             codec.encode(channel, buffer, msg);
         }
     }
@@ -74,15 +77,17 @@ final public class NettyCodecAdapter {
 
         @Override
         protected void decode(ChannelHandlerContext ctx, ByteBuf input, List<Object> out) throws Exception {
-
+            // 创建 NettyBackedChannelBuffer 对象
             ChannelBuffer message = new NettyBackedChannelBuffer(input);
-
+            // 获得 NettyChannel 对象
             NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
-
-            // decode object.
+            // 循环解析，直到结束
             do {
+                // 记录当前读进度
                 int saveReaderIndex = message.readerIndex();
+                // 解码
                 Object msg = codec.decode(channel, message);
+                // 需要更多输入，即消息不完整，标记回原有读进度，并结束
                 if (msg == Codec2.DecodeResult.NEED_MORE_INPUT) {
                     message.readerIndex(saveReaderIndex);
                     break;
@@ -92,7 +97,7 @@ final public class NettyCodecAdapter {
                         throw new IOException("Decode without read data.");
                     }
                     if (msg != null) {
-                        out.add(msg);
+                        out.add(msg);// 解码到消息，输出到 `out`
                     }
                 }
             } while (message.readable());

@@ -34,13 +34,16 @@ import static org.apache.dubbo.common.constants.CommonConstants.HEARTBEAT_EVENT;
 
 /**
  * NettyClientHandler
+ * NettyClient 的处理器
  */
 @io.netty.channel.ChannelHandler.Sharable
 public class NettyClientHandler extends ChannelDuplexHandler {
     private static final Logger logger = LoggerFactory.getLogger(NettyClientHandler.class);
 
     private final URL url;
-
+    /***
+     * 绑定的Dubbo ChannelHandler
+     */
     private final ChannelHandler handler;
 
     public NettyClientHandler(URL url, ChannelHandler handler) {
@@ -53,7 +56,13 @@ public class NettyClientHandler extends ChannelDuplexHandler {
         this.url = url;
         this.handler = handler;
     }
-
+    /***
+     * 如果一个Channel被创建成功并激活，则触发该方法
+     * @param ctx
+     * @throws Exception
+     * 1、本地创建一个Netty channel，且内存维护Netty channel和dubbo channel的映射关闭
+     * 3、传递交给内部绑定的Dubbo handler处理继续处理
+     */
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
@@ -63,6 +72,14 @@ public class NettyClientHandler extends ChannelDuplexHandler {
         }
     }
 
+    /***
+     * 如果一个Channel失效，则触发该方法
+     * @param ctx
+     * @throws Exception
+     * 1、获得当前客户端的通道Dubbo channel
+     * 2、传递给交给内部绑定的Dubbo handler处理继续处理
+     * 3、关闭对应的Dubbo channel，并更新维护Netty channel和dubbo channel的映射关系
+     */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
@@ -82,6 +99,8 @@ public class NettyClientHandler extends ChannelDuplexHandler {
      * @param ctx
      * @param msg
      * @throws Exception
+     * 1、获得当前Netty channel对应的Dubbo channel
+     * 2、交给内部绑定的Dubbo handler处理
      */
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
@@ -90,6 +109,13 @@ public class NettyClientHandler extends ChannelDuplexHandler {
         handler.received(channel, msg);
     }
 
+    /***
+     * 向服务端写消息，并绑定一个监听器，当写完成后，会回调监听器
+     * @param ctx
+     * @param msg
+     * @param promise
+     * @throws Exception
+     */
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         super.write(ctx, msg, promise);
