@@ -22,6 +22,7 @@ import org.apache.dubbo.config.RegistryConfig;
 import org.apache.dubbo.demo.*;
 
 import org.apache.dubbo.demo.asyn.GreetingService;
+import org.apache.dubbo.demo.asyn.GreetingServiceAsyn;
 import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.protocol.dubbo.FutureAdapter;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -37,7 +38,7 @@ public class ConsumerApp {
      * launch the application
      */
     public static void main(String[] args) throws Exception {
-        testApiAsynForCompleteFuture();
+        testApiAsynForCompleteFuture2();
     }
     public static void testXml() throws IOException {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-consumer.xml");
@@ -177,7 +178,7 @@ public class ConsumerApp {
         //因为一开始是异步调用，所以返回null
         System.out.println(greet.sayHello("zjn"));
         //调用future.get，这样会有阻塞的风险
-        CompletableFuture<String> future =(FutureAdapter)RpcContext.getContext().getCompletableFuture();
+        CompletableFuture<String> future =RpcContext.getContext().getCompletableFuture();
         //通过回调函数来响应执行完成
         future.whenComplete((v,t) -> {
            if(t!=null){
@@ -185,6 +186,44 @@ public class ConsumerApp {
            } else{
                System.out.println(v);
            }
+        });
+        System.out.println("over");
+
+        Thread.currentThread().join();
+
+    }
+
+    public static void testApiAsynForCompleteFuture2() throws IOException, ExecutionException, InterruptedException {
+        ReferenceConfig<GreetingServiceAsyn> referenceConfig = new ReferenceConfig <>();
+
+        referenceConfig.setApplication(new ApplicationConfig("api-consumer"));
+
+        RegistryConfig registry = new RegistryConfig("zookeeper://127.0.0.1:2181");
+        referenceConfig.setRegistry(registry);
+
+        referenceConfig.setInterface(GreetingServiceAsyn.class);
+        referenceConfig.setTimeout(5000);
+
+
+        referenceConfig.setVersion("1.0.0");
+        referenceConfig.setGroup("dubbo");
+        //设置为异步
+        referenceConfig.setAsync(true);
+
+        GreetingServiceAsyn greet = referenceConfig.get();
+
+        RpcContext.getContext().setAttachment("company","zhangmen");
+        //因为一开始是异步调用，所以返回null
+        System.out.println(greet.sayHello("zjn"));
+        //调用future.get，这样会有阻塞的风险
+        CompletableFuture<String> future =RpcContext.getContext().getCompletableFuture();
+        //通过回调函数来响应执行完成
+        future.whenComplete((v,t) -> {
+            if(t!=null){
+                t.printStackTrace();
+            } else{
+                System.out.println(v);
+            }
         });
         System.out.println("over");
 

@@ -20,6 +20,8 @@ import org.apache.dubbo.config.ApplicationConfig;
 import org.apache.dubbo.config.RegistryConfig;
 import org.apache.dubbo.config.ServiceConfig;
 import org.apache.dubbo.demo.asyn.GreetingService;
+import org.apache.dubbo.demo.asyn.GreetingServiceAsyn;
+import org.apache.dubbo.demo.provider.api.asyn.GreetingServiceAsynImpl;
 import org.apache.dubbo.demo.provider.api.asyn.GreetingServiceImpl;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -27,7 +29,7 @@ import java.io.IOException;
 
 public class ProviderApp {
     public static void main(String[] args) throws Exception {
-        testApi();
+        testApiForAsync();
     }
 
     public static void testXml() throws IOException {
@@ -46,6 +48,28 @@ public class ProviderApp {
 
         serviceConfig.setInterface(GreetingService.class);
         serviceConfig.setRef(new GreetingServiceImpl());
+
+        serviceConfig.setVersion("1.0.0");
+        serviceConfig.setGroup("dubbo");
+
+        serviceConfig.export();
+
+        System.out.println("server is started");
+
+        System.in.read();
+
+    }
+
+    public static void testApiForAsync() throws IOException {
+        ServiceConfig<GreetingServiceAsyn> serviceConfig = new ServiceConfig <>();
+
+        serviceConfig.setApplication(new ApplicationConfig("api-provider"));
+
+        RegistryConfig registry = new RegistryConfig("zookeeper://127.0.0.1:2181");
+        serviceConfig.setRegistry(registry);
+
+        serviceConfig.setInterface(GreetingServiceAsyn.class);
+        serviceConfig.setRef(new GreetingServiceAsynImpl());
 
         serviceConfig.setVersion("1.0.0");
         serviceConfig.setGroup("dubbo");
