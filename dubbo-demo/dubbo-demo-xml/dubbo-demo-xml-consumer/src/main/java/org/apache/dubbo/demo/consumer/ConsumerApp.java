@@ -16,11 +16,20 @@
  */
 package org.apache.dubbo.demo.consumer;
 
+import org.apache.dubbo.config.ApplicationConfig;
+import org.apache.dubbo.config.ReferenceConfig;
+import org.apache.dubbo.config.RegistryConfig;
 import org.apache.dubbo.demo.*;
 
+import org.apache.dubbo.demo.asyn.GreetingService;
+import org.apache.dubbo.rpc.RpcContext;
+import org.apache.dubbo.rpc.protocol.dubbo.FutureAdapter;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 public class ConsumerApp {
     /**
@@ -28,6 +37,9 @@ public class ConsumerApp {
      * launch the application
      */
     public static void main(String[] args) throws Exception {
+        testApiAsynForCompleteFuture();
+    }
+    public static void testXml() throws IOException {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-consumer.xml");
 //        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-demo-injvm.xml");
         context.start();
@@ -81,13 +93,102 @@ public class ConsumerApp {
         StubService stubService = (StubService) context.getBean("stubService");
         try {
             stubService.sayHello("zjn");
-                    } catch (Throwable e) {
-                e.printStackTrace();
+        } catch (Throwable e) {
+            e.printStackTrace();
         }
 
 
 
         EventNotifyService notifyService = (EventNotifyService) context.getBean("eventNotifyService");
         notifyService.get(10);
+    }
+    public static void testApi() throws IOException {
+        ReferenceConfig<GreetingService> referenceConfig = new ReferenceConfig <>();
+
+        referenceConfig.setApplication(new ApplicationConfig("api-consumer"));
+
+        RegistryConfig registry = new RegistryConfig("zookeeper://127.0.0.1:2181");
+        referenceConfig.setRegistry(registry);
+
+        referenceConfig.setInterface(GreetingService.class);
+        referenceConfig.setTimeout(5000);
+
+
+        referenceConfig.setVersion("1.0.0");
+        referenceConfig.setGroup("dubbo");
+
+        GreetingService greet = referenceConfig.get();
+
+        RpcContext.getContext().setAttachment("company","zhangmen");
+
+        System.out.println(greet.sayHello("zjn"));
+
+    }
+
+
+    public static void testApiAsyn() throws IOException, ExecutionException, InterruptedException {
+        ReferenceConfig<GreetingService> referenceConfig = new ReferenceConfig <>();
+
+        referenceConfig.setApplication(new ApplicationConfig("api-consumer"));
+
+        RegistryConfig registry = new RegistryConfig("zookeeper://127.0.0.1:2181");
+        referenceConfig.setRegistry(registry);
+
+        referenceConfig.setInterface(GreetingService.class);
+        referenceConfig.setTimeout(5000);
+
+
+        referenceConfig.setVersion("1.0.0");
+        referenceConfig.setGroup("dubbo");
+        //设置为异步
+        referenceConfig.setAsync(true);
+
+        GreetingService greet = referenceConfig.get();
+
+        RpcContext.getContext().setAttachment("company","zhangmen");
+        //因为一开始是异步调用，所以返回null
+        System.out.println(greet.sayHello("zjn"));
+        //调用future.get，这样会有阻塞的风险
+        Future<String> future =RpcContext.getContext().getFuture();
+        System.out.println(future.get());
+
+    }
+
+    public static void testApiAsynForCompleteFuture() throws IOException, ExecutionException, InterruptedException {
+        ReferenceConfig<GreetingService> referenceConfig = new ReferenceConfig <>();
+
+        referenceConfig.setApplication(new ApplicationConfig("api-consumer"));
+
+        RegistryConfig registry = new RegistryConfig("zookeeper://127.0.0.1:2181");
+        referenceConfig.setRegistry(registry);
+
+        referenceConfig.setInterface(GreetingService.class);
+        referenceConfig.setTimeout(5000);
+
+
+        referenceConfig.setVersion("1.0.0");
+        referenceConfig.setGroup("dubbo");
+        //设置为异步
+        referenceConfig.setAsync(true);
+
+        GreetingService greet = referenceConfig.get();
+
+        RpcContext.getContext().setAttachment("company","zhangmen");
+        //因为一开始是异步调用，所以返回null
+        System.out.println(greet.sayHello("zjn"));
+        //调用future.get，这样会有阻塞的风险
+        CompletableFuture<String> future =(FutureAdapter)RpcContext.getContext().getCompletableFuture();
+        //通过回调函数来响应执行完成
+        future.whenComplete((v,t) -> {
+           if(t!=null){
+               t.printStackTrace();
+           } else{
+               System.out.println(v);
+           }
+        });
+        System.out.println("over");
+
+        Thread.currentThread().join();
+
     }
 }

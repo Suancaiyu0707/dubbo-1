@@ -23,6 +23,7 @@ import org.apache.dubbo.remoting.Constants;
 
 /**
  * HttpBinder
+ * 用于绑定一个服务，默认是JettyHttpBinder实现
  */
 @SPI("jetty")
 public interface HttpBinder {

@@ -46,6 +46,7 @@ public class TomcatHttpServer extends AbstractHttpServer {
         super(url, handler);
 
         this.url = url;
+        //// 注册 HttpHandler 到 DispatcherServlet 中
         DispatcherServlet.addHttpHandler(url.getPort(), handler);
         String baseDir = new File(System.getProperty("java.io.tmpdir")).getAbsolutePath();
         tomcat = new Tomcat();

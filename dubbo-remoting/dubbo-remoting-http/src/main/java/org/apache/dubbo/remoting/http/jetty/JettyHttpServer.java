@@ -50,6 +50,12 @@ public class JettyHttpServer extends AbstractHttpServer {
      * 根据url的ip:host启动一个jetty容器，用于接收http请求
      * @param url
      * @param handler
+     * 1、创建一个Dubbo HttpServer对象：JettyHttpServer
+     * 2、本地缓存，绑定port和Dubbo handler的映射关系，绑定到DispatcherServlet
+     * 3、创建一个Jetty Server并绑定JettyHttpServer
+     *      指定这个Jetty Server监听的端口，使用的线程池
+     * 4、创建一个Jetty ServletHandler，并注册到DispatcherServlet
+     * 5、启动Jetty Server
      */
     public JettyHttpServer(URL url, final HttpHandler handler) {
         super(url, handler);
@@ -58,17 +64,17 @@ public class JettyHttpServer extends AbstractHttpServer {
         // we must disable the debug logging for production use
         Log.setLog(new StdErrLog());
         Log.getLog().setDebugEnabled(false);
-
+        //将HttpHandler对象，以port为键，注册到DispatcherServlet
         DispatcherServlet.addHttpHandler(url.getParameter(Constants.BIND_PORT_KEY, url.getPort()), handler);
-
+        //获得url配置的线程数，默认是200
         int threads = url.getParameter(THREADS_KEY, DEFAULT_THREADS);
         QueuedThreadPool threadPool = new QueuedThreadPool();
         threadPool.setDaemon(true);
         threadPool.setMaxThreads(threads);
         threadPool.setMinThreads(threads);
-
+        //为JettyHttpServer绑定一个jetty server
         server = new Server(threadPool);
-
+        //将jetty server绑定到指定ip上，并监听端口port
         ServerConnector connector = new ServerConnector(server);
 
         String bindIp = url.getParameter(Constants.BIND_IP_KEY, url.getHost());
@@ -78,7 +84,7 @@ public class JettyHttpServer extends AbstractHttpServer {
         connector.setPort(url.getParameter(Constants.BIND_PORT_KEY, url.getPort()));
 
         server.addConnector(connector);
-
+        //创建一个Jetty ServletHandler，并注册到DispatcherServlet
         ServletHandler servletHandler = new ServletHandler();
         ServletHolder servletHolder = servletHandler.addServletWithMapping(DispatcherServlet.class, "/*");
         servletHolder.setInitOrder(2);
@@ -91,6 +97,7 @@ public class JettyHttpServer extends AbstractHttpServer {
         ServletManager.getInstance().addServletContext(url.getParameter(Constants.BIND_PORT_KEY, url.getPort()), context.getServletContext());
 
         try {
+            //启动Jetty Server
             server.start();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to start jetty server on " + url.getParameter(Constants.BIND_IP_KEY) + ":" + url.getParameter(Constants.BIND_PORT_KEY) + ", cause: "

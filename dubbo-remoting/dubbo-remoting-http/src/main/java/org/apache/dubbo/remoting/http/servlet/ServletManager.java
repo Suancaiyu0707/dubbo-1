@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * TODO this may not be a pretty elegant solution,
- *
+ *  Servlet 管理器，负责管理 ServletContext
  */
 public class ServletManager {
 
